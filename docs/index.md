@@ -7,5 +7,3 @@ Most of this documentation is presented as GIF walkthroughs. If something is unc
 <!-- comment -->
 
 ![Sample Calendar](assets/sample-calendar.png)
-
-[![Support me on Ko-Fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/M4M1GQ84A)
