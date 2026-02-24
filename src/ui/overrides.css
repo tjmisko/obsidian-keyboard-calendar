@@ -80,3 +80,9 @@
 	border-color: black !important;
 	border-width: 1px !important;
 }
+
+.ofc-schedule-event {
+	opacity: 0.4;
+	background: transparent !important;
+	border: 2px dashed currentColor;
+}

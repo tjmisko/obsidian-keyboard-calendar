@@ -64,6 +64,8 @@ const initializerMap = (
     dailynote: () => null,
     ical: () => null,
     caldav: () => null,
+    retend: () => null,
+    schedule: () => null,
 });
 
 const extractEvents = (source: OFCEventSource): OFCEvent[] =>

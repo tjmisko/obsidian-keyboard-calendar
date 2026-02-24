@@ -13,6 +13,8 @@ const calendarOptionsSchema = z.discriminatedUnion("type", [
         username: z.string(),
         password: z.string(),
     }),
+    z.object({ type: z.literal("retend"), directory: z.string() }),
+    z.object({ type: z.literal("schedule"), directory: z.string() }),
 ]);
 
 const colorValidator = z.object({ color: z.string() });

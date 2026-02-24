@@ -225,7 +225,9 @@ export const EditEvent = ({
                     >
                         {calendars
                             .flatMap((cal) =>
-                                cal.type === "local" || cal.type === "dailynote"
+                                cal.type === "local" ||
+                                cal.type === "dailynote" ||
+                                cal.type === "retend"
                                     ? [cal]
                                     : []
                             )

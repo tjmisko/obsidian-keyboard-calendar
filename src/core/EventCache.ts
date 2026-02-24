@@ -1,12 +1,13 @@
 import { Notice, TFile } from "obsidian";
 import equal from "deep-equal";
 
-import { Calendar } from "../calendars/Calendar";
+import { Calendar, EventResponse } from "../calendars/Calendar";
 import { EditableCalendar } from "../calendars/EditableCalendar";
 import EventStore, { StoredEvent } from "./EventStore";
 import { CalendarInfo, OFCEvent, validateEvent } from "../types";
 import RemoteCalendar from "../calendars/RemoteCalendar";
 import FullNoteCalendar from "../calendars/FullNoteCalendar";
+import ScheduleCalendar from "../calendars/ScheduleCalendar";
 
 export type CalendarInitializerMap = Record<
     CalendarInfo["type"],
@@ -455,9 +456,22 @@ export default class EventCache {
         console.debug("fileUpdated() called for file", file.path);
 
         // Get all calendars that contain events stored in this file.
-        const calendars = [...this.calendars.values()].flatMap((c) =>
-            c instanceof EditableCalendar && c.containsPath(file.path) ? c : []
-        );
+        // Includes EditableCalendar instances and ScheduleCalendar (read-only but file-backed).
+        type FileBackedCalendar = Calendar & {
+            containsPath(path: string): boolean;
+            getEventsInFile(file: TFile): Promise<EventResponse[]>;
+        };
+        const calendars: FileBackedCalendar[] = [
+            ...this.calendars.values(),
+        ].flatMap((c) => {
+            if (c instanceof EditableCalendar && c.containsPath(file.path)) {
+                return [c as FileBackedCalendar];
+            }
+            if (c instanceof ScheduleCalendar && c.containsPath(file.path)) {
+                return [c as FileBackedCalendar];
+            }
+            return [];
+        });
 
         // If no calendars exist, return early.
         if (calendars.length === 0) {

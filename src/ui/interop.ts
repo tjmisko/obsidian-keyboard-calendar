@@ -213,6 +213,7 @@ export function toEventInput(
                         frontmatter.completed !== undefined &&
                         frontmatter.completed !== null,
                     taskCompleted: frontmatter.completed,
+                    category: frontmatter.category,
                 },
             };
         } else {
@@ -225,6 +226,7 @@ export function toEventInput(
                         frontmatter.completed !== undefined &&
                         frontmatter.completed !== null,
                     taskCompleted: frontmatter.completed,
+                    category: frontmatter.category,
                 },
             };
         }
@@ -239,6 +241,9 @@ export function fromEventApi(event: EventApi): OFCEvent {
     const endDate = getDate(event.end as Date);
     return {
         title: event.title,
+        ...(event.extendedProps.category
+            ? { category: event.extendedProps.category }
+            : {}),
         ...(event.allDay
             ? { allDay: true }
             : {

@@ -81,16 +81,41 @@ export class CalendarView extends ItemView {
     }
 
     translateSources() {
-        return this.plugin.cache.getAllEvents().map(
-            ({ events, editable, color, id }): EventSourceInput => ({
-                id,
-                events: events.flatMap(
-                    (e) => toEventInput(e.id, e.event) || []
-                ),
-                editable,
-                ...getCalendarColors(color),
-            })
-        );
+        return this.plugin.cache
+            .getAllEvents()
+            .map(({ events, editable, color, id }): EventSourceInput => {
+                const calendar = this.plugin.cache.getCalendarById(id);
+                const calType = calendar?.type;
+                const isRetendType =
+                    calType === "retend" || calType === "schedule";
+                const isSchedule = calType === "schedule";
+
+                return {
+                    id,
+                    events: events.flatMap((e) => {
+                        const input = toEventInput(e.id, e.event);
+                        if (!input) return [];
+                        if (isRetendType && (e.event as any).category) {
+                            const catColor =
+                                this.plugin.settings.retendCategories?.[
+                                    (e.event as any).category
+                                ];
+                            if (catColor) {
+                                input.color = catColor;
+                            }
+                        }
+                        if (isSchedule) {
+                            input.classNames = [
+                                ...((input.classNames as string[]) || []),
+                                "ofc-schedule-event",
+                            ];
+                        }
+                        return [input];
+                    }),
+                    editable,
+                    ...getCalendarColors(color),
+                };
+            });
     }
 
     async onOpen() {

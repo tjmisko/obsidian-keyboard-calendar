@@ -27,6 +27,8 @@ export interface FullCalendarSettings {
     };
     timeFormat24h: boolean;
     clickToCreateEventFromMonthView: boolean;
+    retendCategories: Record<string, string>;
+    retendDirectory: string;
 }
 
 export const DEFAULT_SETTINGS: FullCalendarSettings = {
@@ -39,6 +41,8 @@ export const DEFAULT_SETTINGS: FullCalendarSettings = {
     },
     timeFormat24h: false,
     clickToCreateEventFromMonthView: true,
+    retendCategories: {},
+    retendDirectory: "retend",
 };
 
 const WEEKDAYS = [
@@ -89,6 +93,8 @@ export function addCalendarButton(
                     icloud: "iCloud",
                     caldav: "CalDAV",
                     ical: "Remote (.ics format)",
+                    retend: "Retend",
+                    schedule: "Schedule (read-only)",
                 }))
         )
         .addExtraButton((button) => {
@@ -243,6 +249,71 @@ export class FullCalendarSettingTab extends PluginSettingTab {
                 toggle.onChange(async (val) => {
                     this.plugin.settings.clickToCreateEventFromMonthView = val;
                     await this.plugin.saveSettings();
+                });
+            });
+
+        containerEl.createEl("h2", { text: "Retend Settings" });
+
+        new Setting(containerEl)
+            .setName("Retend directory")
+            .setDesc("Directory containing .retend and .schedule files.")
+            .addText((text) => {
+                text.setValue(this.plugin.settings.retendDirectory);
+                text.onChange(async (val) => {
+                    this.plugin.settings.retendDirectory = val;
+                    await this.plugin.saveSettings();
+                });
+            });
+
+        const categoriesContainer = containerEl.createDiv();
+        const renderCategories = () => {
+            categoriesContainer.empty();
+            const cats = this.plugin.settings.retendCategories || {};
+            for (const [name, color] of Object.entries(cats)) {
+                new Setting(categoriesContainer)
+                    .setName(name)
+                    .addColorPicker((picker) => {
+                        picker.setValue(color);
+                        picker.onChange(async (newColor) => {
+                            this.plugin.settings.retendCategories[name] =
+                                newColor;
+                            await this.plugin.saveSettings();
+                        });
+                    })
+                    .addExtraButton((btn) => {
+                        btn.setIcon("trash");
+                        btn.setTooltip("Remove category");
+                        btn.onClick(async () => {
+                            delete this.plugin.settings.retendCategories[name];
+                            await this.plugin.saveSettings();
+                            renderCategories();
+                        });
+                    });
+            }
+        };
+        renderCategories();
+
+        let newCatName = "";
+        new Setting(containerEl)
+            .setName("Add category")
+            .addText((text) => {
+                text.setPlaceholder("Category name");
+                text.onChange((val) => (newCatName = val));
+            })
+            .addExtraButton((btn) => {
+                btn.setIcon("plus-with-circle");
+                btn.setTooltip("Add category");
+                btn.onClick(async () => {
+                    if (!newCatName.trim()) return;
+                    if (!this.plugin.settings.retendCategories) {
+                        this.plugin.settings.retendCategories = {};
+                    }
+                    this.plugin.settings.retendCategories[newCatName.trim()] =
+                        getComputedStyle(document.body)
+                            .getPropertyValue("--interactive-accent")
+                            .trim();
+                    await this.plugin.saveSettings();
+                    renderCategories();
                 });
             });
 

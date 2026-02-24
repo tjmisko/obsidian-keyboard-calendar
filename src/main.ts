@@ -19,6 +19,8 @@ import FullNoteCalendar from "./calendars/FullNoteCalendar";
 import DailyNoteCalendar from "./calendars/DailyNoteCalendar";
 import ICSCalendar from "./calendars/ICSCalendar";
 import CalDAVCalendar from "./calendars/CalDAVCalendar";
+import RetendCalendar from "./calendars/RetendCalendar";
+import ScheduleCalendar from "./calendars/ScheduleCalendar";
 
 export default class FullCalendarPlugin extends Plugin {
     settings: FullCalendarSettings = DEFAULT_SETTINGS;
@@ -55,6 +57,22 @@ export default class FullCalendarPlugin extends Plugin {
                       info.homeUrl
                   )
                 : null,
+        retend: (info) =>
+            info.type === "retend"
+                ? new RetendCalendar(
+                      new ObsidianIO(this.app),
+                      info.color,
+                      info.directory
+                  )
+                : null,
+        schedule: (info) =>
+            info.type === "schedule"
+                ? new ScheduleCalendar(
+                      new ObsidianIO(this.app),
+                      info.color,
+                      info.directory
+                  )
+                : null,
         FOR_TEST_ONLY: () => null,
     });
 
@@ -85,6 +103,18 @@ export default class FullCalendarPlugin extends Plugin {
         this.registerEvent(
             this.app.metadataCache.on("changed", (file) => {
                 this.cache.fileUpdated(file);
+            })
+        );
+
+        this.registerEvent(
+            this.app.vault.on("modify", (file) => {
+                if (
+                    file instanceof TFile &&
+                    (file.path.endsWith(".retend") ||
+                        file.path.endsWith(".schedule"))
+                ) {
+                    this.cache.fileUpdated(file);
+                }
             })
         );
 
