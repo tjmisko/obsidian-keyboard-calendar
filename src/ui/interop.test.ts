@@ -1,5 +1,6 @@
 import { parseEvent } from "../types/schema";
 import {
+    fromEventApi,
     omitRecurringOccurrence,
     selectionRequiresDayView,
     toEventInput,
@@ -57,6 +58,50 @@ describe("recurring event rendering", () => {
         });
 
         expect(toEventInput("event-id", event)?.duration).toBe("PT24H");
+    });
+
+    it("characterizes the nth-weekday collapse hazard and disables editing", () => {
+        const event = parseEvent({
+            title: "First Saturday",
+            type: "rrule",
+            startDate: "2026-08-01",
+            rrule: "FREQ=MONTHLY;BYDAY=1SA",
+            skipDates: [],
+            allDay: false,
+            startTime: "09:00",
+            endTime: "10:00",
+        });
+        const rendered = toEventInput("event-id", event);
+
+        // Characterization: without explicit recurrence metadata, the current
+        // reverse converter interprets an rrule occurrence as a single event.
+        expect(
+            fromEventApi({
+                title: "First Saturday",
+                allDay: false,
+                start: new Date(2026, 7, 1, 9, 0),
+                end: new Date(2026, 7, 1, 10, 0),
+                extendedProps: { categories: [] },
+            } as any).type
+        ).toBe("single");
+
+        expect(rendered).toMatchObject({
+            editable: false,
+            startEditable: false,
+            durationEditable: false,
+        });
+    });
+
+    it("leaves supported weekly recurrences source-editable", () => {
+        const event = parseEvent({
+            title: "Weekly review",
+            type: "recurring",
+            daysOfWeek: ["M"],
+            allDay: false,
+            startTime: "09:00",
+            endTime: "10:00",
+        });
+        expect(toEventInput("event-id", event)?.editable).toBeUndefined();
     });
 
     it("renders weekly omit dates as actual recurrence exclusions", () => {

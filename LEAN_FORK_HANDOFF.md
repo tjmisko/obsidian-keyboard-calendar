@@ -134,7 +134,7 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 
 | Item | Current state | Required before proceeding |
 | --- | --- | --- |
-| Phase 0 safety harness | Next; not started | Automated gate, benchmark baseline, adversarial `ACCEPT` |
+| Phase 0 safety harness | Candidate complete; automated gate `ACCEPT`; adversarial review pending | Adversarial `ACCEPT` and coordinator integration |
 | Phase 1 dead connectors | Next; may fan out beside Phase 0 | Integrate after Phase 0; source-set gate and adversarial `ACCEPT` |
 | Phase 2 CalDAV removal | Blocked | Phase 0/1 accepted and explicit `data.json` backup acknowledgement |
 | Phase 3 remote boundary | Blocked | Phase 2 accepted; record exactly one of `KEEP_ICS` or `REMOVE_ICS` |
@@ -142,6 +142,22 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 | D2 folder traversal | Undecided; recommendation: direct child | Explicit user decision before Phase 6 design |
 | Sidebar bridge removal | Deferred compatibility work | Persisted migration marker, workspace backup, explicit acceptance or stated version boundary |
 | Redacted quarantine removal | Deferred | Explicit user acceptance; never age by restart count |
+
+### Phase 0 candidate record — 2026-08-22
+
+- Candidate scope: pure versioned settings decode/migration, non-destructive production persistence, sanitized diagnostics/counts, registration/navigation seams, nth-weekday edit lock, recurrence/date/body preservation, and a repeatable deterministic benchmark.
+- Production behavior: loading settings makes no save. Runtime sources contain only validated, currently supported sources. An unrelated settings save preserves the raw persisted source array, including valid current credentials and rejected/unknown slots; only fields explicitly changed since load are written. The future credential-removal migration remains pure and inactive.
+- Migration fixtures: local-only, ICS-only, mixed local/ICS/CalDAV/daily-note, CalDAV-only, malformed roots/members, unknown types, string/numeric defaults, original raw numeric slots, and nested desktop/mobile initial-view state.
+- Secret gate: four distinct synthetic CalDAV name/URL/username/password sentinels are absent from migration output, logs, Notices, and snapshots. Diagnostics expose only fixed allowlisted type buckets and counts.
+- Note gate: nth-weekday occurrences are non-draggable/non-resizable in rendered inputs and rejected by the view mutation path. Recurrence edits/omissions preserve a deliberately different legacy `date`, unrelated YAML, and Markdown body.
+- Automated tests: 16 suites passed; 169 passed, 2 todo; 44 snapshots passed.
+- Compile/lint/build/diff: `ACCEPT` (`npm run compile`, `npm run lint`, production `npm run build`, and `git diff --check`).
+- Production artifacts: `main.js` 2,658,035 bytes; `styles.css` and generated `main.css` 40,048 bytes each; `package-lock.json` 743,436 bytes. Phase 0 intentionally removes no package; the safety harness adds 18,580 bytes to the planning `main.js` baseline.
+- Dependency inventory: `npm ls --omit=dev --depth=0` exited successfully. No dependency or lockfile entry changes in Phase 0; the worktree's shared `node_modules` symlink reports its already-installed transitive packages as extraneous.
+- Benchmark: see `docs/phase0-safety-baseline.md`. The repeatable mocked-adapter result is startup/index median 0.376 ms and p95 0.762 ms; event-open median 0.0077 ms and p95 0.0197 ms. These are Node seam measurements, not claimed Obsidian GUI or filesystem timings.
+- Manual matrix: not run in this headless worktree. No Obsidian application/vault or user data was opened. Calendar navigation, Back/Forward, Grappling Hook, restart behavior, and real-vault performance remain coordinator/manual acceptance items.
+- D1/D2: still pending explicit user decisions. Recommendations remain one writable local folder and direct-child traversal. No additional local source is removed or quarantined by Phase 0.
+- Rollback: revert the single Phase 0 candidate commit. No settings migration, workspace migration, note write, credential scrub, package deletion, or other irreversible action is activated.
 
 ## Phase 0 — Safety harness and non-destructive migration framework
 

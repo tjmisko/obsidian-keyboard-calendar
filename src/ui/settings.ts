@@ -21,30 +21,9 @@ import { createElement } from "react";
 import { getDailyNoteSettings } from "obsidian-daily-notes-interface";
 import ReactModal from "./ReactModal";
 import { importCalendars } from "src/calendars/parsing/caldav/import";
-
-export interface FullCalendarSettings {
-    calendarSources: CalendarInfo[];
-    defaultCalendar: string;
-    firstDay: number;
-    initialView: {
-        desktop: string;
-        mobile: string;
-    };
-    timeFormat24h: boolean;
-    clickToCreateEventFromMonthView: boolean;
-}
-
-export const DEFAULT_SETTINGS: FullCalendarSettings = {
-    calendarSources: [],
-    defaultCalendar: "",
-    firstDay: 0,
-    initialView: {
-        desktop: "timeGridWeek",
-        mobile: "timeGrid3Days",
-    },
-    timeFormat24h: false,
-    clickToCreateEventFromMonthView: true,
-};
+export { DEFAULT_SETTINGS } from "../settings/migration";
+export type { FullCalendarSettings } from "../settings/migration";
+import { DEFAULT_SETTINGS, FullCalendarSettings } from "../settings/migration";
 
 const WEEKDAYS = [
     "Sunday",

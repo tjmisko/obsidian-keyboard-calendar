@@ -700,6 +700,88 @@ describe("Note Calendar Tests", () => {
             ].join("\n")
         );
     });
+
+    it("preserves legacy date while changing recurrence timing and omissions", async () => {
+        const filename = "Different recurrence start.md";
+        const app = MockAppBuilder.make()
+            .folder(
+                new MockAppBuilder("events").file(
+                    filename,
+                    new FileBuilder().frontmatter({
+                        date: "1999-01-01",
+                        "start-recurrence": "2026-08-03",
+                        "end-recurrence": "2026-08-31",
+                        start: "09:00",
+                        end: "10:00",
+                        weekday: "Monday",
+                        tags: ["event", "recurring"],
+                    })
+                )
+            )
+            .done();
+        app.vault.contents.set(
+            "/events/Different recurrence start.md",
+            [
+                "---",
+                "date: 1999-01-01",
+                "start-recurrence: 2026-08-03",
+                "end-recurrence: 2026-08-31",
+                "start: 09:00",
+                "end: 10:00",
+                "weekday: Monday",
+                "tags:",
+                "  - event",
+                "  - recurring",
+                "unrelated: preserve-me",
+                "---",
+                "Body stays byte-equivalent",
+                "",
+            ].join("\n")
+        );
+        const obsidian = makeApp(app);
+        const calendar = new FullNoteCalendar(obsidian, color, dirName);
+        const file = obsidian.getFileByPath(`events/${filename}`)!;
+        const contents = await obsidian.read(file);
+
+        await calendar.modifyEvent(
+            { path: file.path, lineNumber: undefined },
+            parseEvent({
+                title: "Different recurrence start",
+                type: "recurring",
+                allDay: false,
+                daysOfWeek: ["M"],
+                startRecur: "2026-08-03",
+                endRecur: "2026-09-01",
+                skipDates: ["2026-08-17"],
+                startTime: "11:30",
+                endTime: "12:45",
+            }),
+            jest.fn()
+        );
+
+        const [, rewriteCallback] = (obsidian.rewrite as jest.Mock).mock
+            .calls[0];
+        expect(rewriteCallback(contents)).toBe(
+            [
+                "---",
+                "date: 1999-01-01",
+                "start-recurrence: 2026-08-03",
+                "end-recurrence: 2026-08-31",
+                "start: 11:30",
+                "end: 12:45",
+                "weekday: Monday",
+                "tags:",
+                "  - event",
+                "  - recurring",
+                "unrelated: preserve-me",
+                "omit:",
+                "  - 2026-08-17",
+                "---",
+                "Body stays byte-equivalent",
+                "",
+            ].join("\n")
+        );
+    });
     // it("modify an existing event with a new date", async () => {
     // 	const event: OFCEvent = {
     // 		title: "Test Event",

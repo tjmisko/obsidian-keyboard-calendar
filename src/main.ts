@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { Command, Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import {
     CalendarView,
     FULL_CALENDAR_SIDEBAR_VIEW_TYPE,
@@ -24,9 +24,21 @@ import DailyNoteCalendar from "./calendars/DailyNoteCalendar";
 import ICSCalendar from "./calendars/ICSCalendar";
 import CalDAVCalendar from "./calendars/CalDAVCalendar";
 import EventNoteEditor from "./ui/EventNoteEditor";
+import {
+    captureRuntimeSettingsBaseline,
+    decodeSettings,
+    prepareSettingsSave,
+} from "./settings/migration";
+import {
+    registerCalendarCommands,
+    registerCalendarViews,
+} from "./plugin_registration";
 
 export default class FullCalendarPlugin extends Plugin {
     settings: FullCalendarSettings = DEFAULT_SETTINGS;
+    private persistedSettings: unknown = {};
+    private runtimeSettingsBaseline: FullCalendarSettings =
+        captureRuntimeSettingsBaseline(DEFAULT_SETTINGS);
     cache: EventCache = new EventCache({
         local: (info) =>
             info.type === "local"
@@ -191,14 +203,9 @@ export default class FullCalendarPlugin extends Plugin {
         // @ts-ignore
         window.cache = this.cache;
 
-        this.registerView(
-            FULL_CALENDAR_VIEW_TYPE,
-            (leaf) => new CalendarView(leaf, this, false)
-        );
-
-        this.registerView(
-            FULL_CALENDAR_SIDEBAR_VIEW_TYPE,
-            (leaf) => new CalendarView(leaf, this, true)
+        registerCalendarViews<WorkspaceLeaf, CalendarView>(
+            (type, creator) => this.registerView(type, creator),
+            (leaf, inSidebar) => new CalendarView(leaf, this, inSidebar)
         );
 
         this.addRibbonIcon(
@@ -211,64 +218,58 @@ export default class FullCalendarPlugin extends Plugin {
 
         this.addSettingTab(new FullCalendarSettingTab(this.app, this));
 
-        this.addCommand({
-            id: "full-calendar-new-event",
-            name: "New Event",
-            callback: () => {
-                const start = new Date();
-                start.setMinutes(0, 0, 0);
-                const end = new Date(start.getTime() + 60 * 60 * 1000);
-                void this.createTimedEventNote(
-                    dateEndpointsToFrontmatter(start, end, false)
-                );
-            },
-        });
-
-        this.addCommand({
-            id: "full-calendar-reset",
-            name: "Reset Event Cache",
-            callback: () => {
-                this.cache.reset(this.settings.calendarSources);
-                this.app.workspace.detachLeavesOfType(FULL_CALENDAR_VIEW_TYPE);
-                this.app.workspace.detachLeavesOfType(
-                    FULL_CALENDAR_SIDEBAR_VIEW_TYPE
-                );
-                new Notice("Full Calendar has been reset.");
-            },
-        });
-
-        this.addCommand({
-            id: "full-calendar-revalidate",
-            name: "Revalidate remote calendars",
-            callback: () => {
-                this.cache.revalidateRemoteCalendars(true);
-            },
-        });
-
-        this.addCommand({
-            id: "full-calendar-open",
-            name: "Open Calendar",
-            callback: () => {
-                this.activateView();
-            },
-        });
-
-        this.addCommand({
-            id: "full-calendar-open-sidebar",
-            name: "Open in sidebar",
-            callback: () => {
-                if (
-                    this.app.workspace.getLeavesOfType(
-                        FULL_CALENDAR_SIDEBAR_VIEW_TYPE
-                    ).length
-                ) {
-                    return;
-                }
-                this.app.workspace.getRightLeaf(false).setViewState({
-                    type: FULL_CALENDAR_SIDEBAR_VIEW_TYPE,
-                });
-            },
-        });
+        registerCalendarCommands<Command>(
+            (command) => this.addCommand(command),
+            ({ id, name }) => ({
+                id,
+                name,
+                callback: () => {
+                    switch (id) {
+                        case "full-calendar-new-event": {
+                            const start = new Date();
+                            start.setMinutes(0, 0, 0);
+                            const end = new Date(
+                                start.getTime() + 60 * 60 * 1000
+                            );
+                            void this.createTimedEventNote(
+                                dateEndpointsToFrontmatter(start, end, false)
+                            );
+                            return;
+                        }
+                        case "full-calendar-reset":
+                            this.cache.reset(this.settings.calendarSources);
+                            this.app.workspace.detachLeavesOfType(
+                                FULL_CALENDAR_VIEW_TYPE
+                            );
+                            this.app.workspace.detachLeavesOfType(
+                                FULL_CALENDAR_SIDEBAR_VIEW_TYPE
+                            );
+                            new Notice("Full Calendar has been reset.");
+                            return;
+                        case "full-calendar-revalidate":
+                            this.cache.revalidateRemoteCalendars(true);
+                            return;
+                        case "full-calendar-open":
+                            void this.activateView();
+                            return;
+                        case "full-calendar-open-sidebar":
+                            if (
+                                this.app.workspace.getLeavesOfType(
+                                    FULL_CALENDAR_SIDEBAR_VIEW_TYPE
+                                ).length
+                            ) {
+                                return;
+                            }
+                            void this.app.workspace
+                                .getRightLeaf(false)
+                                .setViewState({
+                                    type: FULL_CALENDAR_SIDEBAR_VIEW_TYPE,
+                                });
+                            return;
+                    }
+                },
+            })
+        );
 
         (this.app.workspace as any).registerHoverLinkSource(PLUGIN_SLUG, {
             display: "Full Calendar",
@@ -283,28 +284,28 @@ export default class FullCalendarPlugin extends Plugin {
     }
 
     async loadSettings() {
-        const loaded = (await this.loadData()) || {};
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
-        const migratedDefaultCalendar =
-            resolveDefaultFullNoteCalendar(
-                (loaded as { defaultCalendar?: unknown }).defaultCalendar,
-                this.settings.calendarSources
-            ) || "";
-        this.settings.defaultCalendar = migratedDefaultCalendar;
-        if (
-            (loaded as { defaultCalendar?: unknown }).defaultCalendar !==
-            migratedDefaultCalendar
-        ) {
-            await this.saveData({
-                ...loaded,
-                defaultCalendar: migratedDefaultCalendar,
-            });
-        }
+        const loaded = await this.loadData();
+        // Phase 0 is intentionally read-only: decode a safe runtime view but
+        // leave the persisted source configuration byte-for-byte untouched.
+        this.settings = decodeSettings(loaded).settings;
+        this.persistedSettings = loaded;
+        this.runtimeSettingsBaseline = captureRuntimeSettingsBaseline(
+            this.settings
+        );
     }
 
     async saveSettings() {
         new Notice("Resetting the event cache with new settings...");
-        await this.saveData(this.settings);
+        const prepared = prepareSettingsSave(
+            this.persistedSettings,
+            this.runtimeSettingsBaseline,
+            this.settings
+        );
+        if (prepared.changed) {
+            await this.saveData(prepared.persisted);
+            this.persistedSettings = prepared.persisted;
+        }
+        this.runtimeSettingsBaseline = prepared.runtimeBaseline;
         this.cache.reset(this.settings.calendarSources);
         await this.cache.populate();
         this.cache.resync();

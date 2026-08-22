@@ -88,8 +88,16 @@ export function safeParseCalendarInfo(obj: unknown): CalendarInfo | null {
     } catch (e) {
         if (e instanceof ZodError) {
             console.debug("Parsing calendar info failed with errors", {
-                obj,
-                error: e.message,
+                sourceType:
+                    typeof obj === "object" &&
+                    obj !== null &&
+                    !Array.isArray(obj) &&
+                    ["local", "ical", "caldav", "dailynote"].includes(
+                        String((obj as { type?: unknown }).type)
+                    )
+                        ? String((obj as { type?: unknown }).type)
+                        : "unknown",
+                issueCount: e.issues.length,
             });
         }
         return null;

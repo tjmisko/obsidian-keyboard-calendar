@@ -388,22 +388,31 @@ const friendlyModifications = (
     if (event.type === "single") {
         date = event.date;
     } else if (event.type === "recurring") {
-        date = event.startRecur;
         endRecur = event.endRecur;
         skipDates = event.skipDates;
     } else {
-        date =
+        const recurrenceStart =
             event.startDate === FRIENDLY_RECURRENCE_ANCHOR
                 ? undefined
                 : event.startDate;
+        date = undefined;
         endRecur = event.endRecur;
         skipDates = event.skipDates;
+        return {
+            "start-recurrence": recurrenceStart,
+            "end-recurrence": endRecur
+                ? exclusiveToInclusiveDate(endRecur)
+                : undefined,
+            omit: skipDates?.length ? skipDates : undefined,
+            start: event.startTime,
+            end: event.endTime || undefined,
+        };
     }
     return {
         date,
         ...(event.type !== "single"
             ? {
-                  "start-recurrence": date,
+                  "start-recurrence": event.startRecur,
                   "end-recurrence": endRecur
                       ? exclusiveToInclusiveDate(endRecur)
                       : undefined,

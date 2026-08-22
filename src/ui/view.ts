@@ -35,9 +35,16 @@ import { openFileForEvent } from "./actions";
 import { launchEditModal } from "./event_modal";
 import { isTask, toggleTask, unmakeTask } from "src/ui/tasks";
 import { UpdateViewCallback } from "src/core/EventCache";
+import {
+    FULL_CALENDAR_SIDEBAR_VIEW_TYPE,
+    FULL_CALENDAR_VIEW_TYPE,
+} from "../plugin_registration";
+import { navigateFromCalendarEvent } from "./event_navigation";
 
-export const FULL_CALENDAR_VIEW_TYPE = "full-calendar-view";
-export const FULL_CALENDAR_SIDEBAR_VIEW_TYPE = "full-calendar-sidebar-view";
+export {
+    FULL_CALENDAR_SIDEBAR_VIEW_TYPE,
+    FULL_CALENDAR_VIEW_TYPE,
+} from "../plugin_registration";
 
 function getCalendarColors(color: string | null | undefined): {
     color: string;
@@ -233,23 +240,23 @@ export class CalendarView extends ItemView {
             forceNarrow: this.inSidebar,
             eventClick: async (info) => {
                 try {
-                    if (
-                        info.jsEvent.getModifierState("Control") ||
-                        info.jsEvent.getModifierState("Meta")
-                    ) {
-                        await openFileForEvent(
-                            this.plugin.cache,
-                            this.app,
-                            info.event.id
-                        );
-                    } else {
-                        const openedNote = await this.plugin.openEventNote(
-                            info.event.id,
-                            this.leaf
-                        );
-                        if (!openedNote) {
-                            launchEditModal(this.plugin, info.event.id);
-                        }
+                    const openedNote = await navigateFromCalendarEvent({
+                        eventId: info.event.id,
+                        originatingLeaf: this.leaf,
+                        modified:
+                            info.jsEvent.getModifierState("Control") ||
+                            info.jsEvent.getModifierState("Meta"),
+                        openModified: async (eventId) =>
+                            openFileForEvent(
+                                this.plugin.cache,
+                                this.app,
+                                eventId
+                            ),
+                        openInOriginatingLeaf: async (eventId, leaf) =>
+                            this.plugin.openEventNote(eventId, leaf),
+                    });
+                    if (!openedNote) {
+                        launchEditModal(this.plugin, info.event.id);
                     }
                 } catch (e) {
                     if (e instanceof Error) {
@@ -283,6 +290,12 @@ export class CalendarView extends ItemView {
             },
             modifyEvent: async (newEvent, oldEvent) => {
                 try {
+                    if (
+                        this.plugin.cache.getEventById(oldEvent.id)?.type ===
+                        "rrule"
+                    ) {
+                        return false;
+                    }
                     const didModify = await this.plugin.cache.updateEventWithId(
                         oldEvent.id,
                         fromEventApi(newEvent)

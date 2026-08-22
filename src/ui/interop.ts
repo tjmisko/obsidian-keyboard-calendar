@@ -273,6 +273,12 @@ export function toEventInput(
             id,
             title: frontmatter.title,
             allDay: frontmatter.allDay,
+            // Nth-weekday recurrence cannot currently be reconstructed from a
+            // dragged FullCalendar occurrence. Source-level editability would
+            // otherwise let fromEventApi collapse it into a single event.
+            editable: false,
+            startEditable: false,
+            durationEditable: false,
             rrule: rrulestr(frontmatter.rrule, {
                 dtstart: dtstart.toJSDate(),
             }).toString(),
