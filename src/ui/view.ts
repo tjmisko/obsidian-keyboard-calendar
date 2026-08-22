@@ -284,18 +284,7 @@ export class CalendarView extends ItemView {
                 }
 
                 if (this.plugin.cache.isEventEditable(e.id)) {
-                    if (!isTask(event)) {
-                        menu.addItem((item) =>
-                            item
-                                .setTitle("Turn into task")
-                                .onClick(async () => {
-                                    await this.plugin.cache.processEvent(
-                                        e.id,
-                                        (e) => toggleTask(e, false)
-                                    );
-                                })
-                        );
-                    } else {
+                    if (isTask(event)) {
                         menu.addItem((item) =>
                             item
                                 .setTitle("Remove checkbox")
@@ -306,8 +295,8 @@ export class CalendarView extends ItemView {
                                     );
                                 })
                         );
+                        menu.addSeparator();
                     }
-                    menu.addSeparator();
                     menu.addItem((item) =>
                         item.setTitle("Go to note").onClick(() => {
                             if (!this.plugin.cache) {

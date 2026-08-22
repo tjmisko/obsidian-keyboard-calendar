@@ -3,15 +3,16 @@
 }
 .fc {
 	height: 100%;
-	--fc-button-text-color: var(--text-normal);
-	--fc-button-bg-color: var(--interactive-normal);
-	--fc-button-border-color: var(--interactive-normal);
+	color: var(--text-muted);
+	--fc-button-text-color: var(--text-muted);
+	--fc-button-bg-color: color-mix(in srgb, var(--background-secondary) 72%, transparent);
+	--fc-button-border-color: color-mix(in srgb, var(--background-modifier-border) 82%, transparent);
 
-	--fc-button-hover-bg-color: var(--interactive-hover);
-	--fc-button-hover-border-color: var(--interactive-hover);
+	--fc-button-hover-bg-color: color-mix(in srgb, var(--interactive-hover) 78%, transparent);
+	--fc-button-hover-border-color: var(--background-modifier-border-hover, var(--background-modifier-border));
 
-	--fc-button-active-border-color: var(--interactive-accent);
-	--fc-button-active-bg-color: var(--interactive-accent);
+	--fc-button-active-border-color: color-mix(in srgb, var(--interactive-accent) 58%, transparent);
+	--fc-button-active-bg-color: color-mix(in srgb, var(--interactive-accent) 28%, transparent);
 
 	--fc-event-border-color: var(--interactive-accent);
 	--fc-event-bg-color: var(--interactive-accent);
@@ -46,35 +47,70 @@
 	font-size: 0.9em;
 }
 
+.fc .fc-timegrid-event {
+	background-color: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 54%, transparent) !important;
+	border-color: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 68%, transparent) !important;
+	border-radius: var(--radius-m, 8px);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+	transition:
+		background-color 140ms ease,
+		border-color 140ms ease,
+		box-shadow 140ms ease,
+		transform 140ms ease;
+}
+
+.fc .fc-timegrid-event:hover,
+.fc .fc-timegrid-event:focus-visible {
+	background-color: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 70%, transparent) !important;
+	border-color: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 86%, transparent) !important;
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+	transform: translateY(-1px);
+}
+
+.fc .fc-timegrid-event .fc-event-time {
+	display: none !important;
+}
+
+.fc .ofc-event-muted-light-text .fc-event-main {
+	color: color-mix(in srgb, var(--text-on-accent) 76%, transparent) !important;
+}
+
 .fc .fc-timegrid-slot-label-cushion {
+	color: var(--text-muted);
+	font-size: 0.75rem;
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
 }
 
 .fc .fc-col-header-cell-cushion.ofc-daily-note-link {
 	display: block;
-	padding: var(--size-4-2, 0.5rem) var(--size-4-1, 0.25rem);
-	color: var(--text-normal);
+	box-sizing: border-box;
+	width: 100%;
+	padding: var(--size-4-1, 0.25rem);
+	color: var(--text-muted);
 }
 
 .fc .ofc-day-header {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
+	justify-content: center;
+	min-height: 2.75rem;
 	gap: 0.1rem;
 	line-height: 1.15;
 }
 
 .fc .ofc-day-header-weekday {
 	color: var(--text-muted);
-	font-size: 0.75em;
+	font-size: clamp(0.68rem, 0.72vw, 0.78rem);
 	font-variant-caps: all-small-caps;
 	font-weight: var(--font-semibold, 600);
 	letter-spacing: 0.08em;
 }
 
 .fc .ofc-day-header-date {
-	font-size: 0.85em;
+	color: color-mix(in srgb, var(--text-normal) 72%, transparent);
+	font-size: clamp(0.68rem, 0.78vw, 0.82rem);
 	font-variant-numeric: tabular-nums;
 }
 
@@ -83,13 +119,96 @@
 	text-decoration: underline;
 }
 
-.fc-button-active {
-	color: var(--text-on-accent) !important;
+.fc .fc-toolbar.fc-header-toolbar {
+	gap: var(--size-4-3, 0.75rem);
+	margin-bottom: var(--size-4-3, 0.75rem);
+	padding: var(--size-4-2, 0.5rem);
+	background: color-mix(in srgb, var(--background-secondary) 64%, transparent);
+	border: 1px solid color-mix(in srgb, var(--background-modifier-border) 78%, transparent);
+	border-radius: var(--radius-l, 12px);
 }
+
+.fc .fc-toolbar-title {
+	color: color-mix(in srgb, var(--text-normal) 76%, transparent);
+	font-size: clamp(1rem, 1.4vw, 1.25rem);
+	font-weight: var(--font-semibold, 600);
+	letter-spacing: -0.01em;
+}
+
 .fc .fc-button {
-	border: 0px solid transparent !important;
+	display: inline-flex !important;
+	align-items: center;
+	justify-content: center;
+	min-height: 2rem;
+	color: var(--text-muted) !important;
+	background: var(--fc-button-bg-color) !important;
+	border: 1px solid var(--fc-button-border-color) !important;
+	border-radius: var(--radius-s, 6px) !important;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
 	line-height: 1 !important;
-	padding: var(--size-4-1) var(--size-4-3) !important;
+	padding: var(--size-4-1, 0.25rem) var(--size-4-3, 0.75rem) !important;
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease,
+		box-shadow 120ms ease,
+		color 120ms ease,
+		transform 120ms ease;
+}
+
+.fc .fc-button:hover:not(:disabled) {
+	color: var(--text-normal) !important;
+	background: var(--fc-button-hover-bg-color) !important;
+	border-color: var(--fc-button-hover-border-color) !important;
+	box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14) !important;
+	transform: translateY(-1px);
+}
+
+.fc .fc-button:focus-visible {
+	outline: 2px solid color-mix(in srgb, var(--interactive-accent) 72%, transparent) !important;
+	outline-offset: 2px;
+	box-shadow: none !important;
+}
+
+.fc .fc-button-primary:not(:disabled):active,
+.fc .fc-button-primary:not(:disabled).fc-button-active {
+	color: color-mix(in srgb, var(--text-on-accent) 78%, transparent) !important;
+	background: var(--fc-button-active-bg-color) !important;
+	border-color: var(--fc-button-active-border-color) !important;
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 18%, transparent) !important;
+	transform: none;
+}
+
+.fc .fc-button-group {
+	gap: var(--size-4-1, 0.25rem);
+}
+
+.fc.fc-direction-ltr .fc-button-group > .fc-button:not(:first-child),
+.fc.fc-direction-rtl .fc-button-group > .fc-button:not(:first-child) {
+	margin-left: 0 !important;
+	margin-right: 0 !important;
+}
+
+.fc .fc-prev-button,
+.fc .fc-next-button {
+	width: 2rem;
+	min-width: 2rem;
+	padding: 0 !important;
+}
+
+.fc .fc-button .fc-icon {
+	display: grid !important;
+	place-items: center;
+	width: 1rem !important;
+	height: 1rem !important;
+	margin: 0 !important;
+	font-size: 1rem !important;
+	line-height: 1 !important;
+}
+
+.fc .fc-button .fc-icon::before {
+	display: block;
+	line-height: 1;
+	transform: translateY(-0.02em);
 }
 
 .ofc-has-checkbox {
@@ -113,7 +232,7 @@
 }
 
 .ofc-checkbox-white {
-	border-color: white !important;
+	border-color: color-mix(in srgb, var(--text-on-accent) 76%, transparent) !important;
 	border-width: 1px !important;
 }
 

@@ -126,6 +126,7 @@ export function renderCalendar(
         nowIndicator: true,
         scrollTimeReset: false,
         dayMaxEvents: true,
+        weekNumberCalculation: "ISO",
 
         headerToolbar: !isNarrow
             ? {
@@ -148,7 +149,9 @@ export function renderCalendar(
 
         views: {
             timeGrid: {
+                allDaySlot: false,
                 displayEventTime: false,
+                titleFormat: { week: "long" },
             },
             timeGridDay: {
                 type: "timeGrid",
@@ -245,7 +248,13 @@ export function renderCalendar(
 
         eventMouseEnter,
 
-        eventDidMount: ({ event, el, textColor }) => {
+        eventDidMount: ({ event, el, backgroundColor, textColor }) => {
+            if (backgroundColor) {
+                el.style.setProperty("--ofc-event-color", backgroundColor);
+            }
+            if (textColor !== "black") {
+                el.addClass("ofc-event-muted-light-text");
+            }
             el.addEventListener("contextmenu", (e) => {
                 e.preventDefault();
                 openContextMenuForEvent && openContextMenuForEvent(event, e);
@@ -283,9 +292,9 @@ export function renderCalendar(
 
                     // Depending on the view, we should put the checkbox in a different spot.
                     const container =
-                        el.querySelector(".fc-event-time") ||
                         el.querySelector(".fc-event-title") ||
-                        el.querySelector(".fc-list-event-title");
+                        el.querySelector(".fc-list-event-title") ||
+                        el.querySelector(".fc-event-time");
 
                     container?.addClass("ofc-has-checkbox");
                     container?.prepend(checkbox);
