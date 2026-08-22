@@ -16,12 +16,17 @@ import {
     getDailyNoteSettings,
 } from "obsidian-daily-notes-interface";
 import { Calendar, EventSourceInput } from "@fullcalendar/core";
-import { getAdjacentCalendarView, renderCalendar } from "./calendar";
+import {
+    formatDateLabel,
+    getAdjacentCalendarView,
+    renderCalendar,
+} from "./calendar";
 import FullCalendarPlugin from "../main";
 import { FCError, PLUGIN_SLUG } from "../types";
 import {
     dateEndpointsToFrontmatter,
     fromEventApi,
+    omitRecurringOccurrence,
     selectionRequiresDayView,
     toEventInput,
 } from "./interop";
@@ -107,6 +112,9 @@ export class CalendarView extends ItemView {
         if (event.key === "Tab") {
             event.preventDefault();
             event.stopPropagation();
+            this.containerEl
+                .querySelector<HTMLElement>(".fc-toolbar .fc-button:focus")
+                ?.blur();
             this.fullCalendarView.changeView(
                 getAdjacentCalendarView(
                     this.fullCalendarView.view.type,
@@ -324,6 +332,42 @@ export class CalendarView extends ItemView {
                 }
 
                 if (this.plugin.cache.isEventEditable(e.id)) {
+                    if (event.type !== "single") {
+                        const occurrenceDate = e.start
+                            ? formatDateLabel(e.start)
+                            : null;
+                        menu.addItem((item) =>
+                            item
+                                .setTitle("Omit this occurrence")
+                                .setDisabled(!occurrenceDate)
+                                .onClick(async () => {
+                                    if (!this.plugin.cache || !occurrenceDate) {
+                                        return;
+                                    }
+                                    try {
+                                        await this.plugin.cache.processEvent(
+                                            e.id,
+                                            (event) =>
+                                                omitRecurringOccurrence(
+                                                    event,
+                                                    occurrenceDate
+                                                )
+                                        );
+                                        new Notice(
+                                            `Omitted occurrence on ${occurrenceDate}.`
+                                        );
+                                    } catch (error) {
+                                        console.error(error);
+                                        new Notice(
+                                            error instanceof Error
+                                                ? error.message
+                                                : "Could not omit this occurrence."
+                                        );
+                                    }
+                                })
+                        );
+                        menu.addSeparator();
+                    }
                     if (isTask(event)) {
                         menu.addItem((item) =>
                             item

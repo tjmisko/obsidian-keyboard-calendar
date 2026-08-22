@@ -80,6 +80,54 @@ const combineDateTimeStrings = (date: string, time: string): string | null => {
 };
 
 const DAYS = "UMTWRFS";
+const RRULE_DAYS: Record<string, string> = {
+    U: "SU",
+    M: "MO",
+    T: "TU",
+    W: "WE",
+    R: "TH",
+    F: "FR",
+    S: "SA",
+};
+const RECURRENCE_ANCHOR = "1970-01-01";
+
+const getRecurrenceStart = (
+    event: OFCEvent,
+    startDate: string
+): DateTime | null => {
+    if (event.allDay) {
+        return DateTime.fromISO(startDate);
+    }
+    const start = combineDateTimeStrings(startDate, event.startTime);
+    return start ? DateTime.fromISO(start) : null;
+};
+
+const getRecurrenceExceptions = (
+    dates: string[],
+    recurrenceStart: DateTime
+): string[] => {
+    // RRule keeps one start time across timezone transitions, so exclusions
+    // must use that same time while replacing only the local calendar date.
+    const time = recurrenceStart.toJSDate().toISOString().split("T")[1];
+    return dates.flatMap((date) => {
+        const parsedDate = DateTime.fromISO(date).toISODate();
+        return parsedDate ? `${parsedDate}T${time}` : [];
+    });
+};
+
+const getRecurrenceEndRule = (
+    endRecur: string | undefined,
+    recurrenceStart: DateTime
+): EventInput["exrule"] | undefined => {
+    if (!endRecur) {
+        return undefined;
+    }
+    const time = recurrenceStart.toJSDate().toISOString().split("T")[1];
+    return {
+        freq: "daily",
+        dtstart: `${endRecur}T${time}`,
+    };
+};
 
 export const selectionRequiresDayView = (
     viewType: string,
@@ -136,16 +184,54 @@ export function toEventInput(
         },
     };
     if (frontmatter.type === "recurring") {
-        event = {
-            ...event,
-            daysOfWeek: frontmatter.daysOfWeek.map((c) => DAYS.indexOf(c)),
+        const skipDates = frontmatter.skipDates || [];
+        const recurrenceMetadata = {
+            daysOfWeek: frontmatter.daysOfWeek,
             startRecur: frontmatter.startRecur,
             endRecur: frontmatter.endRecur,
-            extendedProps: {
-                isTask: false,
-                categories: frontmatter.categories || [],
-            },
+            skipDates,
         };
+
+        if (skipDates.length > 0) {
+            const recurrenceStart = getRecurrenceStart(
+                frontmatter,
+                frontmatter.startRecur || RECURRENCE_ANCHOR
+            );
+            if (!recurrenceStart) {
+                return null;
+            }
+            event = {
+                ...event,
+                rrule: rrulestr(
+                    `FREQ=WEEKLY;BYDAY=${frontmatter.daysOfWeek
+                        .map((day) => RRULE_DAYS[day])
+                        .join(",")}`,
+                    { dtstart: recurrenceStart.toJSDate() }
+                ).toString(),
+                exdate: getRecurrenceExceptions(skipDates, recurrenceStart),
+                exrule: getRecurrenceEndRule(
+                    frontmatter.endRecur,
+                    recurrenceStart
+                ),
+                extendedProps: {
+                    isTask: false,
+                    categories: frontmatter.categories || [],
+                    ofcRecurrence: recurrenceMetadata,
+                },
+            };
+        } else {
+            event = {
+                ...event,
+                daysOfWeek: frontmatter.daysOfWeek.map((c) => DAYS.indexOf(c)),
+                startRecur: frontmatter.startRecur,
+                endRecur: frontmatter.endRecur,
+                extendedProps: {
+                    isTask: false,
+                    categories: frontmatter.categories || [],
+                    ofcRecurrence: recurrenceMetadata,
+                },
+            };
+        }
         if (!frontmatter.allDay) {
             const startTime = parseTime(frontmatter.startTime);
             const endTime =
@@ -179,18 +265,9 @@ export function toEventInput(
         if (dtstart === null) {
             return null;
         }
-        // NOTE: how exdates are handled does not support events which recur more than once per day.
-        const exdate = frontmatter.skipDates
-            .map((d) => {
-                // Can't do date arithmetic because timezone might change for different exdates due to DST.
-                // RRule only has one dtstart that doesn't know about DST/timezone changes.
-                // Therefore, just concatenate the date for this exdate and the start time for the event together.
-                const date = DateTime.fromISO(d).toISODate();
-                const time = dtstart.toJSDate().toISOString().split("T")[1];
-
-                return `${date}T${time}`;
-            })
-            .flatMap((d) => (d ? d : []));
+        // NOTE: this supports one occurrence per recurrence date, matching the
+        // note-first recurrence format and the existing ICS behavior.
+        const exdate = getRecurrenceExceptions(frontmatter.skipDates, dtstart);
 
         event = {
             id,
@@ -200,6 +277,7 @@ export function toEventInput(
                 dtstart: dtstart.toJSDate(),
             }).toString(),
             exdate,
+            exrule: getRecurrenceEndRule(frontmatter.endRecur, dtstart),
             extendedProps: {
                 categories: frontmatter.categories || [],
             },
@@ -267,8 +345,29 @@ export function toEventInput(
     return event;
 }
 
+export function omitRecurringOccurrence(
+    event: OFCEvent,
+    date: string
+): OFCEvent {
+    if (event.type === "single") {
+        throw new Error("Only recurring events can omit an occurrence.");
+    }
+    const skipDates = [...new Set([...(event.skipDates || []), date])].sort();
+    return { ...event, skipDates };
+}
+
 export function fromEventApi(event: EventApi): OFCEvent {
-    const isRecurring: boolean = event.extendedProps.daysOfWeek !== undefined;
+    const recurrenceMetadata = event.extendedProps.ofcRecurrence as
+        | {
+              daysOfWeek: string[];
+              startRecur?: string;
+              endRecur?: string;
+              skipDates?: string[];
+          }
+        | undefined;
+    const isRecurring: boolean =
+        recurrenceMetadata !== undefined ||
+        event.extendedProps.daysOfWeek !== undefined;
     const startDate = getDate(event.start as Date);
     const endDate = getDate(event.end as Date);
     return {
@@ -284,15 +383,20 @@ export function fromEventApi(event: EventApi): OFCEvent {
         ...(isRecurring
             ? {
                   type: "recurring",
-                  daysOfWeek: event.extendedProps.daysOfWeek.map(
-                      (i: number) => DAYS[i]
-                  ),
-                  startRecur:
-                      event.extendedProps.startRecur &&
-                      getDate(event.extendedProps.startRecur),
-                  endRecur:
-                      event.extendedProps.endRecur &&
-                      getDate(event.extendedProps.endRecur),
+                  daysOfWeek: recurrenceMetadata
+                      ? recurrenceMetadata.daysOfWeek
+                      : event.extendedProps.daysOfWeek.map(
+                            (i: number) => DAYS[i]
+                        ),
+                  startRecur: recurrenceMetadata
+                      ? recurrenceMetadata.startRecur
+                      : event.extendedProps.startRecur &&
+                        getDate(event.extendedProps.startRecur),
+                  endRecur: recurrenceMetadata
+                      ? recurrenceMetadata.endRecur
+                      : event.extendedProps.endRecur &&
+                        getDate(event.extendedProps.endRecur),
+                  skipDates: recurrenceMetadata?.skipDates,
               }
             : {
                   type: "single",

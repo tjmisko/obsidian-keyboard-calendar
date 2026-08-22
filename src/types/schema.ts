@@ -78,12 +78,14 @@ export const EventSchema = z.discriminatedUnion("type", [
         daysOfWeek: z.array(z.enum(["U", "M", "T", "W", "R", "F", "S"])),
         startRecur: ParsedDate.optional(),
         endRecur: ParsedDate.optional(),
+        skipDates: z.array(ParsedDate).optional(),
     }),
     z.object({
         type: z.literal("rrule"),
         startDate: ParsedDate,
         rrule: z.string(),
         skipDates: z.array(ParsedDate),
+        endRecur: ParsedDate.optional(),
     }),
 ]);
 

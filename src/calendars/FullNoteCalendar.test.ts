@@ -154,7 +154,36 @@ describe("note-first frontmatter", () => {
             type: "recurring",
             allDay: false,
             daysOfWeek: ["M"],
+            skipDates: [],
             startRecur: "2026-08-21",
+            startTime: "09:00",
+            endTime: "10:00",
+        });
+    });
+
+    it("parses omitted dates and inclusive recurrence bounds", () => {
+        expect(
+            parseFullNoteEvent(
+                {
+                    date: "not-used-when-start-recurrence-is-set",
+                    "start-recurrence": "2026-08-10",
+                    "end-recurrence": "2026-08-31",
+                    omit: ["2026-08-24", "2026-08-17", "2026-08-24"],
+                    start: "09:00",
+                    end: "10:00",
+                    weekday: "Monday",
+                    tags: ["event", "recurring"],
+                },
+                "Bounded review"
+            )
+        ).toEqual({
+            title: "Bounded review",
+            type: "recurring",
+            allDay: false,
+            daysOfWeek: ["M"],
+            startRecur: "2026-08-10",
+            endRecur: "2026-09-01",
+            skipDates: ["2026-08-17", "2026-08-24"],
             startTime: "09:00",
             endTime: "10:00",
         });
@@ -214,12 +243,57 @@ describe("note-first frontmatter", () => {
         });
     });
 
+    it("applies omissions and an inclusive end to monthly recurrences", () => {
+        expect(
+            parseFullNoteEvent(
+                {
+                    "start-recurrence": "2026-08-01",
+                    "end-recurrence": "2026-12-31",
+                    omit: ["2026-10-03"],
+                    start: "09:00",
+                    end: "10:00",
+                    weekday: "Saturday",
+                    week: 1,
+                    tags: ["event", "recurring"],
+                },
+                "First Saturday"
+            )
+        ).toMatchObject({
+            type: "rrule",
+            startDate: "2026-08-01",
+            endRecur: "2027-01-01",
+            skipDates: ["2026-10-03"],
+        });
+    });
+
     it.each([
         [{ tags: ["event", "recurring"] }],
         [{ weekday: "Mon", tags: ["event", "recurring"] }],
         [{ weekday: "Monday", week: 0, tags: ["event", "recurring"] }],
         [{ weekday: "Monday", week: 6, tags: ["event", "recurring"] }],
         [{ weekday: "Monday", week: "2", tags: ["event", "recurring"] }],
+        [
+            {
+                weekday: "Monday",
+                omit: "2026-08-22",
+                tags: ["event", "recurring"],
+            },
+        ],
+        [
+            {
+                weekday: "Monday",
+                omit: ["not-a-date"],
+                tags: ["event", "recurring"],
+            },
+        ],
+        [
+            {
+                weekday: "Monday",
+                "start-recurrence": "2026-09-01",
+                "end-recurrence": "2026-08-31",
+                tags: ["event", "recurring"],
+            },
+        ],
     ])("rejects invalid recurring properties", (properties) => {
         expect(
             parseFullNoteEvent(
@@ -540,6 +614,86 @@ describe("Note Calendar Tests", () => {
                 "message: Keep me",
                 "unknown:",
                 "  nested: true",
+                "---",
+                "Body stays intact",
+                "",
+            ].join("\n")
+        );
+    });
+
+    it("writes recurring omissions as a clean YAML list", async () => {
+        const filename = "Monday review.md";
+        const app = MockAppBuilder.make()
+            .folder(
+                new MockAppBuilder("events").file(
+                    filename,
+                    new FileBuilder().frontmatter({
+                        date: "2026-08-03",
+                        start: "09:00",
+                        end: "10:00",
+                        weekday: "Monday",
+                        omit: ["2026-08-10"],
+                        tags: ["event", "recurring"],
+                    })
+                )
+            )
+            .done();
+        app.vault.contents.set(
+            "/events/Monday review.md",
+            [
+                "---",
+                "date: 2026-08-03",
+                "start: 09:00",
+                "end: 10:00",
+                "weekday: Monday",
+                "omit:",
+                "  - 2026-08-10",
+                "tags:",
+                "  - event",
+                "  - recurring",
+                "---",
+                "Body stays intact",
+                "",
+            ].join("\n")
+        );
+        const obsidian = makeApp(app);
+        const calendar = new FullNoteCalendar(obsidian, color, dirName);
+        const file = obsidian.getFileByPath(`events/${filename}`)!;
+        const contents = await obsidian.read(file);
+
+        await calendar.modifyEvent(
+            { path: file.path, lineNumber: undefined },
+            parseEvent({
+                title: "Monday review",
+                type: "recurring",
+                allDay: false,
+                daysOfWeek: ["M"],
+                startRecur: "2026-08-03",
+                endRecur: "2026-09-01",
+                skipDates: ["2026-08-10", "2026-08-24"],
+                startTime: "09:00",
+                endTime: "10:00",
+            }),
+            jest.fn()
+        );
+
+        const [, rewriteCallback] = (obsidian.rewrite as jest.Mock).mock
+            .calls[0];
+        expect(rewriteCallback(contents)).toBe(
+            [
+                "---",
+                "date: 2026-08-03",
+                "start: 09:00",
+                "end: 10:00",
+                "weekday: Monday",
+                "omit:",
+                "  - 2026-08-10",
+                "  - 2026-08-24",
+                "tags:",
+                "  - event",
+                "  - recurring",
+                "start-recurrence: 2026-08-03",
+                "end-recurrence: 2026-08-31",
                 "---",
                 "Body stays intact",
                 "",

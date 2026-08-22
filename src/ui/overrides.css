@@ -66,9 +66,9 @@
 	margin: 1px 2px;
 	padding: 2px 5px;
 	color: var(--text-muted);
-	background: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 10%, transparent);
+	background: color-mix(in srgb, var(--background-secondary) 58%, transparent);
 	border: 0;
-	border-left: 2px solid color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 46%, transparent);
+	border-left: 2px solid color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 20%, var(--background-modifier-border));
 	border-radius: var(--radius-s, 6px);
 	transition:
 		background-color 120ms ease,
@@ -76,19 +76,37 @@
 }
 
 .fc .fc-daygrid-dot-event:hover {
-	background: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 18%, transparent);
-	border-left-color: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 64%, transparent);
+	background: color-mix(in srgb, var(--background-secondary) 78%, transparent);
+	border-left-color: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 32%, var(--background-modifier-border));
 }
 
 .fc .fc-daygrid-block-event {
-	background-color: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 28%, transparent) !important;
-	border-color: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 44%, transparent) !important;
+	background-color: color-mix(in srgb, var(--background-secondary) 72%, transparent) !important;
+	border-color: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 20%, var(--background-modifier-border)) !important;
 	border-radius: var(--radius-s, 6px);
 }
 
 .fc .fc-daygrid-block-event:hover {
-	background-color: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 40%, transparent) !important;
-	border-color: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 60%, transparent) !important;
+	background-color: color-mix(in srgb, var(--background-secondary) 86%, transparent) !important;
+	border-color: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 32%, var(--background-modifier-border)) !important;
+}
+
+.fc .fc-daygrid-event.ofc-event-muted-light-text .fc-event-main {
+	color: var(--text-muted) !important;
+}
+
+.fc .fc-daygrid .fc-col-header-cell-cushion {
+	color: var(--text-faint);
+	font-size: 0.76rem;
+	font-variant-caps: all-small-caps;
+	font-weight: var(--font-medium, 500);
+	letter-spacing: 0.08em;
+}
+
+.fc .fc-daygrid .fc-daygrid-day-number {
+	padding: 0.45rem 0.55rem;
+	color: color-mix(in srgb, var(--text-normal) 84%, transparent);
+	font-variant-numeric: tabular-nums;
 }
 
 .fc .fc-timegrid-event {
@@ -115,12 +133,16 @@
 	display: none !important;
 }
 
+.fc .fc-timegrid-event:not(.fc-timegrid-event-short) .fc-event-main {
+	padding: 0.3rem 0.4rem;
+}
+
 .fc .ofc-event-muted-light-text .fc-event-main {
 	color: color-mix(in srgb, var(--text-on-accent) 76%, transparent) !important;
 }
 
 .fc .fc-timegrid-slot-label-cushion {
-	color: var(--text-muted);
+	color: var(--text-faint);
 	font-size: 0.75rem;
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;

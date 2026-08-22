@@ -1,5 +1,9 @@
 import { parseEvent } from "../types/schema";
-import { selectionRequiresDayView, toEventInput } from "./interop";
+import {
+    omitRecurringOccurrence,
+    selectionRequiresDayView,
+    toEventInput,
+} from "./interop";
 
 describe("event selection routing", () => {
     it("opens day view for month selections and all-day slots", () => {
@@ -53,5 +57,48 @@ describe("recurring event rendering", () => {
         });
 
         expect(toEventInput("event-id", event)?.duration).toBe("PT24H");
+    });
+
+    it("renders weekly omit dates as actual recurrence exclusions", () => {
+        const event = parseEvent({
+            title: "Weekly review",
+            type: "recurring",
+            daysOfWeek: ["M"],
+            startRecur: "2026-08-03",
+            endRecur: "2026-09-01",
+            skipDates: ["2026-08-17"],
+            allDay: false,
+            startTime: "09:00",
+            endTime: "10:00",
+        });
+
+        const rendered = toEventInput("event-id", event);
+        expect(rendered?.daysOfWeek).toBeUndefined();
+        expect(rendered?.rrule).toContain("FREQ=WEEKLY;BYDAY=MO");
+        expect(rendered?.exdate).toEqual([
+            expect.stringMatching(/^2026-08-17T/),
+        ]);
+        expect(rendered?.exrule).toMatchObject({
+            freq: "daily",
+            dtstart: expect.stringMatching(/^2026-09-01T/),
+        });
+    });
+
+    it("adds, sorts, and de-duplicates omitted occurrence dates", () => {
+        const event = parseEvent({
+            title: "Weekly review",
+            type: "recurring",
+            daysOfWeek: ["M"],
+            skipDates: ["2026-08-24"],
+            allDay: false,
+            startTime: "09:00",
+            endTime: "10:00",
+        });
+
+        const once = omitRecurringOccurrence(event, "2026-08-17");
+        const twice = omitRecurringOccurrence(once, "2026-08-17");
+        expect(twice).toMatchObject({
+            skipDates: ["2026-08-17", "2026-08-24"],
+        });
     });
 });

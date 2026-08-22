@@ -43,6 +43,27 @@ const parseDate = (value: unknown): string | null => {
         : null;
 };
 
+const parseDateList = (value: unknown): string[] | null => {
+    if (value === undefined || value === null) {
+        return [];
+    }
+    if (!Array.isArray(value)) {
+        return null;
+    }
+
+    const dates = value.map(parseDate);
+    if (dates.some((date) => date === null)) {
+        return null;
+    }
+    return [...new Set(dates as string[])].sort();
+};
+
+const inclusiveToExclusiveDate = (date: string): string =>
+    DateTime.fromISO(date, { zone: "utc" }).plus({ days: 1 }).toISODate();
+
+const exclusiveToInclusiveDate = (date: string): string =>
+    DateTime.fromISO(date, { zone: "utc" }).minus({ days: 1 }).toISODate();
+
 const parseTime = (value: unknown): string | null => {
     if (typeof value !== "string" || !/^\d{2}:\d{2}$/.test(value)) {
         return null;
@@ -76,13 +97,9 @@ export function parseFullNoteEvent(
         return validateEvent({ ...frontmatter, title: explicitTitle });
     }
 
-    const date =
-        frontmatter.date === undefined
-            ? undefined
-            : parseDate(frontmatter.date);
     const startTime = parseTime(frontmatter.start);
     const endTime = parseTime(frontmatter.end);
-    if (date === null || !startTime || !endTime) {
+    if (!startTime || !endTime) {
         return null;
     }
 
@@ -98,6 +115,10 @@ export function parseFullNoteEvent(
     };
 
     if (!normalizedTags.includes("recurring")) {
+        const date =
+            frontmatter.date === undefined
+                ? undefined
+                : parseDate(frontmatter.date);
         if (!date) {
             return null;
         }
@@ -115,6 +136,31 @@ export function parseFullNoteEvent(
         });
     }
 
+    const recurrenceStartValue =
+        frontmatter["start-recurrence"] !== undefined
+            ? frontmatter["start-recurrence"]
+            : frontmatter.date;
+    const recurrenceStart =
+        recurrenceStartValue === undefined
+            ? undefined
+            : parseDate(recurrenceStartValue);
+    const recurrenceEnd =
+        frontmatter["end-recurrence"] === undefined
+            ? undefined
+            : parseDate(frontmatter["end-recurrence"]);
+    const skipDates = parseDateList(frontmatter.omit);
+    if (
+        recurrenceStart === null ||
+        recurrenceEnd === null ||
+        skipDates === null ||
+        (recurrenceStart && recurrenceEnd && recurrenceEnd < recurrenceStart)
+    ) {
+        return null;
+    }
+    const endRecur = recurrenceEnd
+        ? inclusiveToExclusiveDate(recurrenceEnd)
+        : undefined;
+
     if (typeof frontmatter.weekday !== "string") {
         return null;
     }
@@ -128,7 +174,9 @@ export function parseFullNoteEvent(
             ...common,
             type: "recurring",
             daysOfWeek: [weekday.simple],
-            ...(date ? { startRecur: date } : {}),
+            skipDates,
+            ...(recurrenceStart ? { startRecur: recurrenceStart } : {}),
+            ...(endRecur ? { endRecur } : {}),
         });
     }
 
@@ -144,9 +192,10 @@ export function parseFullNoteEvent(
     return parseEvent({
         ...common,
         type: "rrule",
-        startDate: date || FRIENDLY_RECURRENCE_ANCHOR,
+        startDate: recurrenceStart || FRIENDLY_RECURRENCE_ANCHOR,
         rrule: `FREQ=MONTHLY;BYDAY=${frontmatter.week}${weekday.rrule}`,
-        skipDates: [],
+        skipDates,
+        ...(endRecur ? { endRecur } : {}),
     });
 }
 
@@ -228,6 +277,19 @@ function stringifyYamlLine(
     return `${String(k)}: ${stringifyYamlAtom(v)}`;
 }
 
+function stringifyYamlLines(
+    k: string | number | symbol,
+    v: PrintableAtom
+): string[] {
+    if (String(k) === "omit" && Array.isArray(v)) {
+        return [
+            `${String(k)}:`,
+            ...v.map((item) => `  - ${stringifyYamlAtom(item)}`),
+        ];
+    }
+    return [stringifyYamlLine(k, v)];
+}
+
 function modifyFrontmatterString(
     page: string,
     modifications: Record<string, PrintableAtom | undefined>
@@ -237,7 +299,7 @@ function modifyFrontmatterString(
     if (!frontmatter) {
         newFrontmatter = Object.entries(modifications)
             .filter(([k, v]) => v !== undefined)
-            .map(([k, v]) => stringifyYamlLine(k, v as PrintableAtom));
+            .flatMap(([k, v]) => stringifyYamlLines(k, v as PrintableAtom));
         page = "\n" + page;
     } else {
         const linesAdded: Set<string | number | symbol> = new Set();
@@ -256,7 +318,13 @@ function modifyFrontmatterString(
             linesAdded.add(key);
             const newVal = modifications[key];
             if (newVal !== undefined) {
-                newFrontmatter.push(stringifyYamlLine(key, newVal));
+                newFrontmatter.push(...stringifyYamlLines(key, newVal));
+                while (
+                    i + 1 < frontmatter.length &&
+                    /^\s+\S/.test(frontmatter[i + 1])
+                ) {
+                    i += 1;
+                }
             } else {
                 // Just push the old line if we don't have a modification.
                 newFrontmatter.push(line);
@@ -268,8 +336,8 @@ function modifyFrontmatterString(
             ...Object.keys(modifications)
                 .filter((k) => !linesAdded.has(k))
                 .filter((k) => modifications[k] !== undefined)
-                .map((k) =>
-                    stringifyYamlLine(k, modifications[k] as PrintableAtom)
+                .flatMap((k) =>
+                    stringifyYamlLines(k, modifications[k] as PrintableAtom)
                 )
         );
     }
@@ -315,18 +383,33 @@ const friendlyModifications = (
         throw new Error("Note-first calendar events must remain timed.");
     }
     let date: string | undefined;
+    let endRecur: string | undefined;
+    let skipDates: string[] | undefined;
     if (event.type === "single") {
         date = event.date;
     } else if (event.type === "recurring") {
         date = event.startRecur;
+        endRecur = event.endRecur;
+        skipDates = event.skipDates;
     } else {
         date =
             event.startDate === FRIENDLY_RECURRENCE_ANCHOR
                 ? undefined
                 : event.startDate;
+        endRecur = event.endRecur;
+        skipDates = event.skipDates;
     }
     return {
         date,
+        ...(event.type !== "single"
+            ? {
+                  "start-recurrence": date,
+                  "end-recurrence": endRecur
+                      ? exclusiveToInclusiveDate(endRecur)
+                      : undefined,
+                  omit: skipDates?.length ? skipDates : undefined,
+              }
+            : {}),
         start: event.startTime,
         end: event.endTime || undefined,
     };

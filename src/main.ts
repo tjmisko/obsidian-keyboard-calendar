@@ -1,4 +1,4 @@
-import { MarkdownView, Notice, Plugin, TFile } from "obsidian";
+import { MarkdownView, Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import {
     CalendarView,
     FULL_CALENDAR_SIDEBAR_VIEW_TYPE,
@@ -133,17 +133,19 @@ export default class FullCalendarPlugin extends Plugin {
         const leaves = this.app.workspace
             .getLeavesOfType(FULL_CALENDAR_VIEW_TYPE)
             .filter((l) => (l.view as CalendarView).inSidebar === false);
+        let leaf: WorkspaceLeaf;
         if (leaves.length === 0) {
-            const leaf = this.app.workspace.getLeaf("tab");
+            leaf = this.app.workspace.getLeaf("tab");
             await leaf.setViewState({
                 type: FULL_CALENDAR_VIEW_TYPE,
                 active: true,
             });
         } else {
-            await Promise.all(
-                leaves.map((l) => (l.view as CalendarView).onOpen())
-            );
+            leaf = leaves[0];
+            this.app.workspace.revealLeaf(leaf);
+            await (leaf.view as CalendarView).onOpen();
         }
+        this.app.workspace.revealLeaf(leaf);
     }
     async onload() {
         await this.loadSettings();
