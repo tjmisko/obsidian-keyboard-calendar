@@ -271,6 +271,27 @@ export function renderCalendar(
         }),
         eventSources,
         eventClick,
+        // Build the shortened title inside FullCalendar's render lifecycle.
+        // Mutating its title node after mount causes text to duplicate on rerender.
+        eventContent: ({ event, isStart, view }) => {
+            if (
+                view.type.startsWith("list") ||
+                event.display.includes("background")
+            ) {
+                return undefined;
+            }
+
+            const content = document.createElement("div");
+            content.addClass("ofc-event-card-content");
+            content.createDiv({
+                cls: "fc-event-title fc-sticky",
+                text: getRenderedEventTitle(
+                    event.title,
+                    isStart ? event.start : null
+                ),
+            });
+            return { domNodes: [content] };
+        },
 
         selectable: select && true,
         selectMirror: select && true,
@@ -293,16 +314,6 @@ export function renderCalendar(
             }
             if (textColor !== "black") {
                 el.addClass("ofc-event-muted-light-text");
-            }
-            const titleEl = el.querySelector<HTMLElement>(".fc-event-title");
-            if (titleEl) {
-                const renderedDate = el
-                    .closest<HTMLElement>("[data-date]")
-                    ?.getAttribute("data-date");
-                titleEl.textContent = getRenderedEventTitle(
-                    event.title,
-                    renderedDate || event.start
-                );
             }
             el.addEventListener("contextmenu", (e) => {
                 e.preventDefault();
