@@ -13,8 +13,6 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import rrulePlugin from "@fullcalendar/rrule";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
-import googleCalendarPlugin from "@fullcalendar/google-calendar";
-import iCalendarPlugin from "@fullcalendar/icalendar";
 
 // There is an issue with FullCalendar RRule support around DST boundaries which is fixed by this monkeypatch:
 // https://github.com/fullcalendar/fullcalendar/issues/5273#issuecomment-1360459342
@@ -173,12 +171,8 @@ export function renderCalendar(
             listPlugin,
             // Drag + drop and editing
             interactionPlugin,
-            // Remote sources
-            googleCalendarPlugin,
-            iCalendarPlugin,
             rrulePlugin,
         ],
-        googleCalendarApiKey: "AIzaSyDIiklFwJXaLWuT_4y6I9ZRVVsPuf4xGrk",
         initialView:
             settings?.initialView?.[isNarrow ? "mobile" : "desktop"] ||
             (isNarrow ? "timeGrid3Days" : "timeGridWeek"),

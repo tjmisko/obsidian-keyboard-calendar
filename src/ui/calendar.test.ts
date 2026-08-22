@@ -1,10 +1,66 @@
+jest.mock("@fullcalendar/core", () => ({
+    ...jest.requireActual("@fullcalendar/core"),
+    Calendar: jest.fn().mockImplementation(() => ({ render: jest.fn() })),
+}));
+
+import {
+    Calendar,
+    CalendarOptions,
+    EventSourceInput,
+} from "@fullcalendar/core";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import interactionPlugin from "@fullcalendar/interaction";
+import listPlugin from "@fullcalendar/list";
+import rrulePlugin from "@fullcalendar/rrule";
+import timeGridPlugin from "@fullcalendar/timegrid";
 import {
     formatDateLabel,
     formatLongDateTitle,
     formatTimeLabel,
     getAdjacentCalendarView,
     getRenderedEventTitle,
+    renderCalendar,
 } from "./calendar";
+
+describe("calendar renderer", () => {
+    it("passes materialized events unchanged to the retained view plugins", () => {
+        Object.defineProperty(global, "window", {
+            configurable: true,
+            value: { innerWidth: 1024 },
+        });
+        const eventSources: EventSourceInput[] = [
+            {
+                id: "local",
+                events: [
+                    { id: "single", title: "Single", start: "2026-08-22" },
+                    {
+                        id: "weekly",
+                        title: "Weekly",
+                        daysOfWeek: [1],
+                        startTime: "09:00",
+                    },
+                ],
+            },
+        ];
+
+        renderCalendar({} as HTMLElement, eventSources);
+
+        const options = (Calendar as unknown as jest.Mock).mock.calls[0][1] as
+            | CalendarOptions
+            | undefined;
+        expect(options?.eventSources).toBe(eventSources);
+        expect(options?.plugins).toEqual([
+            dayGridPlugin,
+            timeGridPlugin,
+            listPlugin,
+            interactionPlugin,
+            rrulePlugin,
+        ]);
+        expect(options?.headerToolbar).toMatchObject({
+            right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
+        });
+    });
+});
 
 describe("calendar labels", () => {
     it("always formats time labels as HH:MM", () => {
