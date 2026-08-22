@@ -50,6 +50,41 @@ export class TFolder extends TAbstractFile {
     }
 }
 
+export class MarkdownView {
+    editor: any;
+    file: TFile | null = null;
+    editMode?: any;
+
+    constructor(editor: any = {}) {
+        this.editor = editor;
+    }
+
+    async save(): Promise<void> {}
+}
+
+export class Modal {
+    app: any;
+    containerEl: any = {};
+    modalEl: any = {};
+    contentEl: any = {};
+
+    constructor(app: any) {
+        this.app = app;
+    }
+
+    open(): void {
+        this.onOpen();
+    }
+
+    close(): void {
+        this.onClose();
+    }
+
+    onOpen(): void {}
+
+    onClose(): void {}
+}
+
 export function parseYaml(yaml: string): Record<string, string> | null {
     const [k, ...v] = yaml.split(":");
     if (!k || !v) {
