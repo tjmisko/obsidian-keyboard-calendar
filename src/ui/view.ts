@@ -83,6 +83,9 @@ export class CalendarView extends ItemView {
         inSidebar = false
     ) {
         super(leaf);
+        // Preserve this view in the leaf's Back/Forward history when an event
+        // note replaces it as a normal Markdown buffer.
+        this.navigation = true;
         this.plugin = plugin;
         this.inSidebar = inSidebar;
         this.registerDomEvent(document, "keydown", (event) =>
@@ -241,7 +244,8 @@ export class CalendarView extends ItemView {
                         );
                     } else {
                         const openedNote = await this.plugin.openEventNote(
-                            info.event.id
+                            info.event.id,
+                            this.leaf
                         );
                         if (!openedNote) {
                             launchEditModal(this.plugin, info.event.id);
@@ -266,7 +270,10 @@ export class CalendarView extends ItemView {
                     false
                 );
                 try {
-                    await this.plugin.createTimedEventNote(partialEvent);
+                    await this.plugin.createTimedEventNote(
+                        partialEvent,
+                        this.leaf
+                    );
                 } catch (e) {
                     if (e instanceof Error) {
                         console.error(e);

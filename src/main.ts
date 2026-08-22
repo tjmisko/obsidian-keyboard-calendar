@@ -1,4 +1,4 @@
-import { MarkdownView, Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import {
     CalendarView,
     FULL_CALENDAR_SIDEBAR_VIEW_TYPE,
@@ -86,7 +86,8 @@ export default class FullCalendarPlugin extends Plugin {
     }
 
     async createTimedEventNote(
-        partialEvent: Partial<OFCEvent>
+        partialEvent: Partial<OFCEvent>,
+        targetLeaf?: WorkspaceLeaf
     ): Promise<TFile | null> {
         const calendar = this.getDefaultFullNoteCalendar();
         if (!calendar) {
@@ -108,11 +109,14 @@ export default class FullCalendarPlugin extends Plugin {
                 `Created event note was not found at ${location.file.path}.`
             );
         }
-        await this.eventNoteEditor?.open(file);
+        await this.eventNoteEditor?.open(file, targetLeaf);
         return file;
     }
 
-    async openEventNote(eventId: string): Promise<boolean> {
+    async openEventNote(
+        eventId: string,
+        targetLeaf?: WorkspaceLeaf
+    ): Promise<boolean> {
         const { calendar, location } =
             this.cache.getInfoForEditableEvent(eventId);
         if (
@@ -125,7 +129,7 @@ export default class FullCalendarPlugin extends Plugin {
         if (!(file instanceof TFile)) {
             throw new Error(`Event note was not found at ${location.path}.`);
         }
-        await this.eventNoteEditor?.open(file);
+        await this.eventNoteEditor?.open(file, targetLeaf);
         return true;
     }
 
@@ -273,7 +277,6 @@ export default class FullCalendarPlugin extends Plugin {
     }
 
     onunload() {
-        this.eventNoteEditor?.unload();
         this.eventNoteEditor = null;
         this.app.workspace.detachLeavesOfType(FULL_CALENDAR_VIEW_TYPE);
         this.app.workspace.detachLeavesOfType(FULL_CALENDAR_SIDEBAR_VIEW_TYPE);

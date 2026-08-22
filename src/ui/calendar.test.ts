@@ -1,5 +1,6 @@
 import {
     formatDateLabel,
+    formatLongDateTitle,
     formatTimeLabel,
     getAdjacentCalendarView,
     getRenderedEventTitle,
@@ -15,6 +16,12 @@ describe("calendar labels", () => {
     it("always formats date labels as YYYY-MM-DD", () => {
         expect(formatDateLabel(new Date(2026, 0, 2))).toBe("2026-01-02");
         expect(formatDateLabel(new Date(1999, 11, 31))).toBe("1999-12-31");
+    });
+
+    it("formats day-view titles as a long-form date", () => {
+        expect(formatLongDateTitle(new Date(2026, 7, 22))).toBe(
+            "Saturday, 22 August 2026"
+        );
     });
 
     it("removes a matching date prefix from only the rendered event title", () => {

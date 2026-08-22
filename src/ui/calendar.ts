@@ -69,6 +69,26 @@ export const formatDateLabel = (date: Date): string =>
         date.getDate()
     )}`;
 
+const formatLongDateParts = (
+    year: number,
+    month: number,
+    day: number
+): string => {
+    const date = new Date(Date.UTC(year, month, day));
+    const weekday = date.toLocaleDateString(undefined, {
+        timeZone: "UTC",
+        weekday: "long",
+    });
+    const monthName = date.toLocaleDateString(undefined, {
+        month: "long",
+        timeZone: "UTC",
+    });
+    return `${weekday}, ${day} ${monthName} ${year}`;
+};
+
+export const formatLongDateTitle = (date: Date): string =>
+    formatLongDateParts(date.getFullYear(), date.getMonth(), date.getDate());
+
 export const getRenderedEventTitle = (
     title: string,
     eventDate: Date | string | null
@@ -196,6 +216,8 @@ export function renderCalendar(
                 type: "timeGrid",
                 duration: { days: 1 },
                 buttonText: isNarrow ? "1" : "day",
+                titleFormat: ({ start }) =>
+                    formatLongDateParts(start.year, start.month, start.day),
             },
             timeGrid3Days: {
                 type: "timeGrid",
