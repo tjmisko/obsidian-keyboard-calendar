@@ -37,6 +37,18 @@ type EditorSession = {
     editorContainerEl: HTMLElement | null;
 };
 
+type LegacyCodeMirrorEditor = {
+    on?: unknown;
+    off?: unknown;
+};
+
+const getLegacyCodeMirrorEditor = (
+    view: MarkdownView
+): LegacyCodeMirrorEditor | null => {
+    const editMode = (view as unknown as { editMode?: any }).editMode;
+    return editMode?.editor?.cm?.cm || null;
+};
+
 const getVimApi = (): VimApi | null => {
     if (typeof window === "undefined") {
         return null;
@@ -202,6 +214,35 @@ export default class EventNoteEditor {
 
     constructor(private app: App) {}
 
+    /**
+     * Vimrc Support listens for active-leaf-change and assumes Obsidian's
+     * legacy CodeMirror facade already exists. A detached leaf can finish
+     * rendering a frame after openFile resolves, so do not expose it as the
+     * active leaf until that facade is usable.
+     */
+    private async waitForVimAdapter(view: MarkdownView): Promise<void> {
+        const appWithVim = this.app as unknown as {
+            isVimEnabled?: () => boolean;
+        };
+        if (appWithVim.isVimEnabled?.() !== true) {
+            return;
+        }
+
+        for (let attempt = 0; attempt < 30; attempt += 1) {
+            const codeMirror = getLegacyCodeMirrorEditor(view);
+            if (
+                codeMirror &&
+                typeof codeMirror.on === "function" &&
+                typeof codeMirror.off === "function"
+            ) {
+                return;
+            }
+            await new Promise<void>((resolve) => setTimeout(resolve, 16));
+        }
+
+        throw new Error("The embedded Vim editor did not finish initializing.");
+    }
+
     private makeOverlay(): {
         overlayEl: HTMLElement;
         panelEl: HTMLElement;
@@ -288,6 +329,7 @@ export default class EventNoteEditor {
             if (!(leaf.view instanceof MarkdownView)) {
                 throw new Error("Obsidian did not create a Markdown view.");
             }
+            await this.waitForVimAdapter(leaf.view);
 
             const editorContainerEl =
                 (leaf as unknown as { containerEl?: HTMLElement })
@@ -307,6 +349,15 @@ export default class EventNoteEditor {
             if (this.session?.leaf === leaf) {
                 this.session = null;
                 this.vimCommands.unbind();
+            }
+            if (
+                leaf &&
+                this.app.workspace.activeLeaf === leaf &&
+                previousLeaf
+            ) {
+                this.app.workspace.setActiveLeaf(previousLeaf, {
+                    focus: true,
+                });
             }
             leaf?.detach();
             overlayEl.remove();
@@ -379,8 +430,6 @@ export default class EventNoteEditor {
                 await session.view.save();
             }
         } finally {
-            session.leaf.detach();
-            session.overlayEl?.remove();
             if (session.previousLeaf) {
                 try {
                     this.app.workspace.setActiveLeaf(session.previousLeaf, {
@@ -393,6 +442,8 @@ export default class EventNoteEditor {
                     );
                 }
             }
+            session.leaf.detach();
+            session.overlayEl?.remove();
         }
     }
 

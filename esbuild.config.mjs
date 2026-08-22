@@ -1,4 +1,5 @@
 import esbuild from "esbuild";
+import { copyFileSync, existsSync } from "fs";
 import process from "process";
 import builtins from "builtin-modules";
 
@@ -9,6 +10,17 @@ if you want to view the source, please visit the github repository of this plugi
 `;
 
 const prod = process.argv[2] === "production";
+
+const obsidianStylesheet = {
+	name: "obsidian-stylesheet",
+	setup(build) {
+		build.onEnd((result) => {
+			if (result.errors.length === 0 && existsSync("main.css")) {
+				copyFileSync("main.css", "styles.css");
+			}
+		});
+	},
+};
 
 esbuild
 	.build({
@@ -44,6 +56,7 @@ esbuild
 			...builtins,
 		],
 		format: "cjs",
+		plugins: [obsidianStylesheet],
 		watch: !prod,
 		target: "es2016",
 		logLevel: "info",

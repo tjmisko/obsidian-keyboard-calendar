@@ -128,6 +128,9 @@ describe("event-note editor lifecycle", () => {
         expect(setActiveLeaf).toHaveBeenCalledWith(previousLeaf, {
             focus: true,
         });
+        expect(setActiveLeaf.mock.invocationCallOrder[0]).toBeLessThan(
+            detach.mock.invocationCallOrder[0]
+        );
         expect(editor._sessionForTest).toBeNull();
     });
 
@@ -139,5 +142,29 @@ describe("event-note editor lifecycle", () => {
         expect(save).not.toHaveBeenCalled();
         expect(detach).toHaveBeenCalledTimes(1);
         expect(remove).toHaveBeenCalledTimes(1);
+    });
+
+    it("waits for the legacy Vim adapter before exposing an embedded leaf", async () => {
+        jest.useFakeTimers();
+        try {
+            const app = {
+                isVimEnabled: () => true,
+            } as unknown as App;
+            const editor = new EventNoteEditor(app);
+            const view = {
+                editMode: { editor: { cm: {} } },
+            } as unknown as MarkdownView;
+
+            const ready = (editor as any).waitForVimAdapter(view);
+            (view as any).editMode.editor.cm.cm = {
+                on: jest.fn(),
+                off: jest.fn(),
+            };
+            jest.advanceTimersByTime(16);
+
+            await ready;
+        } finally {
+            jest.useRealTimers();
+        }
     });
 });
