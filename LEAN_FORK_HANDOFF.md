@@ -134,8 +134,8 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 
 | Item | Current state | Required before proceeding |
 | --- | --- | --- |
-| Phase 0 safety harness | Candidate complete; automated gate `ACCEPT`; adversarial review pending | Adversarial `ACCEPT` and coordinator integration |
-| Phase 1 dead connectors | Next; may fan out beside Phase 0 | Integrate after Phase 0; source-set gate and adversarial `ACCEPT` |
+| Phase 0 safety harness | Accepted and integrated at `49d7db8`; adversarial `ACCEPT` | Complete |
+| Phase 1 dead connectors | Accepted and integrated at `f4bff77`; adversarial `ACCEPT` | Complete |
 | Phase 2 CalDAV removal | Blocked | Phase 0/1 accepted and explicit `data.json` backup acknowledgement |
 | Phase 3 remote boundary | Blocked | Phase 2 accepted; record exactly one of `KEEP_ICS` or `REMOVE_ICS` |
 | D1 writable folders | Undecided; recommendation: one | Explicit user decision before Phase 6 design |
@@ -143,7 +143,7 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 | Sidebar bridge removal | Deferred compatibility work | Persisted migration marker, workspace backup, explicit acceptance or stated version boundary |
 | Redacted quarantine removal | Deferred | Explicit user acceptance; never age by restart count |
 
-### Phase 0 candidate record — 2026-08-22
+### Phase 0 accepted record — 2026-08-22
 
 - Candidate scope: pure versioned settings decode/migration, non-destructive production persistence, sanitized diagnostics/counts, registration/navigation seams, nth-weekday edit lock, recurrence/date/body preservation, and a repeatable deterministic benchmark.
 - Production behavior: loading settings makes no save. Runtime sources contain only validated, currently supported sources. An unrelated settings save preserves the raw persisted source array, including valid current credentials and rejected/unknown slots; only fields explicitly changed since load are written. The future credential-removal migration remains pure and inactive.
@@ -157,7 +157,19 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 - Benchmark: see `docs/phase0-safety-baseline.md`. The repeatable mocked-adapter result is startup/index median 0.376 ms and p95 0.762 ms; event-open median 0.0077 ms and p95 0.0197 ms. These are Node seam measurements, not claimed Obsidian GUI or filesystem timings.
 - Manual matrix: not run in this headless worktree. No Obsidian application/vault or user data was opened. Calendar navigation, Back/Forward, Grappling Hook, restart behavior, and real-vault performance remain coordinator/manual acceptance items.
 - D1/D2: still pending explicit user decisions. Recommendations remain one writable local folder and direct-child traversal. No additional local source is removed or quarantined by Phase 0.
-- Rollback: revert the single Phase 0 candidate commit. No settings migration, workspace migration, note write, credential scrub, package deletion, or other irreversible action is activated.
+- Rollback: revert the single Phase 0 integration commit `49d7db8`. No settings migration, workspace migration, note write, credential scrub, package deletion, or other irreversible action is activated.
+
+### Phase 1 accepted record — 2026-08-22
+
+- Integrated commit: `f4bff77` (`refactor: remove dead calendar connectors`), after Phase 0 commit `49d7db8`.
+- Removed: `@fullcalendar/google-calendar`, `@fullcalendar/icalendar`, unused `ical`, unused `@types/ical`, both adapter registrations, `googleCalendarApiKey`, and the bundled Google key. Retained: `ical.js` and the plugin-owned ICS parser.
+- Dependency gate: direct runtime dependencies decreased from 23 to 19. The focused lockfile change removed only the four direct dependencies and their uniquely unreachable nested `ical`/`@types/ical` Luxon, RRule, and tslib copies.
+- Source/render gate: materialized single and weekly event arrays still pass unchanged to the retained Month, Week, Day, and List renderer plugins. Existing omission tests remain green.
+- Isolated same-toolchain measurement: `main.js` 2,651,236 to 2,638,829 bytes, a 12,407-byte reduction; `package-lock.json` 743,436 to 736,105 bytes; CSS unchanged at 40,048 bytes in that worktree.
+- Combined integration gate: 16 suites passed; 170 tests passed, 2 todo, 44 snapshots; compile, lint, production build, `git diff --check`, lock-based dependency inventory, and removed-key/import searches all passed. Integrated artifacts are `main.js` 2,633,949 bytes, `styles.css`/`main.css` 39,844 bytes, and `package-lock.json` 736,105 bytes.
+- Adversarial result: `ACCEPT`. No rendered-source code path, event-count transformation, settings behavior, note write, or Phase 2 behavior changed.
+- Manual matrix: no live Obsidian GUI was available. Visual event-count equivalence across all four views, recurrence omission appearance, restart behavior, and the broader navigation matrix remain release acceptance items.
+- Rollback: revert the single Phase 1 commit. No persisted settings, workspace layout, note, or external state was mutated by this phase.
 
 ## Phase 0 — Safety harness and non-destructive migration framework
 
