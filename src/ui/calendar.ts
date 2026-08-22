@@ -147,6 +147,9 @@ export function renderCalendar(
             : false,
 
         views: {
+            timeGrid: {
+                displayEventTime: false,
+            },
             timeGridDay: {
                 type: "timeGrid",
                 duration: { days: 1 },

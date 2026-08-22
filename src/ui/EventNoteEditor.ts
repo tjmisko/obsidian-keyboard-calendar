@@ -42,6 +42,74 @@ type LegacyCodeMirrorEditor = {
     off?: unknown;
 };
 
+type PerformanceLogDetails = Record<string, unknown>;
+
+const performanceNow = (): number =>
+    typeof performance === "undefined" ? Date.now() : performance.now();
+
+const roundMilliseconds = (milliseconds: number): number =>
+    Math.round(milliseconds * 10) / 10;
+
+let performanceTraceSequence = 0;
+
+class EventNotePerformanceTrace {
+    private readonly id = ++performanceTraceSequence;
+    private readonly startedAt = performanceNow();
+    private previousCheckpointAt = this.startedAt;
+
+    constructor(
+        private readonly operation: string,
+        private readonly context: PerformanceLogDetails = {}
+    ) {
+        this.checkpoint("started");
+    }
+
+    checkpoint(step: string, details: PerformanceLogDetails = {}): void {
+        const now = performanceNow();
+        const stepMs = roundMilliseconds(now - this.previousCheckpointAt);
+        const message = `[Full Calendar][event-note performance][${this.operation}#${this.id}] ${step}`;
+        const logDetails = {
+            ...this.context,
+            ...details,
+            elapsedMs: roundMilliseconds(now - this.startedAt),
+            stepMs,
+            slowStep: stepMs >= 1000,
+            timestamp: new Date().toISOString(),
+        };
+        if (logDetails.slowStep) {
+            console.warn(`${message} [slow]`, logDetails);
+        } else {
+            console.info(message, logDetails);
+        }
+        this.previousCheckpointAt = performanceNow();
+    }
+
+    failure(
+        step: string,
+        error: unknown,
+        details: PerformanceLogDetails = {}
+    ): void {
+        const now = performanceNow();
+        const stepMs = roundMilliseconds(now - this.previousCheckpointAt);
+        console.error(
+            `[Full Calendar][event-note performance][${this.operation}#${this.id}] ${step}`,
+            {
+                ...this.context,
+                ...details,
+                elapsedMs: roundMilliseconds(now - this.startedAt),
+                stepMs,
+                slowStep: stepMs >= 1000,
+                timestamp: new Date().toISOString(),
+                errorName: error instanceof Error ? error.name : undefined,
+                errorMessage:
+                    error instanceof Error ? error.message : String(error),
+            },
+            error
+        );
+        this.previousCheckpointAt = performanceNow();
+    }
+}
+
 const getLegacyCodeMirrorEditor = (
     view: MarkdownView
 ): LegacyCodeMirrorEditor | null => {
@@ -220,11 +288,16 @@ export default class EventNoteEditor {
      * rendering a frame after openFile resolves, so do not expose it as the
      * active leaf until that facade is usable.
      */
-    private async waitForVimAdapter(view: MarkdownView): Promise<void> {
+    private async waitForVimAdapter(
+        view: MarkdownView,
+        trace?: EventNotePerformanceTrace
+    ): Promise<void> {
         const appWithVim = this.app as unknown as {
             isVimEnabled?: () => boolean;
         };
-        if (appWithVim.isVimEnabled?.() !== true) {
+        const vimEnabled = appWithVim.isVimEnabled?.() === true;
+        trace?.checkpoint("embedded.vim-adapter.checked", { vimEnabled });
+        if (!vimEnabled) {
             return;
         }
 
@@ -235,11 +308,20 @@ export default class EventNoteEditor {
                 typeof codeMirror.on === "function" &&
                 typeof codeMirror.off === "function"
             ) {
+                trace?.checkpoint("embedded.vim-adapter.ready", {
+                    attempts: attempt + 1,
+                });
                 return;
+            }
+            if (attempt === 0 || (attempt + 1) % 5 === 0) {
+                trace?.checkpoint("embedded.vim-adapter.waiting", {
+                    attempts: attempt + 1,
+                });
             }
             await new Promise<void>((resolve) => setTimeout(resolve, 16));
         }
 
+        trace?.checkpoint("embedded.vim-adapter.timed-out", { attempts: 30 });
         throw new Error("The embedded Vim editor did not finish initializing.");
     }
 
@@ -300,11 +382,17 @@ export default class EventNoteEditor {
 
     private async openEmbedded(
         file: TFile,
-        previousLeaf: WorkspaceLeaf | null
+        previousLeaf: WorkspaceLeaf | null,
+        trace: EventNotePerformanceTrace
     ): Promise<void> {
+        trace.checkpoint("embedded.overlay.create.started");
         const { overlayEl, panelEl } = this.makeOverlay();
+        trace.checkpoint("embedded.overlay.create.completed", {
+            overlayConnected: overlayEl.isConnected,
+        });
         let leaf: WorkspaceLeaf | null = null;
         try {
+            trace.checkpoint("embedded.workspace-split.create.started");
             const Split =
                 WorkspaceSplit as unknown as ConstructableWorkspaceSplit;
             if (
@@ -317,19 +405,29 @@ export default class EventNoteEditor {
                 this.app.workspace,
                 "vertical"
             ) as EmbeddedSplit;
+            trace.checkpoint("embedded.workspace-split.create.completed");
             if (!split.containerEl) {
                 throw new Error("Embedded workspace split has no container.");
             }
             split.getRoot = () => this.app.workspace.rootSplit;
             split.getContainer = () => this.app.workspace.rootSplit;
             panelEl.appendChild(split.containerEl);
+            trace.checkpoint("embedded.workspace-split.attached");
 
+            trace.checkpoint("embedded.leaf.create.started");
             leaf = this.app.workspace.createLeafInParent(split, 0);
+            trace.checkpoint("embedded.leaf.create.completed", {
+                leafViewType: leaf.getViewState().type,
+            });
+            trace.checkpoint("embedded.leaf.open-file.started");
             await leaf.openFile(file, { active: false });
+            trace.checkpoint("embedded.leaf.open-file.completed", {
+                leafViewType: leaf.getViewState().type,
+            });
             if (!(leaf.view instanceof MarkdownView)) {
                 throw new Error("Obsidian did not create a Markdown view.");
             }
-            await this.waitForVimAdapter(leaf.view);
+            await this.waitForVimAdapter(leaf.view, trace);
 
             const editorContainerEl =
                 (leaf as unknown as { containerEl?: HTMLElement })
@@ -341,14 +439,29 @@ export default class EventNoteEditor {
                 overlayEl,
                 editorContainerEl,
             };
+            trace.checkpoint("embedded.session.created", {
+                hasEditorContainer: !!editorContainerEl,
+            });
             this.vimCommands.bind(leaf.view, editorContainerEl);
+            trace.checkpoint("embedded.vim-commands.bound");
+            trace.checkpoint("embedded.active-leaf.set.started");
             this.app.workspace.setActiveLeaf(leaf, { focus: true });
+            trace.checkpoint("embedded.active-leaf.set.completed");
+            trace.checkpoint("embedded.editor.focus.started");
             leaf.view.editor.focus();
+            trace.checkpoint("embedded.editor.focus.completed");
+            trace.checkpoint("embedded.leaf.resize.started");
             leaf.onResize();
+            trace.checkpoint("embedded.leaf.resize.completed");
         } catch (error) {
+            trace.failure("embedded.open.failed", error, {
+                hasLeaf: !!leaf,
+                sessionCreated: this.session?.leaf === leaf,
+            });
             if (this.session?.leaf === leaf) {
                 this.session = null;
                 this.vimCommands.unbind();
+                trace.checkpoint("embedded.failed-session.cleared");
             }
             if (
                 leaf &&
@@ -358,20 +471,30 @@ export default class EventNoteEditor {
                 this.app.workspace.setActiveLeaf(previousLeaf, {
                     focus: true,
                 });
+                trace.checkpoint("embedded.previous-leaf.restored");
             }
+            trace.checkpoint("embedded.cleanup.started");
             leaf?.detach();
             overlayEl.remove();
+            trace.checkpoint("embedded.cleanup.completed");
             throw error;
         }
     }
 
     private async openInTab(
         file: TFile,
-        previousLeaf: WorkspaceLeaf | null
+        previousLeaf: WorkspaceLeaf | null,
+        trace: EventNotePerformanceTrace
     ): Promise<void> {
+        trace.checkpoint("fallback-tab.leaf.create.started");
         const leaf = this.app.workspace.getLeaf("tab");
+        trace.checkpoint("fallback-tab.leaf.create.completed");
         try {
+            trace.checkpoint("fallback-tab.leaf.open-file.started");
             await leaf.openFile(file);
+            trace.checkpoint("fallback-tab.leaf.open-file.completed", {
+                leafViewType: leaf.getViewState().type,
+            });
             if (!(leaf.view instanceof MarkdownView)) {
                 throw new Error("Obsidian did not create a Markdown view.");
             }
@@ -385,22 +508,50 @@ export default class EventNoteEditor {
                 overlayEl: null,
                 editorContainerEl,
             };
+            trace.checkpoint("fallback-tab.session.created", {
+                hasEditorContainer: !!editorContainerEl,
+            });
             this.vimCommands.bind(leaf.view, editorContainerEl);
+            trace.checkpoint("fallback-tab.vim-commands.bound");
+            trace.checkpoint("fallback-tab.editor.focus.started");
             leaf.view.editor.focus();
+            trace.checkpoint("fallback-tab.editor.focus.completed");
         } catch (error) {
+            trace.failure("fallback-tab.open.failed", error);
             leaf.detach();
+            trace.checkpoint("fallback-tab.failed-leaf.detached");
             throw error;
         }
     }
 
     async open(file: TFile): Promise<void> {
-        await this.close(true);
+        const trace = new EventNotePerformanceTrace("open", {
+            filePath: file.path,
+            fileSizeBytes: file.stat.size,
+            fileModifiedAt: new Date(file.stat.mtime).toISOString(),
+        });
+        trace.checkpoint("existing-session.close.started", {
+            hasExistingSession: !!this.session,
+        });
+        try {
+            await this.closeSession(true, trace);
+        } catch (error) {
+            trace.failure("existing-session.close.failed", error);
+            throw error;
+        }
+        trace.checkpoint("existing-session.close.completed");
         const previousLeaf =
             this.app.workspace.activeLeaf ||
             this.app.workspace.getMostRecentLeaf();
+        trace.checkpoint("previous-leaf.resolved", {
+            hasPreviousLeaf: !!previousLeaf,
+            previousLeafViewType: previousLeaf?.getViewState().type,
+        });
         try {
-            await this.openEmbedded(file, previousLeaf);
+            await this.openEmbedded(file, previousLeaf, trace);
+            trace.checkpoint("completed", { mode: "embedded" });
         } catch (error) {
+            trace.checkpoint("fallback-tab.requested");
             console.warn(
                 "Full Calendar could not mount an embedded Markdown leaf; falling back to a tab.",
                 error
@@ -408,42 +559,99 @@ export default class EventNoteEditor {
             new Notice(
                 "This Obsidian version cannot embed the event editor. Opened the note in a tab instead."
             );
-            await this.openInTab(file, previousLeaf);
+            try {
+                await this.openInTab(file, previousLeaf, trace);
+                trace.checkpoint("completed", { mode: "fallback-tab" });
+            } catch (fallbackError) {
+                trace.failure("failed", fallbackError, {
+                    mode: "fallback-tab",
+                });
+                throw fallbackError;
+            }
         }
     }
 
     async save(): Promise<void> {
-        if (this.session) {
-            await this.session.view.save();
+        const session = this.session;
+        const trace = new EventNotePerformanceTrace("save", {
+            filePath: session?.view.file?.path,
+        });
+        if (!session) {
+            trace.checkpoint("skipped", { reason: "no-active-session" });
+            return;
+        }
+        try {
+            trace.checkpoint("view.save.started");
+            await session.view.save();
+            trace.checkpoint("completed");
+        } catch (error) {
+            trace.failure("failed", error);
+            throw error;
         }
     }
 
-    async close(save = true): Promise<void> {
+    private async closeSession(
+        save: boolean,
+        trace: EventNotePerformanceTrace
+    ): Promise<void> {
         const session = this.session;
         if (!session) {
+            trace.checkpoint("close.skipped", {
+                reason: "no-active-session",
+                save,
+            });
             return;
         }
+        trace.checkpoint("close.started", {
+            filePath: session.view.file?.path,
+            save,
+            hasOverlay: !!session.overlayEl,
+        });
         this.session = null;
         this.vimCommands.unbind();
+        trace.checkpoint("close.session-cleared");
         try {
             if (save) {
+                trace.checkpoint("close.view-save.started");
                 await session.view.save();
+                trace.checkpoint("close.view-save.completed");
             }
         } finally {
             if (session.previousLeaf) {
                 try {
+                    trace.checkpoint("close.previous-leaf.restore.started");
                     this.app.workspace.setActiveLeaf(session.previousLeaf, {
                         focus: true,
                     });
+                    trace.checkpoint("close.previous-leaf.restore.completed");
                 } catch (error) {
+                    trace.failure("close.previous-leaf.restore.failed", error);
                     console.debug(
                         "Could not restore the previously active calendar leaf.",
                         error
                     );
                 }
             }
+            trace.checkpoint("close.leaf-detach.started");
             session.leaf.detach();
+            trace.checkpoint("close.leaf-detach.completed");
+            trace.checkpoint("close.overlay-remove.started");
             session.overlayEl?.remove();
+            trace.checkpoint("close.overlay-remove.completed");
+        }
+    }
+
+    async close(save = true): Promise<void> {
+        const trace = new EventNotePerformanceTrace("close", {
+            filePath: this.session?.view.file?.path,
+            save,
+        });
+        try {
+            await this.closeSession(save, trace);
+            trace.checkpoint("completed");
+        } catch (error) {
+            trace.failure("failed", error);
+            throw error;
         }
     }
 

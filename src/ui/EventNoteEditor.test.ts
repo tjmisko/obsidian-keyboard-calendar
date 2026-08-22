@@ -134,6 +134,41 @@ describe("event-note editor lifecycle", () => {
         expect(editor._sessionForTest).toBeNull();
     });
 
+    it("logs per-step and total performance timing while closing", async () => {
+        const info = jest.spyOn(console, "info").mockImplementation(() => {});
+        try {
+            const { editor } = setup();
+
+            await editor.close(true);
+
+            const closeLogs = info.mock.calls.filter(
+                ([message]) =>
+                    typeof message === "string" &&
+                    message.includes("[event-note performance][close#")
+            );
+            expect(closeLogs.map(([message]) => message)).toEqual(
+                expect.arrayContaining([
+                    expect.stringContaining("close.view-save.started"),
+                    expect.stringContaining("close.view-save.completed"),
+                    expect.stringContaining("close.leaf-detach.completed"),
+                    expect.stringContaining("completed"),
+                ])
+            );
+            closeLogs.forEach(([, details]) => {
+                expect(details).toEqual(
+                    expect.objectContaining({
+                        elapsedMs: expect.any(Number),
+                        stepMs: expect.any(Number),
+                        slowStep: expect.any(Boolean),
+                        timestamp: expect.any(String),
+                    })
+                );
+            });
+        } finally {
+            info.mockRestore();
+        }
+    });
+
     it("does not explicitly flush for :q! and still cleans up", async () => {
         const { editor, save, detach, remove } = setup();
 
