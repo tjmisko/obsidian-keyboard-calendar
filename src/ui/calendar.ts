@@ -53,8 +53,24 @@ interface ExtraRenderProps {
         mouseEvent: MouseEvent
     ) => Promise<void>;
     toggleTask?: (event: EventApi, isComplete: boolean) => Promise<boolean>;
+    dailyNotePath?: (date: Date) => string;
+    openDailyNote?: (date: Date) => Promise<void>;
     forceNarrow?: boolean;
 }
+
+const padTimePart = (value: number): string =>
+    value.toString().padStart(2, "0");
+
+export const formatTimeLabel = (date: Date): string =>
+    `${padTimePart(date.getHours())}:${padTimePart(date.getMinutes())}`;
+
+export const formatDateLabel = (date: Date): string =>
+    `${date.getFullYear()}-${padTimePart(date.getMonth() + 1)}-${padTimePart(
+        date.getDate()
+    )}`;
+
+const isTimeGridView = (viewType: string): boolean =>
+    viewType.startsWith("timeGrid");
 
 export function renderCalendar(
     containerEl: HTMLElement,
@@ -70,6 +86,8 @@ export function renderCalendar(
         eventMouseEnter,
         openContextMenuForEvent,
         toggleTask,
+        dailyNotePath,
+        openDailyNote,
     } = settings || {};
     const modifyEventCallback =
         modifyEvent &&
@@ -141,13 +159,66 @@ export function renderCalendar(
             },
         },
         firstDay: settings?.firstDay,
+        slotLabelContent: ({ date }) => formatTimeLabel(date),
+        dayHeaderContent: ({ date, text, view }) => {
+            if (!isTimeGridView(view.type)) {
+                return text;
+            }
+
+            const header = document.createElement("span");
+            header.addClass("ofc-day-header");
+
+            const weekday = header.createSpan({
+                cls: "ofc-day-header-weekday",
+                text: date.toLocaleDateString(undefined, { weekday: "long" }),
+            });
+            weekday.setAttribute("aria-hidden", "true");
+
+            header.createSpan({
+                cls: "ofc-day-header-date",
+                text: formatDateLabel(date),
+            });
+
+            return { domNodes: [header] };
+        },
+        dayHeaderDidMount: ({ date, el, view }) => {
+            if (
+                !isTimeGridView(view.type) ||
+                (!dailyNotePath && !openDailyNote)
+            ) {
+                return;
+            }
+
+            const link = el.querySelector<HTMLAnchorElement>(
+                ".fc-col-header-cell-cushion"
+            );
+            if (!link) {
+                return;
+            }
+
+            const dateLabel = formatDateLabel(date);
+            const notePath = dailyNotePath?.(date);
+            link.addClass("ofc-daily-note-link", "internal-link");
+            link.setAttribute(
+                "aria-label",
+                `Open daily note for ${date.toLocaleDateString(undefined, {
+                    weekday: "long",
+                })}, ${dateLabel}`
+            );
+            if (notePath) {
+                link.setAttribute("data-href", notePath);
+                link.setAttribute("href", notePath);
+            }
+            if (openDailyNote) {
+                link.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void openDailyNote(date);
+                });
+            }
+        },
         ...(settings?.timeFormat24h && {
             eventTimeFormat: {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: false,
-            },
-            slotLabelFormat: {
                 hour: "numeric",
                 minute: "2-digit",
                 hour12: false,

@@ -1,5 +1,20 @@
 import "./overrides.css";
-import { ItemView, Menu, Notice, WorkspaceLeaf } from "obsidian";
+import {
+    ItemView,
+    Menu,
+    normalizePath,
+    Notice,
+    TFile,
+    WorkspaceLeaf,
+} from "obsidian";
+import moment from "moment";
+import {
+    createDailyNote,
+    DEFAULT_DAILY_NOTE_FORMAT,
+    getAllDailyNotes,
+    getDailyNote,
+    getDailyNoteSettings,
+} from "obsidian-daily-notes-interface";
 import { Calendar, EventSourceInput } from "@fullcalendar/core";
 import { renderCalendar } from "./calendar";
 import FullCalendarPlugin from "../main";
@@ -79,6 +94,46 @@ export class CalendarView extends ItemView {
 
     getDisplayText() {
         return this.inSidebar ? "Full Calendar" : "Calendar";
+    }
+
+    getDailyNotePath(date: Date): string {
+        const day = moment(date);
+        try {
+            const existingNote = getDailyNote(day, getAllDailyNotes());
+            if (existingNote) {
+                return existingNote.path;
+            }
+        } catch (error) {
+            console.debug("Could not resolve an existing daily note.", error);
+        }
+
+        const settings = getDailyNoteSettings();
+        const folder = settings?.folder?.trim() || "";
+        const format = settings?.format || DEFAULT_DAILY_NOTE_FORMAT;
+        return normalizePath(
+            [folder, day.format(format)].filter(Boolean).join("/")
+        );
+    }
+
+    async openDailyNote(date: Date): Promise<void> {
+        const day = moment(date);
+        let file: TFile | null = null;
+        try {
+            file = getDailyNote(day, getAllDailyNotes()) as unknown as TFile;
+        } catch (error) {
+            console.debug("Could not resolve an existing daily note.", error);
+        }
+        file =
+            file || ((await createDailyNote(day)) as unknown as TFile | null);
+        if (!file) {
+            throw new Error("Could not create the daily note.");
+        }
+
+        let leaf = this.app.workspace.getMostRecentLeaf();
+        if (!leaf || leaf.getViewState().pinned) {
+            leaf = this.app.workspace.getLeaf("tab");
+        }
+        await leaf.openFile(file);
     }
 
     translateSources() {
@@ -205,6 +260,19 @@ export class CalendarView extends ItemView {
             firstDay: this.plugin.settings.firstDay,
             initialView: this.plugin.settings.initialView,
             timeFormat24h: this.plugin.settings.timeFormat24h,
+            dailyNotePath: (date) => this.getDailyNotePath(date),
+            openDailyNote: async (date) => {
+                try {
+                    await this.openDailyNote(date);
+                } catch (error) {
+                    console.error(error);
+                    new Notice(
+                        error instanceof Error
+                            ? error.message
+                            : "Could not open the daily note."
+                    );
+                }
+            },
             openContextMenuForEvent: async (e, mouseEvent) => {
                 const menu = new Menu();
                 if (!this.plugin.cache) {

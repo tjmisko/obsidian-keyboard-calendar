@@ -42,6 +42,47 @@
 	text-decoration-line: none;
 }
 
+.fc .fc-event-title {
+	font-size: 0.9em;
+}
+
+.fc .fc-timegrid-slot-label-cushion {
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.fc .fc-col-header-cell-cushion.ofc-daily-note-link {
+	display: block;
+	padding: var(--size-4-2, 0.5rem) var(--size-4-1, 0.25rem);
+	color: var(--text-normal);
+}
+
+.fc .ofc-day-header {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.1rem;
+	line-height: 1.15;
+}
+
+.fc .ofc-day-header-weekday {
+	color: var(--text-muted);
+	font-size: 0.75em;
+	font-variant-caps: all-small-caps;
+	font-weight: var(--font-semibold, 600);
+	letter-spacing: 0.08em;
+}
+
+.fc .ofc-day-header-date {
+	font-size: 0.85em;
+	font-variant-numeric: tabular-nums;
+}
+
+.fc .ofc-daily-note-link:hover .ofc-day-header-date {
+	color: var(--text-accent-hover);
+	text-decoration: underline;
+}
+
 .fc-button-active {
 	color: var(--text-on-accent) !important;
 }
