@@ -80,3 +80,56 @@
 	border-color: black !important;
 	border-width: 1px !important;
 }
+
+.ofc-event-note-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: var(--layer-modal, 1000);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--size-4-6, 1.5rem);
+	background: rgba(0, 0, 0, 0.45);
+}
+
+.ofc-event-note-dialog {
+	position: relative;
+	display: flex;
+	width: min(52rem, calc(100vw - var(--size-4-12, 3rem)));
+	height: min(42rem, calc(100vh - var(--size-4-12, 3rem)));
+	min-width: 20rem;
+	min-height: 24rem;
+	overflow: hidden;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-l, 12px);
+	box-shadow: var(--shadow-l, 0 1rem 3rem rgba(0, 0, 0, 0.35));
+}
+
+.ofc-event-note-dialog > .workspace-split {
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 0;
+}
+
+.ofc-event-note-close {
+	position: absolute;
+	top: var(--size-4-2, 0.5rem);
+	right: var(--size-4-2, 0.5rem);
+	z-index: 10;
+	font-size: 1.5rem;
+	line-height: 1;
+}
+
+@media (max-width: 500px) {
+	.ofc-event-note-overlay {
+		padding: var(--size-4-2, 0.5rem);
+	}
+
+	.ofc-event-note-dialog {
+		width: calc(100vw - var(--size-4-4, 1rem));
+		height: calc(100vh - var(--size-4-4, 1rem));
+		min-width: 0;
+		min-height: 0;
+	}
+}

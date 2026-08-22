@@ -8,7 +8,12 @@ import {
     TFile,
     TFolder,
 } from "obsidian";
-import { makeDefaultPartialCalendarSource, CalendarInfo } from "../types";
+import {
+    fullNoteSourceId,
+    makeDefaultPartialCalendarSource,
+    CalendarInfo,
+    resolveDefaultFullNoteCalendar,
+} from "../types";
 import { CalendarSettings } from "./components/CalendarSetting";
 import { AddCalendarSource } from "./components/AddCalendarSource";
 import * as ReactDOM from "react-dom";
@@ -19,7 +24,7 @@ import { importCalendars } from "src/calendars/parsing/caldav/import";
 
 export interface FullCalendarSettings {
     calendarSources: CalendarInfo[];
-    defaultCalendar: number;
+    defaultCalendar: string;
     firstDay: number;
     initialView: {
         desktop: string;
@@ -31,7 +36,7 @@ export interface FullCalendarSettings {
 
 export const DEFAULT_SETTINGS: FullCalendarSettings = {
     calendarSources: [],
-    defaultCalendar: 0,
+    defaultCalendar: "",
     firstDay: 0,
     initialView: {
         desktop: "timeGridWeek",
@@ -233,18 +238,33 @@ export class FullCalendarSettingTab extends PluginSettingTab {
                 });
             });
 
-        new Setting(containerEl)
-            .setName("Click on a day in month view to create event")
-            .setDesc("Switch off to open day view on click instead.")
-            .addToggle((toggle) => {
-                toggle.setValue(
-                    this.plugin.settings.clickToCreateEventFromMonthView
-                );
-                toggle.onChange(async (val) => {
-                    this.plugin.settings.clickToCreateEventFromMonthView = val;
-                    await this.plugin.saveSettings();
+        const fullNoteSources = this.plugin.settings.calendarSources.filter(
+            (source): source is Extract<CalendarInfo, { type: "local" }> =>
+                source.type === "local"
+        );
+        if (fullNoteSources.length > 0) {
+            new Setting(containerEl)
+                .setName("Default full-note calendar")
+                .setDesc("New timed event notes are created in this folder.")
+                .addDropdown((dropdown) => {
+                    fullNoteSources.forEach((source) =>
+                        dropdown.addOption(
+                            fullNoteSourceId(source),
+                            source.directory
+                        )
+                    );
+                    dropdown.setValue(
+                        resolveDefaultFullNoteCalendar(
+                            this.plugin.settings.defaultCalendar,
+                            this.plugin.settings.calendarSources
+                        ) || ""
+                    );
+                    dropdown.onChange(async (calendarId) => {
+                        this.plugin.settings.defaultCalendar = calendarId;
+                        await this.plugin.saveSettings();
+                    });
                 });
-            });
+        }
 
         containerEl.createEl("h2", { text: "Manage Calendars" });
         addCalendarButton(

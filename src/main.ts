@@ -5,20 +5,25 @@ import {
     FULL_CALENDAR_VIEW_TYPE,
 } from "./ui/view";
 import { renderCalendar } from "./ui/calendar";
-import { toEventInput } from "./ui/interop";
+import { dateEndpointsToFrontmatter, toEventInput } from "./ui/interop";
 import {
     DEFAULT_SETTINGS,
     FullCalendarSettings,
     FullCalendarSettingTab,
 } from "./ui/settings";
-import { PLUGIN_SLUG } from "./types";
+import {
+    OFCEvent,
+    parseEvent,
+    PLUGIN_SLUG,
+    resolveDefaultFullNoteCalendar,
+} from "./types";
 import EventCache from "./core/EventCache";
 import { ObsidianIO } from "./ObsidianAdapter";
-import { launchCreateModal } from "./ui/event_modal";
 import FullNoteCalendar from "./calendars/FullNoteCalendar";
 import DailyNoteCalendar from "./calendars/DailyNoteCalendar";
 import ICSCalendar from "./calendars/ICSCalendar";
 import CalDAVCalendar from "./calendars/CalDAVCalendar";
+import EventNoteEditor from "./ui/EventNoteEditor";
 
 export default class FullCalendarPlugin extends Plugin {
     settings: FullCalendarSettings = DEFAULT_SETTINGS;
@@ -60,6 +65,69 @@ export default class FullCalendarPlugin extends Plugin {
 
     renderCalendar = renderCalendar;
     processFrontmatter = toEventInput;
+    eventNoteEditor: EventNoteEditor | null = null;
+
+    private getDefaultFullNoteCalendar(): FullNoteCalendar | null {
+        const configuredId = resolveDefaultFullNoteCalendar(
+            this.settings.defaultCalendar,
+            this.settings.calendarSources
+        );
+        const configured = configuredId
+            ? this.cache.getCalendarById(configuredId)
+            : null;
+        if (configured instanceof FullNoteCalendar) {
+            return configured;
+        }
+        return (
+            ([...this.cache.calendars.values()].find(
+                (calendar) => calendar instanceof FullNoteCalendar
+            ) as FullNoteCalendar | undefined) || null
+        );
+    }
+
+    async createTimedEventNote(
+        partialEvent: Partial<OFCEvent>
+    ): Promise<TFile | null> {
+        const calendar = this.getDefaultFullNoteCalendar();
+        if (!calendar) {
+            new Notice(
+                "Add a full-note calendar before creating an event note."
+            );
+            return null;
+        }
+        const event = parseEvent({
+            ...partialEvent,
+            title: "Untitled event",
+            type: "single",
+            allDay: false,
+        });
+        const location = await this.cache.createEvent(calendar.id, event);
+        const file = this.app.vault.getAbstractFileByPath(location.file.path);
+        if (!(file instanceof TFile)) {
+            throw new Error(
+                `Created event note was not found at ${location.file.path}.`
+            );
+        }
+        await this.eventNoteEditor?.open(file);
+        return file;
+    }
+
+    async openEventNote(eventId: string): Promise<boolean> {
+        const { calendar, location } =
+            this.cache.getInfoForEditableEvent(eventId);
+        if (
+            !(calendar instanceof FullNoteCalendar) ||
+            location.lineNumber !== undefined
+        ) {
+            return false;
+        }
+        const file = this.app.vault.getAbstractFileByPath(location.path);
+        if (!(file instanceof TFile)) {
+            throw new Error(`Event note was not found at ${location.path}.`);
+        }
+        await this.eventNoteEditor?.open(file);
+        return true;
+    }
 
     async activateView() {
         const leaves = this.app.workspace
@@ -80,6 +148,8 @@ export default class FullCalendarPlugin extends Plugin {
     async onload() {
         await this.loadSettings();
 
+        this.eventNoteEditor = new EventNoteEditor(this.app);
+
         this.cache.reset(this.settings.calendarSources);
 
         this.registerEvent(
@@ -89,10 +159,16 @@ export default class FullCalendarPlugin extends Plugin {
         );
 
         this.registerEvent(
-            this.app.vault.on("rename", (file, oldPath) => {
+            this.app.vault.on("rename", async (file, oldPath) => {
                 if (file instanceof TFile) {
                     console.debug("FILE RENAMED", file.path);
+                    this.cache.calendars.forEach((calendar) => {
+                        if (calendar instanceof FullNoteCalendar) {
+                            calendar.fileRenamed(oldPath, file.path);
+                        }
+                    });
                     this.cache.deleteEventsAtPath(oldPath);
+                    await this.cache.fileUpdated(file);
                 }
             })
         );
@@ -133,7 +209,12 @@ export default class FullCalendarPlugin extends Plugin {
             id: "full-calendar-new-event",
             name: "New Event",
             callback: () => {
-                launchCreateModal(this, {});
+                const start = new Date();
+                start.setMinutes(0, 0, 0);
+                const end = new Date(start.getTime() + 60 * 60 * 1000);
+                void this.createTimedEventNote(
+                    dateEndpointsToFrontmatter(start, end, false)
+                );
             },
         });
 
@@ -190,16 +271,30 @@ export default class FullCalendarPlugin extends Plugin {
     }
 
     onunload() {
+        this.eventNoteEditor?.unload();
+        this.eventNoteEditor = null;
         this.app.workspace.detachLeavesOfType(FULL_CALENDAR_VIEW_TYPE);
         this.app.workspace.detachLeavesOfType(FULL_CALENDAR_SIDEBAR_VIEW_TYPE);
     }
 
     async loadSettings() {
-        this.settings = Object.assign(
-            {},
-            DEFAULT_SETTINGS,
-            await this.loadData()
-        );
+        const loaded = (await this.loadData()) || {};
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
+        const migratedDefaultCalendar =
+            resolveDefaultFullNoteCalendar(
+                (loaded as { defaultCalendar?: unknown }).defaultCalendar,
+                this.settings.calendarSources
+            ) || "";
+        this.settings.defaultCalendar = migratedDefaultCalendar;
+        if (
+            (loaded as { defaultCalendar?: unknown }).defaultCalendar !==
+            migratedDefaultCalendar
+        ) {
+            await this.saveData({
+                ...loaded,
+                defaultCalendar: migratedDefaultCalendar,
+            });
+        }
     }
 
     async saveSettings() {

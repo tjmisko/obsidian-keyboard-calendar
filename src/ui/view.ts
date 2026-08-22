@@ -7,11 +7,12 @@ import { FCError, PLUGIN_SLUG } from "../types";
 import {
     dateEndpointsToFrontmatter,
     fromEventApi,
+    selectionRequiresDayView,
     toEventInput,
 } from "./interop";
 import { renderOnboarding } from "./onboard";
 import { openFileForEvent } from "./actions";
-import { launchCreateModal, launchEditModal } from "./event_modal";
+import { launchEditModal } from "./event_modal";
 import { isTask, toggleTask, unmakeTask } from "src/ui/tasks";
 import { UpdateViewCallback } from "src/core/EventCache";
 
@@ -136,7 +137,12 @@ export class CalendarView extends ItemView {
                             info.event.id
                         );
                     } else {
-                        launchEditModal(this.plugin, info.event.id);
+                        const openedNote = await this.plugin.openEventNote(
+                            info.event.id
+                        );
+                        if (!openedNote) {
+                            launchEditModal(this.plugin, info.event.id);
+                        }
                     }
                 } catch (e) {
                     if (e instanceof Error) {
@@ -146,29 +152,18 @@ export class CalendarView extends ItemView {
                 }
             },
             select: async (start, end, allDay, viewType) => {
-                if (viewType === "dayGridMonth") {
-                    // Month view will set the end day to the next day even on a single-day event.
-                    // This is problematic when moving an event created in the month view to the
-                    // time grid to give it a time.
-
-                    // The fix is just to subtract 1 from the end date before processing.
-                    end.setDate(end.getDate() - 1);
+                if (selectionRequiresDayView(viewType, allDay)) {
+                    this.fullCalendarView?.changeView("timeGridDay");
+                    this.fullCalendarView?.gotoDate(start);
+                    return;
                 }
                 const partialEvent = dateEndpointsToFrontmatter(
                     start,
                     end,
-                    allDay
+                    false
                 );
                 try {
-                    if (
-                        this.plugin.settings.clickToCreateEventFromMonthView ||
-                        viewType !== "dayGridMonth"
-                    ) {
-                        launchCreateModal(this.plugin, partialEvent);
-                    } else {
-                        this.fullCalendarView?.changeView("timeGridDay");
-                        this.fullCalendarView?.gotoDate(start);
-                    }
+                    await this.plugin.createTimedEventNote(partialEvent);
                 } catch (e) {
                     if (e instanceof Error) {
                         console.error(e);

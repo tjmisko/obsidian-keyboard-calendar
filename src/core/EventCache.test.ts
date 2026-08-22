@@ -589,9 +589,9 @@ describe("editable calendars", () => {
         const oldEvent = mockEventResponse();
         const newEvent = mockEventResponse();
         let cache: EventCache;
-        beforeEach(() => {
+        beforeEach(async () => {
             cache = makeCache([oldEvent]);
-            cache.populate();
+            await cache.populate();
             callbackMock.mockClear();
             cache.on("update", callbackMock);
         });
@@ -671,6 +671,53 @@ describe("editable calendars", () => {
                 }
             }
         );
+        it("hides a temporarily invalid event and restores it when valid", async () => {
+            const calendar = getCalendar(cache, "test");
+            calendar.getEventsInFile.mockResolvedValueOnce([]);
+
+            await cache.fileUpdated(oldEvent[1].file as TFile);
+
+            assertCacheContentCounts(cache, {
+                calendars: 0,
+                files: 0,
+                events: 0,
+            });
+
+            const restored = mockEvent();
+            calendar.getEventsInFile.mockResolvedValueOnce([
+                [restored, oldEvent[1]],
+            ]);
+            await cache.fileUpdated(oldEvent[1].file as TFile);
+
+            assertCacheContentCounts(cache, {
+                calendars: 1,
+                files: 1,
+                events: 1,
+            });
+            expect(extractEvents(cache.getAllEvents()[0])).toEqual([restored]);
+        });
+
+        it("reindexes a renamed file with its newly parsed title", async () => {
+            const calendar = getCalendar(cache, "test");
+            const renamedFile = mockFile() as TFile;
+            const renamedEvent = {
+                ...oldEvent[0],
+                title: "Renamed event",
+            };
+
+            cache.deleteEventsAtPath(oldEvent[1].file.path);
+            calendar.getEventsInFile.mockResolvedValueOnce([
+                [renamedEvent, { file: renamedFile, lineNumber: undefined }],
+            ]);
+            await cache.fileUpdated(renamedFile);
+
+            expect(
+                cache._storeForTest.getEventsInFile(oldEvent[1].file)
+            ).toHaveLength(0);
+            expect(
+                cache._storeForTest.getEventsInFile(renamedFile)[0].event
+            ).toEqual(renamedEvent);
+        });
         it.todo("updates when events are the same but locations are different");
     });
 

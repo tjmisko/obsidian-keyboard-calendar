@@ -81,6 +81,27 @@ const combineDateTimeStrings = (date: string, time: string): string | null => {
 
 const DAYS = "UMTWRFS";
 
+export const selectionRequiresDayView = (
+    viewType: string,
+    allDay: boolean
+): boolean => viewType === "dayGridMonth" || allDay;
+
+const recurringDuration = (start: Duration, end: Duration): Duration => {
+    const duration = end.minus(start);
+    return duration.as("milliseconds") <= 0
+        ? duration.plus({ days: 1 })
+        : duration;
+};
+
+const recurringDurationString = (
+    start: Duration,
+    end: Duration
+): string | null =>
+    recurringDuration(start, end)
+        .normalize()
+        .shiftTo("hours", "minutes")
+        .toISO();
+
 export function dateEndpointsToFrontmatter(
     start: Date,
     end: Date,
@@ -110,6 +131,9 @@ export function toEventInput(
         id,
         title: frontmatter.title,
         allDay: frontmatter.allDay,
+        extendedProps: {
+            categories: frontmatter.categories || [],
+        },
     };
     if (frontmatter.type === "recurring") {
         event = {
@@ -117,15 +141,23 @@ export function toEventInput(
             daysOfWeek: frontmatter.daysOfWeek.map((c) => DAYS.indexOf(c)),
             startRecur: frontmatter.startRecur,
             endRecur: frontmatter.endRecur,
-            extendedProps: { isTask: false },
+            extendedProps: {
+                isTask: false,
+                categories: frontmatter.categories || [],
+            },
         };
         if (!frontmatter.allDay) {
+            const startTime = parseTime(frontmatter.startTime);
+            const endTime =
+                frontmatter.endTime && parseTime(frontmatter.endTime);
             event = {
                 ...event,
                 startTime: normalizeTimeString(frontmatter.startTime || ""),
-                endTime: frontmatter.endTime
-                    ? normalizeTimeString(frontmatter.endTime)
-                    : undefined,
+                ...(startTime && endTime
+                    ? {
+                          duration: recurringDurationString(startTime, endTime),
+                      }
+                    : {}),
             };
         }
     } else if (frontmatter.type === "rrule") {
@@ -168,19 +200,19 @@ export function toEventInput(
                 dtstart: dtstart.toJSDate(),
             }).toString(),
             exdate,
+            extendedProps: {
+                categories: frontmatter.categories || [],
+            },
         };
 
         if (!frontmatter.allDay) {
             const startTime = parseTime(frontmatter.startTime);
             if (startTime && frontmatter.endTime) {
                 const endTime = parseTime(frontmatter.endTime);
-                const duration = endTime?.minus(startTime);
+                const duration =
+                    endTime && recurringDurationString(startTime, endTime);
                 if (duration) {
-                    event.duration = duration.toISOTime({
-                        includePrefix: false,
-                        suppressMilliseconds: true,
-                        suppressSeconds: true,
-                    });
+                    event.duration = duration;
                 }
             }
         }
@@ -213,6 +245,7 @@ export function toEventInput(
                         frontmatter.completed !== undefined &&
                         frontmatter.completed !== null,
                     taskCompleted: frontmatter.completed,
+                    categories: frontmatter.categories || [],
                 },
             };
         } else {
@@ -225,6 +258,7 @@ export function toEventInput(
                         frontmatter.completed !== undefined &&
                         frontmatter.completed !== null,
                     taskCompleted: frontmatter.completed,
+                    categories: frontmatter.categories || [],
                 },
             };
         }

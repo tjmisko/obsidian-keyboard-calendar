@@ -4,7 +4,7 @@ import equal from "deep-equal";
 import { Calendar } from "../calendars/Calendar";
 import { EditableCalendar } from "../calendars/EditableCalendar";
 import EventStore, { StoredEvent } from "./EventStore";
-import { CalendarInfo, OFCEvent, validateEvent } from "../types";
+import { CalendarInfo, EventLocation, OFCEvent, validateEvent } from "../types";
 import RemoteCalendar from "../calendars/RemoteCalendar";
 import FullNoteCalendar from "../calendars/FullNoteCalendar";
 
@@ -289,12 +289,15 @@ export default class EventCache {
     ///
 
     /**
-     * Add an event to a given calendar.
+     * Add an event to a given calendar and return its persisted location.
      * @param calendarId ID of calendar to add event to.
      * @param event Event details
-     * @returns Returns true if successful, false otherwise.
+     * @returns The file-backed location created by the calendar.
      */
-    async addEvent(calendarId: string, event: OFCEvent): Promise<boolean> {
+    async createEvent(
+        calendarId: string,
+        event: OFCEvent
+    ): Promise<EventLocation> {
         const calendar = this.calendars.get(calendarId);
         if (!calendar) {
             throw new Error(`Calendar ID ${calendarId} is not registered.`);
@@ -314,6 +317,11 @@ export default class EventCache {
         });
 
         this.updateViews([], [{ event, id, calendarId: calendar.id }]);
+        return location;
+    }
+
+    async addEvent(calendarId: string, event: OFCEvent): Promise<boolean> {
+        await this.createEvent(calendarId, event);
         return true;
     }
 
@@ -492,7 +500,7 @@ export default class EventCache {
                 console.debug(
                     "events have not changed, do not update store or view."
                 );
-                return;
+                continue;
             }
             console.debug(
                 "events have changed, updating store and views...",
@@ -525,7 +533,9 @@ export default class EventCache {
             eventsToAdd.push(...newEventsWithIds);
         }
 
-        this.updateViews(idsToRemove, eventsToAdd);
+        if (idsToRemove.length > 0 || eventsToAdd.length > 0) {
+            this.updateViews(idsToRemove, eventsToAdd);
+        }
     }
 
     /**

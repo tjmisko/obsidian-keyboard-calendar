@@ -5,19 +5,12 @@ import { ObsidianInterface } from "src/ObsidianAdapter";
 import { MockApp, MockAppBuilder } from "../../test_helpers/AppBuilder";
 import { FileBuilder } from "../../test_helpers/FileBuilder";
 import { OFCEvent } from "src/types";
-import FullNoteCalendar from "./FullNoteCalendar";
+import FullNoteCalendar, {
+    FRIENDLY_RECURRENCE_ANCHOR,
+    newTimedEventFrontmatter,
+    parseFullNoteEvent,
+} from "./FullNoteCalendar";
 import { parseEvent } from "../types/schema";
-
-async function assertFailed(func: () => Promise<any>, message: RegExp) {
-    try {
-        await func();
-    } catch (e) {
-        expect(e).toBeInstanceOf(Error);
-        expect((e as Error).message).toMatch(message);
-        return;
-    }
-    expect(false).toBeTruthy();
-}
 
 const makeApp = (app: MockApp): ObsidianInterface => ({
     getAbstractFileByPath: (path) => app.vault.getAbstractFileByPath(path),
@@ -46,6 +39,196 @@ const makeApp = (app: MockApp): ObsidianInterface => ({
 
 const dirName = "events";
 const color = "#BADA55";
+
+describe("note-first frontmatter", () => {
+    it("parses a minimal timed event using the filename as its title", () => {
+        expect(
+            parseFullNoteEvent(
+                {
+                    date: "2026-08-21",
+                    start: "09:30",
+                    end: "10:15",
+                    tags: ["event"],
+                },
+                "Planning"
+            )
+        ).toEqual({
+            title: "Planning",
+            type: "single",
+            allDay: false,
+            date: "2026-08-21",
+            endDate: null,
+            startTime: "09:30",
+            endTime: "10:15",
+        });
+    });
+
+    it("keeps an explicit title for backward compatibility", () => {
+        expect(
+            parseFullNoteEvent(
+                {
+                    title: "Frontmatter title",
+                    date: "2026-08-21",
+                    start: "09:30",
+                    end: "10:15",
+                    tags: ["event"],
+                },
+                "Filename title"
+            )?.title
+        ).toBe("Frontmatter title");
+    });
+
+    it("applies the filename before validating a legacy event", () => {
+        expect(
+            parseFullNoteEvent(
+                {
+                    date: "2026-08-21",
+                    startTime: "09:30",
+                    endTime: "10:15",
+                },
+                "Legacy event"
+            )
+        ).toMatchObject({
+            title: "Legacy event",
+            type: "single",
+            allDay: false,
+            startTime: "09:30",
+            endTime: "10:15",
+        });
+    });
+
+    it("treats an end at or before the start as overnight", () => {
+        expect(
+            parseFullNoteEvent(
+                {
+                    date: "2026-08-21",
+                    start: "23:00",
+                    end: "01:00",
+                    tags: ["event"],
+                },
+                "Night shift"
+            )
+        ).toMatchObject({ endDate: "2026-08-22" });
+    });
+
+    it("retains nonreserved tags as category metadata", () => {
+        expect(
+            parseFullNoteEvent(
+                {
+                    date: "2026-08-21",
+                    start: "09:30",
+                    end: "10:15",
+                    tags: ["event", "work", "Project A"],
+                    message: "Preserved in the note",
+                },
+                "Categorized"
+            )
+        ).toMatchObject({ categories: ["work", "Project A"] });
+    });
+
+    it.each([
+        [{ date: "2026-02-29", start: "09:00", end: "10:00" }],
+        [{ date: "2026-08-21", start: "9:00", end: "10:00" }],
+        [{ date: "2026-08-21", start: "25:00", end: "10:00" }],
+        [{ date: "2026-08-21", start: "09:00", end: "10:99" }],
+    ])("rejects invalid friendly date/time properties", (properties) => {
+        expect(
+            parseFullNoteEvent({ ...properties, tags: ["event"] }, "Invalid")
+        ).toBeNull();
+    });
+
+    it("parses a weekly event with an optional start bound", () => {
+        expect(
+            parseFullNoteEvent(
+                {
+                    date: "2026-08-21",
+                    start: "09:00",
+                    end: "10:00",
+                    weekday: "mOnDaY",
+                    tags: ["event", "recurring"],
+                },
+                "Monday review"
+            )
+        ).toEqual({
+            title: "Monday review",
+            type: "recurring",
+            allDay: false,
+            daysOfWeek: ["M"],
+            startRecur: "2026-08-21",
+            startTime: "09:00",
+            endTime: "10:00",
+        });
+    });
+
+    it("parses unbounded first- and second-Saturday monthly events", () => {
+        const first = parseFullNoteEvent(
+            {
+                start: "09:00",
+                end: "10:00",
+                weekday: "Saturday",
+                week: 1,
+                tags: ["event", "recurring"],
+            },
+            "First Saturday"
+        );
+        const second = parseFullNoteEvent(
+            {
+                start: "11:00",
+                end: "12:00",
+                weekday: "SATURDAY",
+                week: 2,
+                tags: ["event", "recurring"],
+            },
+            "Second Saturday"
+        );
+
+        expect(first).toMatchObject({
+            type: "rrule",
+            startDate: FRIENDLY_RECURRENCE_ANCHOR,
+            rrule: "FREQ=MONTHLY;BYDAY=1SA",
+        });
+        expect(second).toMatchObject({
+            type: "rrule",
+            startDate: FRIENDLY_RECURRENCE_ANCHOR,
+            rrule: "FREQ=MONTHLY;BYDAY=2SA",
+        });
+    });
+
+    it("uses date as the lower bound for a monthly recurrence", () => {
+        expect(
+            parseFullNoteEvent(
+                {
+                    date: "2026-08-21",
+                    start: "09:00",
+                    end: "10:00",
+                    weekday: "Saturday",
+                    week: 1,
+                    tags: ["event", "recurring"],
+                },
+                "First Saturday"
+            )
+        ).toMatchObject({
+            type: "rrule",
+            startDate: "2026-08-21",
+            rrule: "FREQ=MONTHLY;BYDAY=1SA",
+        });
+    });
+
+    it.each([
+        [{ tags: ["event", "recurring"] }],
+        [{ weekday: "Mon", tags: ["event", "recurring"] }],
+        [{ weekday: "Monday", week: 0, tags: ["event", "recurring"] }],
+        [{ weekday: "Monday", week: 6, tags: ["event", "recurring"] }],
+        [{ weekday: "Monday", week: "2", tags: ["event", "recurring"] }],
+    ])("rejects invalid recurring properties", (properties) => {
+        expect(
+            parseFullNoteEvent(
+                { start: "09:00", end: "10:00", ...properties },
+                "Invalid recurring"
+            )
+        ).toBeNull();
+    });
+});
 
 describe("Note Calendar Tests", () => {
     it.each([
@@ -181,42 +364,53 @@ describe("Note Calendar Tests", () => {
         const returns = (obsidian.create as jest.Mock).mock.calls[0];
         expect(returns).toMatchInlineSnapshot(`
             [
-              "events/2022-01-01 Test Event.md",
+              "events/Untitled event.md",
               "---
-            title: Test Event
-            allDay: false
-            startTime: 11:00
-            endTime: 12:30
-            type: single
             date: 2022-01-01
-            endDate: null
+            start: 11:00
+            end: 12:30
+            tags:
+              - event
             ---
             ",
             ]
         `);
     });
 
-    it("cannot overwrite event", async () => {
+    it("uses a collision-safe filename", async () => {
         const event = {
             title: "Test Event",
-            allDay: true,
+            allDay: false,
             date: "2022-01-01",
             endDate: null,
+            startTime: "11:00",
+            endTime: "12:00",
         };
         const obsidian = makeApp(
             MockAppBuilder.make()
                 .folder(
                     new MockAppBuilder("events").file(
-                        "2022-01-01 Test Event.md",
-                        new FileBuilder().frontmatter(event)
+                        "Untitled event.md",
+                        new FileBuilder().frontmatter({
+                            date: "2022-01-01",
+                            start: "11:00",
+                            end: "12:00",
+                            tags: ["event"],
+                        })
                     )
                 )
                 .done()
         );
         const calendar = new FullNoteCalendar(obsidian, color, dirName);
-        await assertFailed(
-            () => calendar.createEvent(parseEvent(event)),
-            /already exists/
+        (obsidian.create as jest.Mock).mockReturnValue({
+            path: join(dirName, "Untitled event 1.md"),
+        });
+
+        await calendar.createEvent(parseEvent(event));
+
+        expect(obsidian.create).toHaveBeenCalledWith(
+            "events/Untitled event 1.md",
+            newTimedEventFrontmatter(parseEvent(event))
         );
     });
 
@@ -277,6 +471,80 @@ describe("Note Calendar Tests", () => {
             ---
             "
         `);
+    });
+
+    it("updates friendly timing without rewriting unknown properties or body", async () => {
+        const filename = "Planning.md";
+        const app = MockAppBuilder.make()
+            .folder(
+                new MockAppBuilder("events").file(
+                    filename,
+                    new FileBuilder().frontmatter({
+                        date: "2026-08-21",
+                        start: "09:00",
+                        end: "10:00",
+                        tags: ["event", "work"],
+                        message: "Keep me",
+                    })
+                )
+            )
+            .done();
+        app.vault.contents.set(
+            "/events/Planning.md",
+            [
+                "---",
+                "date: 2026-08-21",
+                "start: 09:00",
+                "end: 10:00",
+                "tags:",
+                "  - event",
+                "  - work",
+                "message: Keep me",
+                "unknown:",
+                "  nested: true",
+                "---",
+                "Body stays intact",
+                "",
+            ].join("\n")
+        );
+        const obsidian = makeApp(app);
+        const calendar = new FullNoteCalendar(obsidian, color, dirName);
+        const file = obsidian.getFileByPath(`events/${filename}`)!;
+        const contents = await obsidian.read(file);
+
+        await calendar.modifyEvent(
+            { path: file.path, lineNumber: undefined },
+            parseEvent({
+                title: "Planning",
+                type: "single",
+                allDay: false,
+                date: "2026-08-22",
+                startTime: "23:00",
+                endTime: "01:00",
+            }),
+            jest.fn()
+        );
+
+        expect(obsidian.rename).not.toHaveBeenCalled();
+        const [, rewriteCallback] = (obsidian.rewrite as jest.Mock).mock
+            .calls[0];
+        expect(rewriteCallback(contents)).toBe(
+            [
+                "---",
+                "date: 2026-08-22",
+                "start: 23:00",
+                "end: 01:00",
+                "tags:",
+                "  - event",
+                "  - work",
+                "message: Keep me",
+                "unknown:",
+                "  nested: true",
+                "---",
+                "Body stays intact",
+                "",
+            ].join("\n")
+        );
     });
     // it("modify an existing event with a new date", async () => {
     // 	const event: OFCEvent = {

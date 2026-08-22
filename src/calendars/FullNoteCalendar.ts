@@ -1,9 +1,154 @@
-import { TFile, TFolder, parseYaml } from "obsidian";
+import { TFile, TFolder } from "obsidian";
+import { DateTime } from "luxon";
 import { rrulestr } from "rrule";
 import { EventPathLocation } from "../core/EventStore";
 import { ObsidianInterface } from "../ObsidianAdapter";
-import { OFCEvent, EventLocation, validateEvent } from "../types";
+import { OFCEvent, EventLocation, parseEvent, validateEvent } from "../types";
 import { EditableCalendar, EditableEventResponse } from "./EditableCalendar";
+
+export const FRIENDLY_RECURRENCE_ANCHOR = "1970-01-01";
+
+const WEEKDAY_CODES: Record<string, { simple: string; rrule: string }> = {
+    sunday: { simple: "U", rrule: "SU" },
+    monday: { simple: "M", rrule: "MO" },
+    tuesday: { simple: "T", rrule: "TU" },
+    wednesday: { simple: "W", rrule: "WE" },
+    thursday: { simple: "R", rrule: "TH" },
+    friday: { simple: "F", rrule: "FR" },
+    saturday: { simple: "S", rrule: "SA" },
+};
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null && !Array.isArray(value);
+
+const normalizeTags = (value: unknown): string[] => {
+    const tags = Array.isArray(value) ? value : [value];
+    return tags.flatMap((tag) =>
+        typeof tag === "string" && tag.trim()
+            ? tag
+                  .split(",")
+                  .map((item) => item.trim().replace(/^#/, ""))
+                  .filter(Boolean)
+            : []
+    );
+};
+
+const parseDate = (value: unknown): string | null => {
+    if (typeof value !== "string") {
+        return null;
+    }
+    const parsed = DateTime.fromFormat(value, "yyyy-MM-dd", { zone: "utc" });
+    return parsed.isValid && parsed.toFormat("yyyy-MM-dd") === value
+        ? value
+        : null;
+};
+
+const parseTime = (value: unknown): string | null => {
+    if (typeof value !== "string" || !/^\d{2}:\d{2}$/.test(value)) {
+        return null;
+    }
+    const parsed = DateTime.fromFormat(value, "HH:mm", { zone: "utc" });
+    return parsed.isValid && parsed.toFormat("HH:mm") === value ? value : null;
+};
+
+/**
+ * Convert the note-first event properties into the plugin's existing event
+ * model. The `event` tag deliberately opts a note into this strict schema;
+ * notes without it continue through the legacy parser.
+ */
+export function parseFullNoteEvent(
+    frontmatter: unknown,
+    filenameTitle: string
+): OFCEvent | null {
+    if (!isObject(frontmatter)) {
+        return null;
+    }
+
+    const tags = normalizeTags(frontmatter.tags);
+    const normalizedTags = tags.map((tag) => tag.toLowerCase());
+    const isFriendly = normalizedTags.includes("event");
+    const explicitTitle =
+        typeof frontmatter.title === "string"
+            ? frontmatter.title
+            : filenameTitle;
+
+    if (!isFriendly) {
+        return validateEvent({ ...frontmatter, title: explicitTitle });
+    }
+
+    const date =
+        frontmatter.date === undefined
+            ? undefined
+            : parseDate(frontmatter.date);
+    const startTime = parseTime(frontmatter.start);
+    const endTime = parseTime(frontmatter.end);
+    if (date === null || !startTime || !endTime) {
+        return null;
+    }
+
+    const categories = tags.filter(
+        (_, index) => !["event", "recurring"].includes(normalizedTags[index])
+    );
+    const common = {
+        title: explicitTitle,
+        allDay: false as const,
+        startTime,
+        endTime,
+        ...(categories.length > 0 ? { categories } : {}),
+    };
+
+    if (!normalizedTags.includes("recurring")) {
+        if (!date) {
+            return null;
+        }
+        const endDate =
+            endTime <= startTime
+                ? DateTime.fromISO(date, { zone: "utc" })
+                      .plus({ days: 1 })
+                      .toISODate()
+                : null;
+        return parseEvent({
+            ...common,
+            type: "single",
+            date,
+            endDate,
+        });
+    }
+
+    if (typeof frontmatter.weekday !== "string") {
+        return null;
+    }
+    const weekday = WEEKDAY_CODES[frontmatter.weekday.trim().toLowerCase()];
+    if (!weekday) {
+        return null;
+    }
+
+    if (frontmatter.week === undefined) {
+        return parseEvent({
+            ...common,
+            type: "recurring",
+            daysOfWeek: [weekday.simple],
+            ...(date ? { startRecur: date } : {}),
+        });
+    }
+
+    if (
+        typeof frontmatter.week !== "number" ||
+        !Number.isInteger(frontmatter.week) ||
+        frontmatter.week < 1 ||
+        frontmatter.week > 5
+    ) {
+        return null;
+    }
+
+    return parseEvent({
+        ...common,
+        type: "rrule",
+        startDate: date || FRIENDLY_RECURRENCE_ANCHOR,
+        rrule: `FREQ=MONTHLY;BYDAY=${frontmatter.week}${weekday.rrule}`,
+        skipDates: [],
+    });
+}
 
 const basenameFromEvent = (event: OFCEvent): string => {
     switch (event.type) {
@@ -62,7 +207,7 @@ function replaceFrontmatter(page: string, newFrontmatter: string): string {
     return `---\n${newFrontmatter}---${extractPageContents(page)}`;
 }
 
-type PrintableAtom = Array<number | string> | number | string | boolean;
+type PrintableAtom = Array<number | string> | number | string | boolean | null;
 
 function stringifyYamlAtom(v: PrintableAtom): string {
     let result = "";
@@ -83,45 +228,33 @@ function stringifyYamlLine(
     return `${String(k)}: ${stringifyYamlAtom(v)}`;
 }
 
-function newFrontmatter(fields: Partial<OFCEvent>): string {
-    return (
-        "---\n" +
-        Object.entries(fields)
-            .filter(([_, v]) => v !== undefined)
-            .map(([k, v]) => stringifyYamlLine(k, v))
-            .join("\n") +
-        "\n---\n"
-    );
-}
-
 function modifyFrontmatterString(
     page: string,
-    modifications: Partial<OFCEvent>
+    modifications: Record<string, PrintableAtom | undefined>
 ): string {
     const frontmatter = extractFrontmatter(page)?.split("\n");
     let newFrontmatter: string[] = [];
     if (!frontmatter) {
         newFrontmatter = Object.entries(modifications)
             .filter(([k, v]) => v !== undefined)
-            .map(([k, v]) => stringifyYamlLine(k, v));
+            .map(([k, v]) => stringifyYamlLine(k, v as PrintableAtom));
         page = "\n" + page;
     } else {
         const linesAdded: Set<string | number | symbol> = new Set();
         // Modify rows in-place.
         for (let i = 0; i < frontmatter.length; i++) {
             const line: string = frontmatter[i];
-            const obj: Record<any, any> | null = parseYaml(line);
-            if (!obj) {
+            if (line === "" && (i === 0 || i === frontmatter.length - 1)) {
                 continue;
             }
-
-            const keys = Object.keys(obj) as [keyof OFCEvent];
-            if (keys.length !== 1) {
-                throw new Error("One YAML line parsed to multiple keys.");
+            const keyMatch = /^([A-Za-z0-9_-]+)\s*:/.exec(line);
+            if (!keyMatch) {
+                newFrontmatter.push(line);
+                continue;
             }
-            const key = keys[0];
+            const key = keyMatch[1];
             linesAdded.add(key);
-            const newVal: PrintableAtom | undefined = modifications[key];
+            const newVal = modifications[key];
             if (newVal !== undefined) {
                 newFrontmatter.push(stringifyYamlLine(key, newVal));
             } else {
@@ -132,7 +265,7 @@ function modifyFrontmatterString(
 
         // Add all rows that were not originally in the frontmatter.
         newFrontmatter.push(
-            ...(Object.keys(modifications) as [keyof OFCEvent])
+            ...Object.keys(modifications)
                 .filter((k) => !linesAdded.has(k))
                 .filter((k) => modifications[k] !== undefined)
                 .map((k) =>
@@ -143,9 +276,66 @@ function modifyFrontmatterString(
     return replaceFrontmatter(page, newFrontmatter.join("\n") + "\n");
 }
 
+export function newTimedEventFrontmatter(event: OFCEvent): string {
+    if (
+        event.type !== "single" ||
+        event.allDay ||
+        !event.startTime ||
+        !event.endTime
+    ) {
+        throw new Error(
+            "Full-note events must have a date, start, and end time."
+        );
+    }
+    return [
+        "---",
+        `date: ${event.date}`,
+        `start: ${event.startTime}`,
+        `end: ${event.endTime}`,
+        "tags:",
+        "  - event",
+        "---",
+        "",
+    ].join("\n");
+}
+
+const isFriendlyFrontmatter = (frontmatter: unknown): boolean => {
+    if (!isObject(frontmatter)) {
+        return false;
+    }
+    return normalizeTags(frontmatter.tags)
+        .map((tag) => tag.toLowerCase())
+        .includes("event");
+};
+
+const friendlyModifications = (
+    event: OFCEvent
+): Record<string, PrintableAtom | undefined> => {
+    if (event.allDay) {
+        throw new Error("Note-first calendar events must remain timed.");
+    }
+    let date: string | undefined;
+    if (event.type === "single") {
+        date = event.date;
+    } else if (event.type === "recurring") {
+        date = event.startRecur;
+    } else {
+        date =
+            event.startDate === FRIENDLY_RECURRENCE_ANCHOR
+                ? undefined
+                : event.startDate;
+    }
+    return {
+        date,
+        start: event.startTime,
+        end: event.endTime || undefined,
+    };
+};
+
 export default class FullNoteCalendar extends EditableCalendar {
     app: ObsidianInterface;
     private _directory: string;
+    private friendlyPaths = new Set<string>();
 
     constructor(app: ObsidianInterface, color: string, directory: string) {
         super(color);
@@ -170,12 +360,9 @@ export default class FullNoteCalendar extends EditableCalendar {
 
     async getEventsInFile(file: TFile): Promise<EditableEventResponse[]> {
         const metadata = this.app.getMetadata(file);
-        let event = validateEvent(metadata?.frontmatter);
+        const event = parseFullNoteEvent(metadata?.frontmatter, file.basename);
         if (!event) {
             return [];
-        }
-        if (!event.title) {
-            event.title = file.basename;
         }
         return [[event, { file, lineNumber: undefined }]];
     }
@@ -216,12 +403,38 @@ export default class FullNoteCalendar extends EditableCalendar {
     }
 
     async createEvent(event: OFCEvent): Promise<EventLocation> {
-        const path = `${this.directory}/${filenameForEvent(event)}`;
-        if (this.app.getAbstractFileByPath(path)) {
-            throw new Error(`Event at ${path} already exists.`);
-        }
-        const file = await this.app.create(path, newFrontmatter(event));
+        let suffix = 0;
+        let path: string;
+        const directory = this.directory.replace(/\/+$/, "");
+        do {
+            const basename = `Untitled event${suffix ? ` ${suffix}` : ""}.md`;
+            path = directory ? `${directory}/${basename}` : basename;
+            suffix += 1;
+        } while (this.app.getAbstractFileByPath(path));
+
+        const file = await this.app.create(
+            path,
+            newTimedEventFrontmatter(event)
+        );
+        this.friendlyPaths.add(file.path);
         return { file, lineNumber: undefined };
+    }
+
+    private isFriendlyEventFile(path: string): boolean {
+        if (this.friendlyPaths.has(path)) {
+            return true;
+        }
+        const file = this.app.getFileByPath(path);
+        if (!file) {
+            return false;
+        }
+        return isFriendlyFrontmatter(this.app.getMetadata(file)?.frontmatter);
+    }
+
+    fileRenamed(oldPath: string, newPath: string): void {
+        if (this.friendlyPaths.delete(oldPath)) {
+            this.friendlyPaths.add(newPath);
+        }
     }
 
     getNewLocation(
@@ -237,6 +450,10 @@ export default class FullNoteCalendar extends EditableCalendar {
             throw new Error(
                 `File ${path} either doesn't exist or is a folder.`
             );
+        }
+
+        if (this.isFriendlyEventFile(path)) {
+            return { file, lineNumber: undefined };
         }
 
         const updatedPath = `${file.parent.path}/${filenameForEvent(event)}`;
@@ -257,13 +474,18 @@ export default class FullNoteCalendar extends EditableCalendar {
         }
         const newLocation = this.getNewLocation(location, event);
 
+        const friendly = this.isFriendlyEventFile(path);
+
         updateCacheWithLocation(newLocation);
 
         if (file.path !== newLocation.file.path) {
             await this.app.rename(file, newLocation.file.path);
         }
         await this.app.rewrite(file, (page) =>
-            modifyFrontmatterString(page, event)
+            modifyFrontmatterString(
+                page,
+                friendly ? friendlyModifications(event) : event
+            )
         );
 
         return;
@@ -294,6 +516,9 @@ export default class FullNoteCalendar extends EditableCalendar {
             lineNumber: undefined,
         });
         await this.app.rename(file, newPath);
+        if (this.friendlyPaths.delete(path)) {
+            toCalendar.friendlyPaths.add(newPath);
+        }
     }
 
     deleteEvent({ path, lineNumber }: EventPathLocation): Promise<void> {
@@ -304,6 +529,7 @@ export default class FullNoteCalendar extends EditableCalendar {
         if (!file) {
             throw new Error(`File ${path} not found.`);
         }
+        this.friendlyPaths.delete(path);
         return this.app.delete(file);
     }
 }
