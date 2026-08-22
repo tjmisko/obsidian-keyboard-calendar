@@ -69,6 +69,45 @@ export const formatDateLabel = (date: Date): string =>
         date.getDate()
     )}`;
 
+export const getRenderedEventTitle = (
+    title: string,
+    eventDate: Date | string | null
+): string => {
+    if (!eventDate) {
+        return title;
+    }
+    const match = title.match(/^(\d{4}-\d{2}-\d{2})\s+-\s+(.+)$/);
+    const eventDateLabel =
+        typeof eventDate === "string" ? eventDate : formatDateLabel(eventDate);
+    return match?.[1] === eventDateLabel ? match[2] : title;
+};
+
+export const CALENDAR_VIEW_SEQUENCE = [
+    "dayGridMonth",
+    "timeGridWeek",
+    "timeGridDay",
+    "listWeek",
+] as const;
+
+export const getAdjacentCalendarView = (
+    currentView: string,
+    reverse = false
+): (typeof CALENDAR_VIEW_SEQUENCE)[number] => {
+    const currentIndex = CALENDAR_VIEW_SEQUENCE.indexOf(
+        currentView as (typeof CALENDAR_VIEW_SEQUENCE)[number]
+    );
+    if (currentIndex === -1) {
+        return reverse
+            ? CALENDAR_VIEW_SEQUENCE[CALENDAR_VIEW_SEQUENCE.length - 1]
+            : CALENDAR_VIEW_SEQUENCE[0];
+    }
+    const offset = reverse ? -1 : 1;
+    return CALENDAR_VIEW_SEQUENCE[
+        (currentIndex + offset + CALENDAR_VIEW_SEQUENCE.length) %
+            CALENDAR_VIEW_SEQUENCE.length
+    ];
+};
+
 const isTimeGridView = (viewType: string): boolean =>
     viewType.startsWith("timeGrid");
 
@@ -254,6 +293,16 @@ export function renderCalendar(
             }
             if (textColor !== "black") {
                 el.addClass("ofc-event-muted-light-text");
+            }
+            const titleEl = el.querySelector<HTMLElement>(".fc-event-title");
+            if (titleEl) {
+                const renderedDate = el
+                    .closest<HTMLElement>("[data-date]")
+                    ?.getAttribute("data-date");
+                titleEl.textContent = getRenderedEventTitle(
+                    event.title,
+                    renderedDate || event.start
+                );
             }
             el.addEventListener("contextmenu", (e) => {
                 e.preventDefault();

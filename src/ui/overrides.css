@@ -45,6 +45,11 @@
 
 .fc .fc-event-title {
 	font-size: 0.9em;
+	font-weight: var(--font-bold, 700);
+}
+
+.fc .fc-list-event-title {
+	font-weight: var(--font-bold, 700);
 }
 
 .fc .fc-timegrid-event {
@@ -101,7 +106,7 @@
 }
 
 .fc .ofc-day-header-weekday {
-	color: var(--text-muted);
+	color: var(--text-faint);
 	font-size: clamp(0.68rem, 0.72vw, 0.78rem);
 	font-variant-caps: all-small-caps;
 	font-weight: var(--font-semibold, 600);
@@ -120,12 +125,12 @@
 }
 
 .fc .fc-toolbar.fc-header-toolbar {
-	gap: var(--size-4-3, 0.75rem);
+	gap: var(--size-4-2, 0.5rem);
 	margin-bottom: var(--size-4-3, 0.75rem);
-	padding: var(--size-4-2, 0.5rem);
+	padding: 0.3rem;
 	background: color-mix(in srgb, var(--background-secondary) 64%, transparent);
 	border: 1px solid color-mix(in srgb, var(--background-modifier-border) 78%, transparent);
-	border-radius: var(--radius-l, 12px);
+	border-radius: var(--radius-m, 8px);
 }
 
 .fc .fc-toolbar-title {
@@ -139,14 +144,18 @@
 	display: inline-flex !important;
 	align-items: center;
 	justify-content: center;
-	min-height: 2rem;
+	min-height: 1.75rem;
 	color: var(--text-muted) !important;
 	background: var(--fc-button-bg-color) !important;
 	border: 1px solid var(--fc-button-border-color) !important;
 	border-radius: var(--radius-s, 6px) !important;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+	box-shadow: none !important;
+	font-size: 0.78rem !important;
+	font-variant-caps: all-small-caps;
+	font-weight: var(--font-medium, 500) !important;
+	letter-spacing: 0.055em;
 	line-height: 1 !important;
-	padding: var(--size-4-1, 0.25rem) var(--size-4-3, 0.75rem) !important;
+	padding: 0.15rem var(--size-4-2, 0.5rem) !important;
 	transition:
 		background-color 120ms ease,
 		border-color 120ms ease,
@@ -190,8 +199,8 @@
 
 .fc .fc-prev-button,
 .fc .fc-next-button {
-	width: 2rem;
-	min-width: 2rem;
+	width: 1.75rem;
+	min-width: 1.75rem;
 	padding: 0 !important;
 }
 

@@ -16,7 +16,7 @@ import {
     getDailyNoteSettings,
 } from "obsidian-daily-notes-interface";
 import { Calendar, EventSourceInput } from "@fullcalendar/core";
-import { renderCalendar } from "./calendar";
+import { getAdjacentCalendarView, renderCalendar } from "./calendar";
 import FullCalendarPlugin from "../main";
 import { FCError, PLUGIN_SLUG } from "../types";
 import {
@@ -80,6 +80,46 @@ export class CalendarView extends ItemView {
         super(leaf);
         this.plugin = plugin;
         this.inSidebar = inSidebar;
+        this.registerDomEvent(document, "keydown", (event) =>
+            this.handleCalendarShortcut(event)
+        );
+    }
+
+    private handleCalendarShortcut(event: KeyboardEvent): void {
+        const target = event.target;
+        const targetElement = target instanceof Element ? target : null;
+        const isEditing = !!targetElement?.closest(
+            'input, textarea, select, [contenteditable]:not([contenteditable="false"]), .cm-editor, .modal-container, [role="dialog"]'
+        );
+        if (
+            !this.fullCalendarView ||
+            this.app.workspace.activeLeaf !== this.leaf ||
+            event.defaultPrevented ||
+            event.repeat ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.altKey ||
+            isEditing
+        ) {
+            return;
+        }
+
+        if (event.key === "Tab") {
+            event.preventDefault();
+            event.stopPropagation();
+            this.fullCalendarView.changeView(
+                getAdjacentCalendarView(
+                    this.fullCalendarView.view.type,
+                    event.shiftKey
+                )
+            );
+            return;
+        }
+
+        if (event.key.toLowerCase() === "t") {
+            event.preventDefault();
+            this.fullCalendarView.today();
+        }
     }
 
     getIcon(): string {
