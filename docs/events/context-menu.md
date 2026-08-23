@@ -1,7 +1,7 @@
 # Right-click context menu
 
-Right click on any event to open a context menu with quick actions. Right now, you can jump directly to an event's backing note, and delete an event, without opening the edit modal.
+Right-click a recurring local event to omit that displayed occurrence. The backing note remains in place and the occurrence date is added to its `omit` frontmatter list.
 
-![](../assets/context-menu.gif)
+Single events have no calendar context action. Click any local event normally to open its backing note.
 
-More actions to come!
+To remove an event, manage its Markdown note through Obsidian's ordinary file controls.

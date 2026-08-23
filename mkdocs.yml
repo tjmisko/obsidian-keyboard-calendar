@@ -1,5 +1,5 @@
 site_name: Full Calendar
-repo_url: https://github.com/davish/obsidian-full-calendar
+repo_url: https://github.com/tjmisko/obsidian-full-calendar
 repo_name: obsidian-full-calendar
 theme:
     name: material
@@ -35,18 +35,14 @@ nav:
     - getting_started.md
     - Calendar Types:
           - calendars/local.md
-          - calendars/dailynote.md
-          - calendars/ics.md
-          - calendars/caldav.md
     - Events:
           - events/types.md
           - events/manage.md
           - events/recurring.md
           - events/hover.md
           - events/context-menu.md
-          - events/tasks.md
     - Settings:
           - settings/sources.md
           - settings/fc_config.md
-    - Advanced:
-          - Dataview integration: advanced/dataview.md
+    - Migration and rollback: migration.md
+    - Build inventory: lean-build-inventory.md

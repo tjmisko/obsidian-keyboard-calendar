@@ -1,4 +1,9 @@
 import esbuild from "esbuild";
+import {
+	copyFileSync,
+	existsSync,
+	writeFileSync,
+} from "fs";
 import process from "process";
 import builtins from "builtin-modules";
 
@@ -9,6 +14,92 @@ if you want to view the source, please visit the github repository of this plugi
 `;
 
 const prod = process.argv[2] === "production";
+const emitMetafile = process.argv.includes("--metafile");
+
+const normalizeMetafilePath = (value) => {
+	const normalized = value.replaceAll("\\", "/");
+	if (normalized.startsWith("node_modules/")) {
+		return normalized;
+	}
+	const nodeModulesMarker = "/node_modules/";
+	const markerIndex = normalized.indexOf(nodeModulesMarker);
+	return markerIndex === -1
+		? normalized
+		: `node_modules/${normalized.slice(
+				markerIndex + nodeModulesMarker.length
+		  )}`;
+};
+
+const normalizeMetafileEntries = (entries, label) => {
+	const normalizedEntries = entries.map(([path, value]) => ({
+		originalPath: path,
+		path: normalizeMetafilePath(path),
+		value,
+	}));
+	const originalsByNormalizedPath = new Map();
+	for (const { originalPath, path } of normalizedEntries) {
+		const priorPath = originalsByNormalizedPath.get(path);
+		if (priorPath) {
+			throw new Error(
+				`Metafile path collision in ${label}: ${priorPath} and ${originalPath} normalize to ${path}`
+			);
+		}
+		originalsByNormalizedPath.set(path, originalPath);
+	}
+	return Object.fromEntries(
+		normalizedEntries.map(({ path, value }) => [path, value])
+	);
+};
+
+const normalizeMetafile = (metafile) => ({
+	inputs: normalizeMetafileEntries(
+		Object.entries(metafile.inputs).map(([path, input]) => [
+			path,
+			{
+				...input,
+				imports: input.imports.map((entry) => ({
+					...entry,
+					path: normalizeMetafilePath(entry.path),
+				})),
+			},
+		]),
+		"inputs"
+	),
+	outputs: normalizeMetafileEntries(
+		Object.entries(metafile.outputs).map(([path, output]) => [
+			path,
+			{
+				...output,
+				...(output.entryPoint && {
+					entryPoint: normalizeMetafilePath(output.entryPoint),
+				}),
+				...(output.cssBundle && {
+					cssBundle: normalizeMetafilePath(output.cssBundle),
+				}),
+				imports: output.imports.map((entry) => ({
+					...entry,
+					path: normalizeMetafilePath(entry.path),
+				})),
+				inputs: normalizeMetafileEntries(
+					Object.entries(output.inputs),
+					`output inputs for ${path}`
+				),
+			},
+		]),
+		"outputs"
+	),
+});
+
+const obsidianStylesheet = {
+	name: "obsidian-stylesheet",
+	setup(build) {
+		build.onEnd((result) => {
+			if (result.errors.length === 0 && existsSync("main.css")) {
+				copyFileSync("main.css", "styles.css");
+			}
+		});
+	},
+};
 
 esbuild
 	.build({
@@ -44,11 +135,29 @@ esbuild
 			...builtins,
 		],
 		format: "cjs",
+		plugins: [obsidianStylesheet],
 		watch: !prod,
 		target: "es2016",
 		logLevel: "info",
+		metafile: emitMetafile,
 		sourcemap: prod ? false : "inline",
 		treeShaking: true,
 		outfile: "main.js",
 	})
-	.catch(() => process.exit(1));
+	.then((result) => {
+		if (emitMetafile && result.metafile) {
+			const normalized = JSON.stringify(
+				normalizeMetafile(result.metafile),
+				null,
+				2
+			);
+			writeFileSync(
+				"docs/lean-esbuild-metafile.json",
+				`${normalized}\n`
+			);
+		}
+	})
+	.catch((error) => {
+		console.error("Build failed:", error.message);
+		process.exit(1);
+	});

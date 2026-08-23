@@ -3,9 +3,9 @@
 	"name": "Full Calendar",
 	"version": "0.10.7",
 	"minAppVersion": "0.16.3",
-	"description": "Obsidian integration with Full Calendar (fullcalendar.io)",
+	"description": "Desktop local-note calendar for Obsidian",
 	"author": "Davis Haupt",
 	"authorUrl": "https://davi.sh",
-	"isDesktopOnly": false,
+	"isDesktopOnly": true,
 	"fundingUrl": "https://ko-fi.com/davish"
 }

@@ -1,23 +1,23 @@
 # Getting started
 
-## Welcome page
+## Prepare the event folder
 
-Open Full Calendar from the command palette or the ribbon icon for the first time and you'll be prompted to add a calendar. It's recommended that you add either a [Daily Note calendar](calendars/dailynote) or a [full note calendar](calendars/local) based in a directory in your Vault so that you can create and modify events. Remote calendars are currently read-only.
+Create an `events` folder in the vault, or choose another existing folder you want to dedicate to event notes. Open Full Calendar from the command palette or ribbon. The native setup prompt asks for one [full-note event folder](calendars/local.md) and prefers `events` when it exists.
 
-![Welcome page](assets/welcome-settings.gif)
+Only direct-child Markdown files are indexed; the `.md` extension match is case-insensitive. For example, `events/Planning.md` and `events/Planning.MD` are eligible, while `events/archive/Planning.md` and `events/agenda.pdf` are ignored. Choosing a folder never moves or rewrites existing notes.
+
+Dates in week and day headers link to the corresponding daily note. The link opens an existing note or creates it through Obsidian's daily-note integration. Daily notes are navigation targets, not event stores.
 
 ## Opening the calendar
 
 Either click on the ribbon icon, or run the "Full Calendar: Open Calendar" command from the command palette.
 
-![Open calendar](assets/open-calendar.gif)
+Full Calendar opens as a desktop-only normal tab. The retained compatibility bridge redirects workspace leaves saved with the retired sidebar view into a normal calendar tab; the sidebar is not an active feature.
 
-## Sidebar Calendar
-
-You can also open the calendar in the sidebar with the "Open in sidebar" command.
-
-![Sidebar calendar](assets/sidebar.gif)
+Use Tab and Shift-Tab to cycle Month, Week, Day, and List. Press `T` for Today. Click an event to replace the calendar tab with its ordinary Markdown note; Obsidian Back returns to the calendar.
 
 ## Troubleshooting
 
-If something is not working as expected, you should first try to clear the cache with the command `Full Calendar: Reset Event Cache`. If that didn't fix your problem, then feel free to [submit an issue on GitHub](https://github.com/obsidian-community/obsidian-full-calendar/issues).
+If the view does not match the notes on disk, run `Full Calendar: Reset Event Cache`, then reopen the calendar. If the problem remains, report it at [tjmisko/obsidian-full-calendar](https://github.com/tjmisko/obsidian-full-calendar/issues).
+
+Before upgrading an older installation, read [Migration and rollback](migration.md) and confirm that plugin data and workspace layout are backed up.

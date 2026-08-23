@@ -6,15 +6,13 @@ import {
     EventApi,
     EventClickArg,
     EventHoveringArg,
-    EventSourceInput,
+    EventInput,
 } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import rrulePlugin from "@fullcalendar/rrule";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
-import googleCalendarPlugin from "@fullcalendar/google-calendar";
-import iCalendarPlugin from "@fullcalendar/icalendar";
 
 // There is an issue with FullCalendar RRule support around DST boundaries which is fixed by this monkeypatch:
 // https://github.com/fullcalendar/fullcalendar/issues/5273#issuecomment-1360459342
@@ -46,30 +44,111 @@ interface ExtraRenderProps {
     modifyEvent?: (event: EventApi, oldEvent: EventApi) => Promise<boolean>;
     eventMouseEnter?: (info: EventHoveringArg) => void;
     firstDay?: number;
-    initialView?: { desktop: string; mobile: string };
+    initialView?: string;
     timeFormat24h?: boolean;
     openContextMenuForEvent?: (
         event: EventApi,
         mouseEvent: MouseEvent
     ) => Promise<void>;
-    toggleTask?: (event: EventApi, isComplete: boolean) => Promise<boolean>;
-    forceNarrow?: boolean;
+    dailyNotePath?: (date: Date) => string;
+    openDailyNote?: (date: Date) => Promise<void>;
 }
+
+/** A local, already-materialized source. URL and callback sources are excluded. */
+export interface LocalMaterializedEventSource {
+    id: string;
+    events: EventInput[];
+    editable?: boolean;
+    color?: string;
+    textColor?: string;
+}
+
+const padTimePart = (value: number): string =>
+    value.toString().padStart(2, "0");
+
+export const formatTimeLabel = (date: Date): string =>
+    `${padTimePart(date.getHours())}:${padTimePart(date.getMinutes())}`;
+
+export const formatDateLabel = (date: Date): string =>
+    `${date.getFullYear()}-${padTimePart(date.getMonth() + 1)}-${padTimePart(
+        date.getDate()
+    )}`;
+
+const formatLongDateParts = (
+    year: number,
+    month: number,
+    day: number
+): string => {
+    const date = new Date(Date.UTC(year, month, day));
+    const weekday = date.toLocaleDateString(undefined, {
+        timeZone: "UTC",
+        weekday: "long",
+    });
+    const monthName = date.toLocaleDateString(undefined, {
+        month: "long",
+        timeZone: "UTC",
+    });
+    return `${weekday}, ${day} ${monthName} ${year}`;
+};
+
+export const formatLongDateTitle = (date: Date): string =>
+    formatLongDateParts(date.getFullYear(), date.getMonth(), date.getDate());
+
+export const getRenderedEventTitle = (
+    title: string,
+    eventDate: Date | string | null
+): string => {
+    if (!eventDate) {
+        return title;
+    }
+    const match = title.match(/^(\d{4}-\d{2}-\d{2})\s+-\s+(.+)$/);
+    const eventDateLabel =
+        typeof eventDate === "string" ? eventDate : formatDateLabel(eventDate);
+    return match?.[1] === eventDateLabel ? match[2] : title;
+};
+
+export const CALENDAR_VIEW_SEQUENCE = [
+    "dayGridMonth",
+    "timeGridWeek",
+    "timeGridDay",
+    "listWeek",
+] as const;
+
+export const getAdjacentCalendarView = (
+    currentView: string,
+    reverse = false
+): (typeof CALENDAR_VIEW_SEQUENCE)[number] => {
+    const currentIndex = CALENDAR_VIEW_SEQUENCE.indexOf(
+        currentView as (typeof CALENDAR_VIEW_SEQUENCE)[number]
+    );
+    if (currentIndex === -1) {
+        return reverse
+            ? CALENDAR_VIEW_SEQUENCE[CALENDAR_VIEW_SEQUENCE.length - 1]
+            : CALENDAR_VIEW_SEQUENCE[0];
+    }
+    const offset = reverse ? -1 : 1;
+    return CALENDAR_VIEW_SEQUENCE[
+        (currentIndex + offset + CALENDAR_VIEW_SEQUENCE.length) %
+            CALENDAR_VIEW_SEQUENCE.length
+    ];
+};
+
+const isTimeGridView = (viewType: string): boolean =>
+    viewType.startsWith("timeGrid");
 
 export function renderCalendar(
     containerEl: HTMLElement,
-    eventSources: EventSourceInput[],
+    eventSources: LocalMaterializedEventSource[],
     settings?: ExtraRenderProps
 ): Calendar {
-    const isMobile = window.innerWidth < 500;
-    const isNarrow = settings?.forceNarrow || isMobile;
     const {
         eventClick,
         select,
         modifyEvent,
         eventMouseEnter,
         openContextMenuForEvent,
-        toggleTask,
+        dailyNotePath,
+        openDailyNote,
     } = settings || {};
     const modifyEventCallback =
         modifyEvent &&
@@ -96,58 +175,96 @@ export function renderCalendar(
             listPlugin,
             // Drag + drop and editing
             interactionPlugin,
-            // Remote sources
-            googleCalendarPlugin,
-            iCalendarPlugin,
             rrulePlugin,
         ],
-        googleCalendarApiKey: "AIzaSyDIiklFwJXaLWuT_4y6I9ZRVVsPuf4xGrk",
-        initialView:
-            settings?.initialView?.[isNarrow ? "mobile" : "desktop"] ||
-            (isNarrow ? "timeGrid3Days" : "timeGridWeek"),
+        initialView: settings?.initialView || "timeGridWeek",
         nowIndicator: true,
         scrollTimeReset: false,
         dayMaxEvents: true,
+        weekNumberCalculation: "ISO",
 
-        headerToolbar: !isNarrow
-            ? {
-                  left: "prev,next today",
-                  center: "title",
-                  right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
-              }
-            : !isMobile
-            ? {
-                  right: "today,prev,next",
-                  left: "timeGrid3Days,timeGridDay,listWeek",
-              }
-            : false,
-        footerToolbar: isMobile
-            ? {
-                  right: "today,prev,next",
-                  left: "timeGrid3Days,timeGridDay,listWeek",
-              }
-            : false,
+        headerToolbar: {
+            left: "prev,next today",
+            center: "title",
+            right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
+        },
+        footerToolbar: false,
 
         views: {
+            timeGrid: {
+                allDaySlot: false,
+                displayEventTime: false,
+                titleFormat: { week: "long" },
+            },
             timeGridDay: {
                 type: "timeGrid",
                 duration: { days: 1 },
-                buttonText: isNarrow ? "1" : "day",
-            },
-            timeGrid3Days: {
-                type: "timeGrid",
-                duration: { days: 3 },
-                buttonText: "3",
+                buttonText: "day",
+                titleFormat: ({ start }) =>
+                    formatLongDateParts(start.year, start.month, start.day),
             },
         },
         firstDay: settings?.firstDay,
+        slotLabelContent: ({ date }) => formatTimeLabel(date),
+        dayHeaderContent: ({ date, text, view }) => {
+            if (!isTimeGridView(view.type)) {
+                return text;
+            }
+
+            const header = document.createElement("span");
+            header.addClass("ofc-day-header");
+
+            const weekday = header.createSpan({
+                cls: "ofc-day-header-weekday",
+                text: date.toLocaleDateString(undefined, { weekday: "long" }),
+            });
+            weekday.setAttribute("aria-hidden", "true");
+
+            header.createSpan({
+                cls: "ofc-day-header-date",
+                text: formatDateLabel(date),
+            });
+
+            return { domNodes: [header] };
+        },
+        dayHeaderDidMount: ({ date, el, view }) => {
+            if (
+                !isTimeGridView(view.type) ||
+                (!dailyNotePath && !openDailyNote)
+            ) {
+                return;
+            }
+
+            const link = el.querySelector<HTMLAnchorElement>(
+                ".fc-col-header-cell-cushion"
+            );
+            if (!link) {
+                return;
+            }
+
+            const dateLabel = formatDateLabel(date);
+            const notePath = dailyNotePath?.(date);
+            link.addClass("ofc-daily-note-link", "internal-link");
+            link.setAttribute(
+                "aria-label",
+                `Open daily note for ${date.toLocaleDateString(undefined, {
+                    weekday: "long",
+                })}, ${dateLabel}`
+            );
+            if (notePath) {
+                link.setAttribute("data-href", notePath);
+                link.setAttribute("href", notePath);
+            }
+            if (openDailyNote) {
+                link.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void openDailyNote(date);
+                });
+            }
+        },
         ...(settings?.timeFormat24h && {
             eventTimeFormat: {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: false,
-            },
-            slotLabelFormat: {
                 hour: "numeric",
                 minute: "2-digit",
                 hour12: false,
@@ -155,6 +272,27 @@ export function renderCalendar(
         }),
         eventSources,
         eventClick,
+        // Build the shortened title inside FullCalendar's render lifecycle.
+        // Mutating its title node after mount causes text to duplicate on rerender.
+        eventContent: ({ event, isStart, view }) => {
+            if (
+                view.type.startsWith("list") ||
+                event.display.includes("background")
+            ) {
+                return undefined;
+            }
+
+            const content = document.createElement("div");
+            content.addClass("ofc-event-card-content");
+            content.createDiv({
+                cls: "fc-event-title fc-sticky",
+                text: getRenderedEventTitle(
+                    event.title,
+                    isStart ? event.start : null
+                ),
+            });
+            return { domNodes: [content] };
+        },
 
         selectable: select && true,
         selectMirror: select && true,
@@ -171,52 +309,17 @@ export function renderCalendar(
 
         eventMouseEnter,
 
-        eventDidMount: ({ event, el, textColor }) => {
+        eventDidMount: ({ event, el, backgroundColor, textColor }) => {
+            if (backgroundColor) {
+                el.style.setProperty("--ofc-event-color", backgroundColor);
+            }
+            if (textColor !== "black") {
+                el.addClass("ofc-event-muted-light-text");
+            }
             el.addEventListener("contextmenu", (e) => {
                 e.preventDefault();
                 openContextMenuForEvent && openContextMenuForEvent(event, e);
             });
-            if (toggleTask) {
-                if (event.extendedProps.isTask) {
-                    const checkbox = document.createElement("input");
-                    checkbox.type = "checkbox";
-                    checkbox.checked =
-                        event.extendedProps.taskCompleted !== false;
-                    checkbox.onclick = async (e) => {
-                        e.stopPropagation();
-                        if (e.target) {
-                            let ret = await toggleTask(
-                                event,
-                                (e.target as HTMLInputElement).checked
-                            );
-                            if (!ret) {
-                                (e.target as HTMLInputElement).checked = !(
-                                    e.target as HTMLInputElement
-                                ).checked;
-                            }
-                        }
-                    };
-                    // Make the checkbox more visible against different color events.
-                    if (textColor == "black") {
-                        checkbox.addClass("ofc-checkbox-black");
-                    } else {
-                        checkbox.addClass("ofc-checkbox-white");
-                    }
-
-                    if (checkbox.checked) {
-                        el.addClass("ofc-task-completed");
-                    }
-
-                    // Depending on the view, we should put the checkbox in a different spot.
-                    const container =
-                        el.querySelector(".fc-event-time") ||
-                        el.querySelector(".fc-event-title") ||
-                        el.querySelector(".fc-list-event-title");
-
-                    container?.addClass("ofc-has-checkbox");
-                    container?.prepend(checkbox);
-                }
-            }
         },
 
         longPressDelay: 250,

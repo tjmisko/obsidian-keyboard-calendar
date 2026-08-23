@@ -1,11 +1,9 @@
 # Full Calendar
 
-Keep your calendar in your vault! This plugin integrates the [FullCalendar](https://github.com/fullcalendar/fullcalendar) library into your Obsidian Vault so that you can keep your ever-changing daily schedule and special events and plans alongside your tasks and notes, and link freely between all of them. Each event is stored as a separate note with special frontmatter so you can take notes, form connections and add context to any event on your calendar.
+Full Calendar is a desktop-only, local calendar for Obsidian. Each event is an ordinary Markdown note with YAML frontmatter, stored directly inside one configured vault folder.
 
-Most of this documentation is presented as GIF walkthroughs. If something is unclear, don't hesitate to [submit an issue on GitHub](https://github.com/obsidian-community/obsidian-full-calendar/issues) or comment on an existing one.
+The lean fork provides month, week, day, and list views; ordinary note opening; timed-note creation; supported drag/resize updates; recurring-event omission; and daily-note links in date headers. Calendar data never comes from a network source, and daily notes are navigation targets rather than event stores.
 
-<!-- comment -->
+Start with [Getting started](getting_started.md), then read the [event format](events/types.md), [recurrence format](events/recurring.md), and [migration and rollback guide](migration.md).
 
-![Sample Calendar](assets/sample-calendar.png)
-
-[![Support me on Ko-Fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/M4M1GQ84A)
+The rendering engine is [FullCalendar](https://fullcalendar.io/). Report fork-specific issues at [tjmisko/obsidian-full-calendar](https://github.com/tjmisko/obsidian-full-calendar/issues).

@@ -6,7 +6,7 @@ import {
     ParsedTime,
     TimeSchema,
     parseEvent,
-    serializeEvent,
+    validateEvent,
 } from "./schema";
 import fc from "fast-check";
 import { ZodFastCheck } from "zod-fast-check";
@@ -344,6 +344,29 @@ describe("schema parsing tests", () => {
         });
     });
 
+    it("logs only a fixed diagnostic for invalid private data", () => {
+        const privateSentinel = "SYNTHETIC_PRIVATE_FIELD_DO_NOT_LOG";
+        const debug = jest
+            .spyOn(console, "debug")
+            .mockImplementation(() => undefined);
+        try {
+            expect(
+                validateEvent({
+                    title: privateSentinel,
+                    date: privateSentinel,
+                })
+            ).toBeNull();
+            expect(debug).toHaveBeenCalledWith("Parsing failed with errors", {
+                issueCount: expect.any(Number),
+            });
+            expect(JSON.stringify(debug.mock.calls)).not.toContain(
+                privateSentinel
+            );
+        } finally {
+            debug.mockRestore();
+        }
+    });
+
     describe("property-based tests", () => {
         const zfc = ZodFastCheck()
             .override(
@@ -398,7 +421,7 @@ describe("schema parsing tests", () => {
             );
         });
 
-        it("roundtrips", () => {
+        it("normalizes parsed events idempotently", () => {
             const CommonArb = zfc.outputOf(CommonSchema);
             const TimeArb = zfc.outputOf(TimeSchema);
             const EventArb = zfc.outputOf(EventSchema);
@@ -412,9 +435,7 @@ describe("schema parsing tests", () => {
 
             fc.assert(
                 fc.property(OFCEventArbitrary, (event) => {
-                    const obj = serializeEvent(event);
-                    const newParsedEvent = parseEvent(obj);
-                    expect(newParsedEvent).toEqual(event);
+                    expect(parseEvent({ ...event })).toEqual(event);
                 })
             );
         });

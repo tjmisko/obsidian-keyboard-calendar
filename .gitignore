@@ -12,8 +12,8 @@ coverage/
 # Don't include the compiled main.js file in the repo.
 # They should be uploaded to GitHub releases instead.
 main.js
-# This is built as main.css and then moved as part of the
-# release process.
+# Esbuild names the CSS bundle main.css. The build mirrors it to the
+# styles.css filename Obsidian loads, while releases retain both workflows.
 styles.css
 main.css
 

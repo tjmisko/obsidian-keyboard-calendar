@@ -1,9 +1,224 @@
-import { TFile, TFolder, parseYaml } from "obsidian";
+import { parseYaml, TFile, TFolder } from "obsidian";
+import { DateTime } from "luxon";
 import { rrulestr } from "rrule";
-import { EventPathLocation } from "../core/EventStore";
 import { ObsidianInterface } from "../ObsidianAdapter";
-import { OFCEvent, EventLocation, validateEvent } from "../types";
-import { EditableCalendar, EditableEventResponse } from "./EditableCalendar";
+import {
+    fullNoteSourceId,
+    OFCEvent,
+    parseEvent,
+    validateEvent,
+} from "../types";
+import {
+    isDirectChildMarkdownPath,
+    LocalEventFile,
+    LocalEventReadAdapter,
+} from "../core/LocalEventIndex";
+
+export interface FullNoteEventPath {
+    path: string;
+}
+
+export interface FullNoteEventLocation {
+    file: { path: string };
+}
+
+export interface PersistedEventWrite {
+    location: FullNoteEventLocation;
+    event: OFCEvent;
+}
+
+export const FRIENDLY_RECURRENCE_ANCHOR = "1970-01-01";
+
+const WEEKDAY_CODES: Record<string, { simple: string; rrule: string }> = {
+    sunday: { simple: "U", rrule: "SU" },
+    monday: { simple: "M", rrule: "MO" },
+    tuesday: { simple: "T", rrule: "TU" },
+    wednesday: { simple: "W", rrule: "WE" },
+    thursday: { simple: "R", rrule: "TH" },
+    friday: { simple: "F", rrule: "FR" },
+    saturday: { simple: "S", rrule: "SA" },
+};
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null && !Array.isArray(value);
+
+const normalizeTags = (value: unknown): string[] => {
+    const tags = Array.isArray(value) ? value : [value];
+    return tags.flatMap((tag) =>
+        typeof tag === "string" && tag.trim()
+            ? tag
+                  .split(",")
+                  .map((item) => item.trim().replace(/^#/, ""))
+                  .filter(Boolean)
+            : []
+    );
+};
+
+const parseDate = (value: unknown): string | null => {
+    if (typeof value !== "string") {
+        return null;
+    }
+    const parsed = DateTime.fromFormat(value, "yyyy-MM-dd", { zone: "utc" });
+    return parsed.isValid && parsed.toFormat("yyyy-MM-dd") === value
+        ? value
+        : null;
+};
+
+const parseDateList = (value: unknown): string[] | null => {
+    if (value === undefined || value === null) {
+        return [];
+    }
+    if (!Array.isArray(value)) {
+        return null;
+    }
+
+    const dates = value.map(parseDate);
+    if (dates.some((date) => date === null)) {
+        return null;
+    }
+    return [...new Set(dates as string[])].sort();
+};
+
+const inclusiveToExclusiveDate = (date: string): string =>
+    DateTime.fromISO(date, { zone: "utc" }).plus({ days: 1 }).toISODate();
+
+const exclusiveToInclusiveDate = (date: string): string =>
+    DateTime.fromISO(date, { zone: "utc" }).minus({ days: 1 }).toISODate();
+
+const parseTime = (value: unknown): string | null => {
+    if (typeof value !== "string" || !/^\d{2}:\d{2}$/.test(value)) {
+        return null;
+    }
+    const parsed = DateTime.fromFormat(value, "HH:mm", { zone: "utc" });
+    return parsed.isValid && parsed.toFormat("HH:mm") === value ? value : null;
+};
+
+/**
+ * Convert the note-first event properties into the plugin's existing event
+ * model. The `event` tag deliberately opts a note into this strict schema;
+ * notes without it continue through the legacy parser.
+ */
+export function parseFullNoteEvent(
+    frontmatter: unknown,
+    filenameTitle: string
+): OFCEvent | null {
+    if (!isObject(frontmatter)) {
+        return null;
+    }
+
+    const tags = normalizeTags(frontmatter.tags);
+    const normalizedTags = tags.map((tag) => tag.toLowerCase());
+    const isFriendly = normalizedTags.includes("event");
+    const explicitTitle =
+        typeof frontmatter.title === "string"
+            ? frontmatter.title
+            : filenameTitle;
+
+    if (!isFriendly) {
+        return validateEvent({ ...frontmatter, title: explicitTitle });
+    }
+
+    const startTime = parseTime(frontmatter.start);
+    const endTime = parseTime(frontmatter.end);
+    if (!startTime || !endTime) {
+        return null;
+    }
+
+    const categories = tags.filter(
+        (_, index) => !["event", "recurring"].includes(normalizedTags[index])
+    );
+    const common = {
+        title: explicitTitle,
+        allDay: false as const,
+        startTime,
+        endTime,
+        ...(categories.length > 0 ? { categories } : {}),
+    };
+
+    if (!normalizedTags.includes("recurring")) {
+        const date =
+            frontmatter.date === undefined
+                ? undefined
+                : parseDate(frontmatter.date);
+        if (!date) {
+            return null;
+        }
+        const endDate =
+            endTime <= startTime
+                ? DateTime.fromISO(date, { zone: "utc" })
+                      .plus({ days: 1 })
+                      .toISODate()
+                : null;
+        return parseEvent({
+            ...common,
+            type: "single",
+            date,
+            endDate,
+        });
+    }
+
+    const recurrenceStartValue =
+        frontmatter["start-recurrence"] !== undefined
+            ? frontmatter["start-recurrence"]
+            : frontmatter.date;
+    const recurrenceStart =
+        recurrenceStartValue === undefined
+            ? undefined
+            : parseDate(recurrenceStartValue);
+    const recurrenceEnd =
+        frontmatter["end-recurrence"] === undefined
+            ? undefined
+            : parseDate(frontmatter["end-recurrence"]);
+    const skipDates = parseDateList(frontmatter.omit);
+    if (
+        recurrenceStart === null ||
+        recurrenceEnd === null ||
+        skipDates === null ||
+        (recurrenceStart && recurrenceEnd && recurrenceEnd < recurrenceStart)
+    ) {
+        return null;
+    }
+    const endRecur = recurrenceEnd
+        ? inclusiveToExclusiveDate(recurrenceEnd)
+        : undefined;
+
+    if (typeof frontmatter.weekday !== "string") {
+        return null;
+    }
+    const weekday = WEEKDAY_CODES[frontmatter.weekday.trim().toLowerCase()];
+    if (!weekday) {
+        return null;
+    }
+
+    if (frontmatter.week === undefined) {
+        return parseEvent({
+            ...common,
+            type: "recurring",
+            daysOfWeek: [weekday.simple],
+            skipDates,
+            ...(recurrenceStart ? { startRecur: recurrenceStart } : {}),
+            ...(endRecur ? { endRecur } : {}),
+        });
+    }
+
+    if (
+        typeof frontmatter.week !== "number" ||
+        !Number.isInteger(frontmatter.week) ||
+        frontmatter.week < 1 ||
+        frontmatter.week > 5
+    ) {
+        return null;
+    }
+
+    return parseEvent({
+        ...common,
+        type: "rrule",
+        startDate: recurrenceStart || FRIENDLY_RECURRENCE_ANCHOR,
+        rrule: `FREQ=MONTHLY;BYDAY=${frontmatter.week}${weekday.rrule}`,
+        skipDates,
+        ...(endRecur ? { endRecur } : {}),
+    });
+}
 
 const basenameFromEvent = (event: OFCEvent): string => {
     switch (event.type) {
@@ -62,7 +277,7 @@ function replaceFrontmatter(page: string, newFrontmatter: string): string {
     return `---\n${newFrontmatter}---${extractPageContents(page)}`;
 }
 
-type PrintableAtom = Array<number | string> | number | string | boolean;
+type PrintableAtom = Array<number | string> | number | string | boolean | null;
 
 function stringifyYamlAtom(v: PrintableAtom): string {
     let result = "";
@@ -83,47 +298,54 @@ function stringifyYamlLine(
     return `${String(k)}: ${stringifyYamlAtom(v)}`;
 }
 
-function newFrontmatter(fields: Partial<OFCEvent>): string {
-    return (
-        "---\n" +
-        Object.entries(fields)
-            .filter(([_, v]) => v !== undefined)
-            .map(([k, v]) => stringifyYamlLine(k, v))
-            .join("\n") +
-        "\n---\n"
-    );
+function stringifyYamlLines(
+    k: string | number | symbol,
+    v: PrintableAtom
+): string[] {
+    if (String(k) === "omit" && Array.isArray(v)) {
+        return [
+            `${String(k)}:`,
+            ...v.map((item) => `  - ${stringifyYamlAtom(item)}`),
+        ];
+    }
+    return [stringifyYamlLine(k, v)];
 }
 
 function modifyFrontmatterString(
     page: string,
-    modifications: Partial<OFCEvent>
+    modifications: Record<string, PrintableAtom | undefined>
 ): string {
     const frontmatter = extractFrontmatter(page)?.split("\n");
     let newFrontmatter: string[] = [];
     if (!frontmatter) {
         newFrontmatter = Object.entries(modifications)
-            .filter(([k, v]) => v !== undefined)
-            .map(([k, v]) => stringifyYamlLine(k, v));
+            .filter(([, v]) => v !== undefined)
+            .flatMap(([k, v]) => stringifyYamlLines(k, v as PrintableAtom));
         page = "\n" + page;
     } else {
         const linesAdded: Set<string | number | symbol> = new Set();
         // Modify rows in-place.
         for (let i = 0; i < frontmatter.length; i++) {
             const line: string = frontmatter[i];
-            const obj: Record<any, any> | null = parseYaml(line);
-            if (!obj) {
+            if (line === "" && (i === 0 || i === frontmatter.length - 1)) {
                 continue;
             }
-
-            const keys = Object.keys(obj) as [keyof OFCEvent];
-            if (keys.length !== 1) {
-                throw new Error("One YAML line parsed to multiple keys.");
+            const keyMatch = /^([A-Za-z0-9_-]+)\s*:/.exec(line);
+            if (!keyMatch) {
+                newFrontmatter.push(line);
+                continue;
             }
-            const key = keys[0];
+            const key = keyMatch[1];
             linesAdded.add(key);
-            const newVal: PrintableAtom | undefined = modifications[key];
+            const newVal = modifications[key];
             if (newVal !== undefined) {
-                newFrontmatter.push(stringifyYamlLine(key, newVal));
+                newFrontmatter.push(...stringifyYamlLines(key, newVal));
+                while (
+                    i + 1 < frontmatter.length &&
+                    /^\s+\S/.test(frontmatter[i + 1])
+                ) {
+                    i += 1;
+                }
             } else {
                 // Just push the old line if we don't have a modification.
                 newFrontmatter.push(line);
@@ -132,106 +354,263 @@ function modifyFrontmatterString(
 
         // Add all rows that were not originally in the frontmatter.
         newFrontmatter.push(
-            ...(Object.keys(modifications) as [keyof OFCEvent])
+            ...Object.keys(modifications)
                 .filter((k) => !linesAdded.has(k))
                 .filter((k) => modifications[k] !== undefined)
-                .map((k) =>
-                    stringifyYamlLine(k, modifications[k] as PrintableAtom)
+                .flatMap((k) =>
+                    stringifyYamlLines(k, modifications[k] as PrintableAtom)
                 )
         );
     }
     return replaceFrontmatter(page, newFrontmatter.join("\n") + "\n");
 }
 
-export default class FullNoteCalendar extends EditableCalendar {
+export function newTimedEventFrontmatter(event: OFCEvent): string {
+    if (
+        event.type !== "single" ||
+        event.allDay ||
+        !event.startTime ||
+        !event.endTime
+    ) {
+        throw new Error(
+            "Full-note events must have a date, start, and end time."
+        );
+    }
+    return [
+        "---",
+        `date: ${event.date}`,
+        `start: ${event.startTime}`,
+        `end: ${event.endTime}`,
+        "tags:",
+        "  - event",
+        "---",
+        "",
+    ].join("\n");
+}
+
+const isFriendlyFrontmatter = (frontmatter: unknown): boolean => {
+    if (!isObject(frontmatter)) {
+        return false;
+    }
+    return normalizeTags(frontmatter.tags)
+        .map((tag) => tag.toLowerCase())
+        .includes("event");
+};
+
+const friendlyModifications = (
+    event: OFCEvent
+): Record<string, PrintableAtom | undefined> => {
+    if (event.allDay) {
+        throw new Error("Note-first calendar events must remain timed.");
+    }
+    let date: string | undefined;
+    let endRecur: string | undefined;
+    let skipDates: string[] | undefined;
+    if (event.type === "single") {
+        date = event.date;
+    } else if (event.type === "recurring") {
+        endRecur = event.endRecur;
+        skipDates = event.skipDates;
+    } else {
+        const recurrenceStart =
+            event.startDate === FRIENDLY_RECURRENCE_ANCHOR
+                ? undefined
+                : event.startDate;
+        date = undefined;
+        endRecur = event.endRecur;
+        skipDates = event.skipDates;
+        return {
+            "start-recurrence": recurrenceStart,
+            "end-recurrence": endRecur
+                ? exclusiveToInclusiveDate(endRecur)
+                : undefined,
+            omit: skipDates?.length ? skipDates : undefined,
+            start: event.startTime,
+            end: event.endTime || undefined,
+        };
+    }
+    return {
+        date,
+        ...(event.type !== "single"
+            ? {
+                  "start-recurrence": event.startRecur,
+                  "end-recurrence": endRecur
+                      ? exclusiveToInclusiveDate(endRecur)
+                      : undefined,
+                  omit: skipDates?.length ? skipDates : undefined,
+              }
+            : {}),
+        start: event.startTime,
+        end: event.endTime || undefined,
+    };
+};
+
+const legacyModifications = (
+    event: OFCEvent
+): Record<string, PrintableAtom | undefined> => {
+    const modifications = {
+        ...event,
+    } as Record<string, PrintableAtom | undefined>;
+    // Categories travel through FullCalendar so cache state survives a
+    // drag/resize. Both values are unrelated to timing edits and must retain
+    // their original YAML representation; `completed` remains parse-compatible
+    // only.
+    delete modifications.categories;
+    delete modifications.completed;
+    return modifications;
+};
+
+export default class FullNoteCalendar implements LocalEventReadAdapter {
     app: ObsidianInterface;
+    readonly color: string;
     private _directory: string;
+    private friendlyPaths = new Set<string>();
 
     constructor(app: ObsidianInterface, color: string, directory: string) {
-        super(color);
         this.app = app;
+        this.color = color;
         this._directory = directory;
     }
     get directory(): string {
         return this._directory;
     }
 
-    get type(): "local" {
-        return "local";
+    get id(): string {
+        return fullNoteSourceId({
+            type: "local",
+            color: this.color,
+            directory: this.directory,
+        });
     }
 
-    get identifier(): string {
-        return this.directory;
-    }
-
-    get name(): string {
-        return this.directory;
-    }
-
-    async getEventsInFile(file: TFile): Promise<EditableEventResponse[]> {
-        const metadata = this.app.getMetadata(file);
-        let event = validateEvent(metadata?.frontmatter);
-        if (!event) {
-            return [];
-        }
-        if (!event.title) {
-            event.title = file.basename;
-        }
-        return [[event, { file, lineNumber: undefined }]];
-    }
-
-    private async getEventsInFolderRecursive(
-        folder: TFolder
-    ): Promise<EditableEventResponse[]> {
-        const events = await Promise.all(
-            folder.children.map(async (file) => {
-                if (file instanceof TFile) {
-                    return await this.getEventsInFile(file);
-                } else if (file instanceof TFolder) {
-                    return await this.getEventsInFolderRecursive(file);
-                } else {
-                    return [];
-                }
-            })
-        );
-        return events.flat();
-    }
-
-    async getEvents(): Promise<EditableEventResponse[]> {
-        const eventFolder = this.app.getAbstractFileByPath(this.directory);
+    listFiles(): readonly LocalEventFile[] {
+        const eventFolder = this.directory.replace(/^\/+|\/+$/g, "")
+            ? this.app.getAbstractFileByPath(this.directory)
+            : this.app.getRoot();
         if (!eventFolder) {
             throw new Error(`Cannot get folder ${this.directory}`);
         }
         if (!(eventFolder instanceof TFolder)) {
             throw new Error(`${eventFolder} is not a directory.`);
         }
-        const events: EditableEventResponse[] = [];
-        for (const file of eventFolder.children) {
-            if (file instanceof TFile) {
-                const results = await this.getEventsInFile(file);
-                events.push(...results);
-            }
-        }
-        return events;
+        return eventFolder.children.flatMap((file) =>
+            file instanceof TFile ? [{ path: file.path, handle: file }] : []
+        );
     }
 
-    async createEvent(event: OFCEvent): Promise<EventLocation> {
-        const path = `${this.directory}/${filenameForEvent(event)}`;
-        if (this.app.getAbstractFileByPath(path)) {
-            throw new Error(`Event at ${path} already exists.`);
+    async readEvent(
+        path: string,
+        listedFile?: LocalEventFile
+    ): Promise<OFCEvent | null> {
+        if (!isDirectChildMarkdownPath(this.directory, path)) {
+            return null;
         }
-        const file = await this.app.create(path, newFrontmatter(event));
-        return { file, lineNumber: undefined };
+        const file =
+            listedFile?.handle instanceof TFile
+                ? listedFile.handle
+                : this.app.getFileByPath(path);
+        if (!file) {
+            return null;
+        }
+        return parseFullNoteEvent(
+            this.app.getMetadata(file)?.frontmatter,
+            file.basename
+        );
+    }
+
+    async readEventFromDisk(path: string): Promise<OFCEvent | null> {
+        if (!isDirectChildMarkdownPath(this.directory, path)) {
+            return null;
+        }
+        const file = this.app.getFileByPath(path);
+        if (!file) return null;
+        const page = await this.app.read(file);
+        const rawFrontmatter = extractFrontmatter(page);
+        return parseFullNoteEvent(
+            rawFrontmatter ? parseYaml(rawFrontmatter) : null,
+            this.basenameForPath(path)
+        );
+    }
+
+    hasFile(path: string): boolean {
+        return this.app.getFileByPath(path) !== null;
+    }
+
+    getNewEventPath(): string {
+        let suffix = 0;
+        let path: string;
+        const directory = this.directory.replace(/\/+$/, "");
+        do {
+            const basename = `Untitled event${suffix ? ` ${suffix}` : ""}.md`;
+            path = directory ? `${directory}/${basename}` : basename;
+            suffix += 1;
+        } while (this.app.getAbstractFileByPath(path));
+
+        return path;
+    }
+
+    async createEvent(
+        event: OFCEvent,
+        plannedPath = this.getNewEventPath()
+    ): Promise<PersistedEventWrite> {
+        if (
+            event.type !== "single" ||
+            event.allDay ||
+            !event.startTime ||
+            !event.endTime
+        ) {
+            throw new Error(
+                "Full-note events must have a date, start, and end time."
+            );
+        }
+        if (!isDirectChildMarkdownPath(this.directory, plannedPath)) {
+            throw new Error(
+                `Event path ${plannedPath} is outside the configured folder.`
+            );
+        }
+        const file = await this.app.create(
+            plannedPath,
+            newTimedEventFrontmatter(event)
+        );
+        this.friendlyPaths.add(file.path);
+        const writtenFrontmatter = extractFrontmatter(
+            newTimedEventFrontmatter(event)
+        );
+        const persistedEvent = parseFullNoteEvent(
+            writtenFrontmatter ? parseYaml(writtenFrontmatter) : null,
+            this.basenameForPath(file.path)
+        );
+        if (!persistedEvent) {
+            throw new Error(`Created event note ${file.path} is not readable.`);
+        }
+        return {
+            location: { file },
+            event: persistedEvent,
+        };
+    }
+
+    private isFriendlyEventFile(path: string): boolean {
+        if (this.friendlyPaths.has(path)) {
+            return true;
+        }
+        const file = this.app.getFileByPath(path);
+        if (!file) {
+            return false;
+        }
+        return isFriendlyFrontmatter(this.app.getMetadata(file)?.frontmatter);
+    }
+
+    fileRenamed(oldPath: string, newPath: string): void {
+        if (this.friendlyPaths.delete(oldPath)) {
+            this.friendlyPaths.add(newPath);
+        }
     }
 
     getNewLocation(
-        location: EventPathLocation,
+        location: FullNoteEventPath,
         event: OFCEvent
-    ): EventLocation {
-        const { path, lineNumber } = location;
-        if (lineNumber !== undefined) {
-            throw new Error("Note calendar cannot handle inline events.");
-        }
+    ): FullNoteEventLocation {
+        const { path } = location;
         const file = this.app.getFileByPath(path);
         if (!file) {
             throw new Error(
@@ -239,15 +618,21 @@ export default class FullNoteCalendar extends EditableCalendar {
             );
         }
 
-        const updatedPath = `${file.parent.path}/${filenameForEvent(event)}`;
-        return { file: { path: updatedPath }, lineNumber: undefined };
+        if (this.isFriendlyEventFile(path)) {
+            return { file };
+        }
+
+        const parentPath = file.parent.path.replace(/\/+$/, "");
+        const updatedPath = parentPath
+            ? `${parentPath}/${filenameForEvent(event)}`
+            : filenameForEvent(event);
+        return { file: { path: updatedPath } };
     }
 
     async modifyEvent(
-        location: EventPathLocation,
-        event: OFCEvent,
-        updateCacheWithLocation: (loc: EventLocation) => void
-    ): Promise<void> {
+        location: FullNoteEventPath,
+        event: OFCEvent
+    ): Promise<PersistedEventWrite> {
         const { path } = location;
         const file = this.app.getFileByPath(path);
         if (!file) {
@@ -257,53 +642,41 @@ export default class FullNoteCalendar extends EditableCalendar {
         }
         const newLocation = this.getNewLocation(location, event);
 
-        updateCacheWithLocation(newLocation);
+        const friendly = this.isFriendlyEventFile(path);
+        const modifications = friendly
+            ? friendlyModifications(event)
+            : legacyModifications(event);
 
         if (file.path !== newLocation.file.path) {
             await this.app.rename(file, newLocation.file.path);
+            this.fileRenamed(path, newLocation.file.path);
         }
-        await this.app.rewrite(file, (page) =>
-            modifyFrontmatterString(page, event)
+        const persistedEvent = await this.app.rewrite<OFCEvent>(
+            file,
+            (page) => {
+                const nextPage = modifyFrontmatterString(page, modifications);
+                const rawFrontmatter = extractFrontmatter(nextPage);
+                const parsedEvent = parseFullNoteEvent(
+                    rawFrontmatter ? parseYaml(rawFrontmatter) : null,
+                    this.basenameForPath(newLocation.file.path)
+                );
+                if (!parsedEvent) {
+                    throw new Error(
+                        `Updated event note ${newLocation.file.path} is not readable.`
+                    );
+                }
+                return [nextPage, parsedEvent];
+            }
         );
-
-        return;
-    }
-
-    async move(
-        fromLocation: EventPathLocation,
-        toCalendar: EditableCalendar,
-        updateCacheWithLocation: (loc: EventLocation) => void
-    ): Promise<void> {
-        const { path, lineNumber } = fromLocation;
-        if (lineNumber !== undefined) {
-            throw new Error("Note calendar cannot handle inline events.");
-        }
-        if (!(toCalendar instanceof FullNoteCalendar)) {
+        if (!persistedEvent) {
             throw new Error(
-                `Event cannot be moved to a note calendar from a calendar of type ${toCalendar.type}.`
+                `Updated event note ${newLocation.file.path} is not readable.`
             );
         }
-        const file = this.app.getFileByPath(path);
-        if (!file) {
-            throw new Error(`File ${path} not found.`);
-        }
-        const destDir = toCalendar.directory;
-        const newPath = `${destDir}/${file.name}`;
-        updateCacheWithLocation({
-            file: { path: newPath },
-            lineNumber: undefined,
-        });
-        await this.app.rename(file, newPath);
+        return { location: newLocation, event: persistedEvent };
     }
 
-    deleteEvent({ path, lineNumber }: EventPathLocation): Promise<void> {
-        if (lineNumber !== undefined) {
-            throw new Error("Note calendar cannot handle inline events.");
-        }
-        const file = this.app.getFileByPath(path);
-        if (!file) {
-            throw new Error(`File ${path} not found.`);
-        }
-        return this.app.delete(file);
+    private basenameForPath(path: string): string {
+        return path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/i, "");
     }
 }

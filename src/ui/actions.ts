@@ -1,4 +1,4 @@
-import { MarkdownView, TFile, Vault, Workspace } from "obsidian";
+import { TFile, Vault, Workspace } from "obsidian";
 import EventCache from "src/core/EventCache";
 
 /**
@@ -8,31 +8,27 @@ import EventCache from "src/core/EventCache";
  * @param id event ID
  * @returns
  */
-export async function openFileForEvent(
+export async function openFullNoteForEvent(
     cache: EventCache,
     { workspace, vault }: { workspace: Workspace; vault: Vault },
     id: string
-) {
-    const details = cache.getInfoForEditableEvent(id);
+): Promise<boolean> {
+    const details = cache.getInfoForFullNoteEvent(id);
     if (!details) {
-        throw new Error("Event does not have local representation.");
+        return false;
     }
-    const {
-        location: { path, lineNumber },
-    } = details;
+    const { path } = details.location;
     let leaf = workspace.getMostRecentLeaf();
     const file = vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile)) {
-        return;
+        return false;
     }
     if (!leaf) {
-        return;
+        return false;
     }
     if (leaf.getViewState().pinned) {
         leaf = workspace.getLeaf("tab");
     }
     await leaf.openFile(file);
-    if (lineNumber && leaf.view instanceof MarkdownView) {
-        leaf.view.editor.setCursor({ line: lineNumber, ch: 0 });
-    }
+    return true;
 }

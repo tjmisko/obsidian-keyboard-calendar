@@ -8,7 +8,7 @@ body:
       attributes:
           value: |
               ## Before you start
-              Please **make sure you are on the latest version of Full Calendar.**
+              Please **make sure you are on the latest release of this lean fork.**
               If you encountered the issue after you installed, updated, or reloaded the Full Calendar plugin, **please try restarting obsidian before reporting the bug**.
 
     - type: checkboxes
@@ -17,7 +17,7 @@ body:
           label: "Please check that this issue hasn't been reported before."
           description: "The **Label filters** may help make your search more focussed."
           options:
-              - label: "I searched previous [Bug Reports](https://github.com/davish/obsidian-full-calendar/issues?q=is%3Aissue+is%3Aopen+label%3Abug) and didn't find any similar reports."
+              - label: "I searched previous [Bug Reports](https://github.com/tjmisko/obsidian-full-calendar/issues?q=is%3Aissue+is%3Aopen+label%3Abug) and didn't find any similar reports."
                 required: true
 
     - type: textarea
@@ -34,7 +34,7 @@ body:
           label: Current behaviour
           description: |
               Tell us what happens instead of the expected behavior.
-              Adding of screenshots really helps.
+              Screenshots can help, but redact private vault paths, note titles/content, URLs, tokens, and credentials.
       validations:
           required: true
 
@@ -43,23 +43,26 @@ body:
       attributes:
           label: JavaScript console output
           description: |
-              Go to `View->Toggle Developer Tools` and open up the JavaScript console, reproduce your bug, and copy/paste any logs you see there.
+              Go to `View->Toggle Developer Tools` and open the JavaScript console, then reproduce the bug. Before pasting logs, redact vault paths, note titles/content, URLs, tokens, credentials, and other private data.
 
     - type: textarea
       id: reproduce
       attributes:
           label: Steps to reproduce
           description: |
-              Which exact steps can a developer take to reproduce the issue? The more detail you provide, the easier it will be to narrow down and fix the bug.
+              Which exact steps can a developer take to reproduce the issue? Use synthetic names and redact private vault paths, note titles/content, URLs, tokens, and credentials.
       validations:
           required: true
 
-    - type: textarea
-      id: user-calendars
+    - type: dropdown
+      id: local-source-state
       attributes:
-          label: Calendar information
-          description: |
-              Please give as much detail as you can about the types of calendars you are using.
+          label: Local event-folder configuration
+          description: Select the configuration state. Do not include vault paths, note contents, URLs, credentials, or other private data.
+          options:
+              - One non-root event folder
+              - Legacy vault-root source
+              - No event folder configured
       validations:
           required: true
 
@@ -72,8 +75,6 @@ body:
               - label: macOS
               - label: Windows
               - label: Linux
-              - label: Android
-              - label: iOS
 
     - type: input
       id: obsidian-version

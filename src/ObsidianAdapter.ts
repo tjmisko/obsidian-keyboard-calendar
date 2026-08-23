@@ -1,7 +1,6 @@
 import {
     App,
     CachedMetadata,
-    EventRef,
     FileManager,
     MetadataCache,
     TAbstractFile,
@@ -21,6 +20,9 @@ export interface ObsidianInterface {
      */
     getAbstractFileByPath(path: string): TAbstractFile | null;
 
+    /** Return the vault root without relying on empty-path normalization. */
+    getRoot(): import("obsidian").TFolder;
+
     /**
      * @param path path to get the file for.
      * Get a file from the Vault. Returns null if file doesn't exist or is a folder.
@@ -33,20 +35,8 @@ export interface ObsidianInterface {
      */
     getMetadata(file: TFile): CachedMetadata | null;
 
-    /**
-     * Return a promise that will listen for cache updates if no metadata
-     * cache entry exists for a file yet.
-     * @param file
-     */
-    waitForMetadata(file: TFile): Promise<CachedMetadata>;
-
-    /**
-     * @param file file to read.
-     * Read a file from the vault.
-     */
+    /** Read current file bytes directly from the vault. */
     read(file: TFile): Promise<string>;
-
-    process<T>(file: TFile, func: (text: string) => T): Promise<T>;
 
     /**
      * Create a new file at the given path with the given contents.
@@ -92,13 +82,6 @@ export interface ObsidianInterface {
      * @param newPath new path for this file.
      */
     rename(file: TFile, newPath: string): Promise<void>;
-
-    /**
-     * Delete a file.
-     * @param file file to delete
-     * @param system set to true to send to system trash, otherwise Vault trash.
-     */
-    delete(file: TFile): Promise<void>;
 }
 
 /**
@@ -109,17 +92,11 @@ export class ObsidianIO implements ObsidianInterface {
     vault: Vault;
     metadataCache: MetadataCache;
     fileManager: FileManager;
-    systemTrash: boolean;
 
-    constructor(app: App, systemTrash: boolean = true) {
+    constructor(app: App) {
         this.vault = app.vault;
         this.metadataCache = app.metadataCache;
         this.fileManager = app.fileManager;
-        this.systemTrash = systemTrash;
-    }
-
-    delete(file: TFile): Promise<void> {
-        return this.vault.trash(file, this.systemTrash);
     }
 
     rename(file: TFile, newPath: string): Promise<void> {
@@ -156,6 +133,10 @@ export class ObsidianIO implements ObsidianInterface {
         return this.vault.getAbstractFileByPath(path);
     }
 
+    getRoot(): import("obsidian").TFolder {
+        return this.vault.getRoot();
+    }
+
     getFileByPath(path: string): TFile | null {
         const f = this.vault.getAbstractFileByPath(path);
         if (!f) {
@@ -171,40 +152,7 @@ export class ObsidianIO implements ObsidianInterface {
         return this.metadataCache.getFileCache(file);
     }
 
-    waitForMetadata(file: TFile): Promise<CachedMetadata> {
-        return new Promise((resolve, reject) => {
-            const cache = this.metadataCache.getFileCache(file);
-            let ref: EventRef | null = null;
-            if (cache) {
-                resolve(cache);
-                return;
-            }
-            ref = this.metadataCache.on(
-                "changed",
-                (changedFile, data, cache) => {
-                    if (changedFile.path !== file.path) {
-                        console.debug(
-                            "waitForMetadata(): a different file has changed. continue listening..."
-                        );
-                        return;
-                    }
-                    resolve(cache);
-                    if (ref) {
-                        this.metadataCache.offref(ref);
-                    } else {
-                        console.warn("No ref was found after cache loaded.");
-                    }
-                    return;
-                }
-            );
-        });
-    }
-
     read(file: TFile): Promise<string> {
-        return this.vault.cachedRead(file);
-    }
-
-    async process<T>(file: TFile, func: (text: string) => T): Promise<T> {
-        return func(await this.read(file));
+        return this.vault.read(file);
     }
 }

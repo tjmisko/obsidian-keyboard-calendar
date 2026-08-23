@@ -1,19 +1,14 @@
-import { Notice, TFile } from "obsidian";
-import equal from "deep-equal";
+import { TFile } from "obsidian";
 
-import { Calendar } from "../calendars/Calendar";
-import { EditableCalendar } from "../calendars/EditableCalendar";
-import EventStore, { StoredEvent } from "./EventStore";
-import { CalendarInfo, OFCEvent, validateEvent } from "../types";
-import RemoteCalendar from "../calendars/RemoteCalendar";
-import FullNoteCalendar from "../calendars/FullNoteCalendar";
+import FullNoteCalendar, {
+    FullNoteEventLocation,
+} from "../calendars/FullNoteCalendar";
+import { CalendarInfo, OFCEvent } from "../types";
+import { LocalEventIndex, LocalEventRecord } from "./LocalEventIndex";
 
-export type CalendarInitializerMap = Record<
-    CalendarInfo["type"],
-    (info: CalendarInfo) => Calendar | null
->;
+export type LocalCalendarInitializer = (info: CalendarInfo) => FullNoteCalendar;
 
-export type CacheEntry = { event: OFCEvent; id: string; calendarId: string };
+export type CacheEntry = { event: OFCEvent; id: string; sourceId: string };
 
 export type UpdateViewCallback = (
     info:
@@ -22,45 +17,28 @@ export type UpdateViewCallback = (
               toRemove: string[];
               toAdd: CacheEntry[];
           }
-        | { type: "calendar"; calendar: OFCEventSource }
         | { type: "resync" }
 ) => void;
 
-const SECOND = 1000;
-const MINUTE = 60 * SECOND;
-
-const MILLICONDS_BETWEEN_REVALIDATIONS = 5 * MINUTE;
-
-// TODO: Write tests for this function.
-export const eventsAreDifferent = (
-    oldEvents: OFCEvent[],
-    newEvents: OFCEvent[]
-): boolean => {
-    oldEvents.sort((a, b) => a.title.localeCompare(b.title));
-    newEvents.sort((a, b) => a.title.localeCompare(b.title));
-
-    // validateEvent() will normalize the representation of default fields in events.
-    oldEvents = oldEvents.flatMap((e) => validateEvent(e) || []);
-    newEvents = newEvents.flatMap((e) => validateEvent(e) || []);
-
-    console.debug("comparing events", oldEvents, newEvents);
-
-    if (oldEvents.length !== newEvents.length) {
-        return true;
-    }
-
-    const unmatchedEvents = oldEvents
-        .map((e, i) => ({ oldEvent: e, newEvent: newEvents[i] }))
-        .filter(({ oldEvent, newEvent }) => !equal(oldEvent, newEvent));
-
-    if (unmatchedEvents.length > 0) {
-        console.debug("unmached events when comparing", unmatchedEvents);
-    }
-
-    return unmatchedEvents.length > 0;
+const eventsEqual = (left: OFCEvent, right: OFCEvent): boolean => {
+    const leftKeys = Object.keys(left) as Array<keyof OFCEvent>;
+    const rightKeys = Object.keys(right) as Array<keyof OFCEvent>;
+    if (leftKeys.length !== rightKeys.length) return false;
+    return leftKeys.every((key) => {
+        if (!Object.prototype.hasOwnProperty.call(right, key)) return false;
+        const leftValue = left[key];
+        const rightValue = right[key];
+        if (Array.isArray(leftValue) && Array.isArray(rightValue)) {
+            return (
+                leftValue.length === rightValue.length &&
+                leftValue.every((value, index) => value === rightValue[index])
+            );
+        }
+        return leftValue === rightValue;
+    });
 };
 
-export type CachedEvent = Pick<StoredEvent, "event" | "id">;
+export type CachedEvent = Pick<LocalEventRecord, "event" | "id">;
 
 export type OFCEventSource = {
     events: CachedEvent[];
@@ -69,539 +47,516 @@ export type OFCEventSource = {
     id: string;
 };
 
-/**
- * Persistent event cache that also can write events back to disk.
- *
- * The EventCache acts as the bridge between the source-of-truth for
- * calendars (either the network or filesystem) and the FullCalendar view plugin.
- *
- * It maintains its own copy of all events which should be displayed on calendars
- * in the internal event format.
- *
- * Pluggable Calendar classes are responsible for parsing and serializing events
- * from their source, but the EventCache performs all I/O itself.
- *
- * Subscribers can register callbacks on the EventCache to be updated when events
- * change on disk.
- */
+interface MutationGuard {
+    paths: Set<string>;
+    queuedCallbacks: SuppressedVaultCallback[];
+}
+
+type SuppressedVaultCallback =
+    | { type: "changed"; path: string }
+    | { type: "deleted"; path: string }
+    | { type: "renamed"; oldPath: string; newPath: string };
+
+/** Runtime coordinator for the single configured full-note source. */
 export default class EventCache {
-    private calendarInfos: CalendarInfo[] = [];
-
-    private calendarInitializers: CalendarInitializerMap;
-
-    private store = new EventStore();
-    calendars = new Map<string, Calendar>();
-
-    private pkCounter = 0;
-
-    private revalidating = false;
-
-    generateId(): string {
-        return `${this.pkCounter++}`;
-    }
-
+    private createLocalCalendar: LocalCalendarInitializer;
+    private calendar: FullNoteCalendar | null = null;
+    private index = new LocalEventIndex(null);
+    private publishedRecordsById = new Map<string, LocalEventRecord>();
+    private publishedIdByPath = new Map<string, string>();
     private updateViewCallbacks: UpdateViewCallback[] = [];
-
+    private activeMutationsByPath = new Map<string, MutationGuard>();
+    private population: { epoch: number; promise: Promise<void> } | null = null;
     initialized = false;
 
-    lastRevalidation: number = 0;
-
-    constructor(calendarInitializers: CalendarInitializerMap) {
-        this.calendarInitializers = calendarInitializers;
+    constructor(createLocalCalendar: LocalCalendarInitializer) {
+        this.createLocalCalendar = createLocalCalendar;
     }
 
-    /**
-     * Flush the cache and initialize calendars from the initializer map.
-     */
     reset(infos: CalendarInfo[]): void {
-        this.lastRevalidation = 0;
         this.initialized = false;
-        this.calendarInfos = infos;
-        this.pkCounter = 0;
-        this.calendars.clear();
-        this.store.clear();
+        this.population = null;
+        const source = infos.find((info) => info.type === "local") || null;
+        this.calendar = source ? this.createLocalCalendar(source) : null;
+        const calendar = this.calendar;
+        this.index.reset(
+            calendar
+                ? { sourceId: calendar.id, directory: calendar.directory }
+                : null
+        );
+        this.establishPublicationBaseline();
         this.resync();
-        this.init();
     }
 
-    init() {
-        this.calendarInfos
-            .flatMap((s) => {
-                const cal = this.calendarInitializers[s.type](s);
-                return cal || [];
-            })
-            .forEach((cal) => this.calendars.set(cal.id, cal));
+    populate(): Promise<void> {
+        const calendar = this.calendar;
+        if (!calendar) {
+            this.initialized = true;
+            return Promise.resolve();
+        }
+        const epoch = this.index.epoch;
+        if (this.population?.epoch === epoch) {
+            return this.population.promise;
+        }
+        let promise: Promise<void>;
+        promise = this.populateEpoch(calendar, epoch).finally(() => {
+            if (this.population?.promise === promise) {
+                this.population = null;
+            }
+        });
+        this.population = { epoch, promise };
+        return promise;
     }
 
-    /**
-     * Populate the cache with events.
-     */
-    async populate(): Promise<void> {
-        if (!this.initialized || this.calendars.size === 0) {
-            this.init();
+    private async populateEpoch(
+        calendar: FullNoteCalendar,
+        epoch: number
+    ): Promise<void> {
+        while (epoch === this.index.epoch) {
+            const result = await this.index.populate(calendar);
+            if (result === "applied") {
+                if (epoch === this.index.epoch) {
+                    this.initialized = true;
+                    this.establishPublicationBaseline();
+                }
+                return;
+            }
         }
-        for (const calendar of this.calendars.values()) {
-            const results = await calendar.getEvents();
-            results.forEach(([event, location]) =>
-                this.store.add({
-                    calendar,
-                    location,
-                    id: event.id || this.generateId(),
-                    event,
-                })
-            );
-        }
-        this.initialized = true;
-        this.revalidateRemoteCalendars();
+        await this.populate();
     }
 
     resync(): void {
-        for (const callback of this.updateViewCallbacks) {
-            callback({ type: "resync" });
+        for (const callback of [...this.updateViewCallbacks]) {
+            try {
+                callback({ type: "resync" });
+            } catch (error) {
+                console.error("Full Calendar cache subscriber failed", error);
+            }
         }
     }
 
-    /**
-     * Get all events from the cache in a FullCalendar-friendly format.
-     * @returns EventSourceInputs for FullCalendar.
-     */
     getAllEvents(): OFCEventSource[] {
-        const result: OFCEventSource[] = [];
-        const eventsByCalendar = this.store.eventsByCalendar;
-        for (const [calId, calendar] of this.calendars.entries()) {
-            const events = eventsByCalendar.get(calId) || [];
-            result.push({
-                editable: calendar instanceof EditableCalendar,
-                events: events.map(({ event, id }) => ({ event, id })), // make sure not to leak location data past the cache.
+        const calendar = this.calendar;
+        if (!calendar) return [];
+        const events = this.index
+            .getImmutableRecordsForCache()
+            .map(({ event, id }) => ({ event, id }));
+        return [
+            {
+                editable: true,
+                events,
                 color: calendar.color,
-                id: calId,
-            });
-        }
-        return result;
+                id: calendar.id,
+            },
+        ];
     }
 
-    /**
-     * Check if an event is part of an editable calendar.
-     * @param id ID of event to check
-     * @returns
-     */
-    isEventEditable(id: string): boolean {
-        const calId = this.store.getEventDetails(id)?.calendarId;
-        if (!calId) {
-            return false;
-        }
-        const cal = this.getCalendarById(calId);
-        return cal instanceof EditableCalendar;
+    getEventById(id: string): OFCEvent | null {
+        return this.index.getRecord(id)?.event || null;
     }
 
-    getEventById(s: string): OFCEvent | null {
-        return this.store.getEventById(s);
+    hasLocalCalendar(): boolean {
+        return this.calendar !== null;
     }
 
-    getCalendarById(c: string): Calendar | undefined {
-        return this.calendars.get(c);
+    getInfoForFullNoteEvent(eventId: string): {
+        location: { path: string };
+    } | null {
+        const path = this.index.getPathForId(eventId);
+        if (!path) return null;
+        return {
+            location: { path },
+        };
     }
 
-    /**
-     * Get calendar and location information for a given event in an editable calendar.
-     * Throws an error if event is not found or if it does not have a location in the Vault.
-     * @param eventId ID of event in question.
-     * @returns Calendar and location for an event.
-     */
-    getInfoForEditableEvent(eventId: string) {
-        const details = this.store.getEventDetails(eventId);
-        if (!details) {
-            throw new Error(`Event ID ${eventId} not present in event store.`);
-        }
-        const { calendarId, location } = details;
-        const calendar = this.calendars.get(calendarId);
-        if (!calendar) {
-            throw new Error(`Calendar ID ${calendarId} is not registered.`);
-        }
-        if (!(calendar instanceof EditableCalendar)) {
-            // console.warn("Cannot modify event of type " + calendar.type);
-            throw new Error(`Read-only events cannot be modified.`);
-        }
-        if (!location) {
-            throw new Error(
-                `Event with ID ${eventId} does not have a location in the Vault.`
-            );
-        }
-        return { calendar, location };
-    }
-
-    ///
-    // View Callback functions
-    ///
-
-    /**
-     * Register a callback for a view.
-     * @param eventType event type (currently just "update")
-     * @param callback
-     * @returns reference to callback for de-registration.
-     */
-    on(eventType: "update", callback: UpdateViewCallback) {
-        switch (eventType) {
-            case "update":
-                this.updateViewCallbacks.push(callback);
-                break;
-        }
+    on(eventType: "update", callback: UpdateViewCallback): UpdateViewCallback {
+        if (eventType === "update") this.updateViewCallbacks.push(callback);
         return callback;
     }
 
-    /**
-     * De-register a callback for a view.
-     * @param eventType event type
-     * @param callback callback to remove
-     */
-    off(eventType: "update", callback: UpdateViewCallback) {
-        switch (eventType) {
-            case "update":
-                this.updateViewCallbacks.remove(callback);
-                break;
+    off(eventType: "update", callback: UpdateViewCallback): void {
+        if (eventType !== "update") return;
+        const index = this.updateViewCallbacks.indexOf(callback);
+        if (index >= 0) this.updateViewCallbacks.splice(index, 1);
+    }
+
+    async createEvent(event: OFCEvent): Promise<FullNoteEventLocation> {
+        const calendar = this.calendar;
+        if (!calendar) throw new Error("Local event source is not registered.");
+        const plannedPath = calendar.getNewEventPath();
+        const mutation = this.acquireMutationPaths([plannedPath]);
+        const mutationEpoch = this.index.epoch;
+        let released = false;
+        try {
+            const persisted = await calendar.createEvent(event, plannedPath);
+            const { location, event: persistedEvent } = persisted;
+            const finalPath = location.file.path;
+            if (finalPath !== plannedPath || !calendar.hasFile(finalPath)) {
+                throw new Error(
+                    `Created event note was not found at ${finalPath}.`
+                );
+            }
+            if (mutationEpoch !== this.index.epoch) {
+                this.releaseMutation(mutation);
+                released = true;
+                await this.reconcileMutationPaths([
+                    ...mutation.paths,
+                    finalPath,
+                ]);
+                return location;
+            }
+            this.index.commit(finalPath, persistedEvent);
+            this.publishTouched([finalPath]);
+            if (mutation.queuedCallbacks.length > 0) {
+                this.releaseMutation(mutation);
+                released = true;
+                await this.drainSuppressedCallbacks(mutation);
+            }
+            return location;
+        } catch (error) {
+            this.releaseMutation(mutation);
+            released = true;
+            await this.reconcileMutationPaths([...mutation.paths, plannedPath]);
+            throw error;
+        } finally {
+            if (!released) this.releaseMutation(mutation);
         }
     }
 
-    /**
-     * Push updates to all subscribers.
-     * @param toRemove IDs of events to remove from the view.
-     * @param toAdd Events to add to the view.
-     */
-    private updateViews(toRemove: string[], toAdd: CacheEntry[]) {
-        const payload = {
-            toRemove,
-            toAdd,
-        };
-
-        for (const callback of this.updateViewCallbacks) {
-            callback({ type: "events", ...payload });
-        }
-    }
-
-    private updateCalendar(calendar: OFCEventSource) {
-        for (const callback of this.updateViewCallbacks) {
-            callback({ type: "calendar", calendar });
-        }
-    }
-
-    ///
-    // Functions to update the cache from the view layer.
-    ///
-
-    /**
-     * Add an event to a given calendar.
-     * @param calendarId ID of calendar to add event to.
-     * @param event Event details
-     * @returns Returns true if successful, false otherwise.
-     */
-    async addEvent(calendarId: string, event: OFCEvent): Promise<boolean> {
-        const calendar = this.calendars.get(calendarId);
-        if (!calendar) {
-            throw new Error(`Calendar ID ${calendarId} is not registered.`);
-        }
-        if (!(calendar instanceof EditableCalendar)) {
-            console.error(
-                `Event cannot be added to non-editable calendar of type ${calendar.type}`
-            );
-            throw new Error(`Cannot add event to a read-only calendar`);
-        }
-        const location = await calendar.createEvent(event);
-        const id = this.store.add({
-            calendar,
-            location,
-            id: event.id || this.generateId(),
-            event,
-        });
-
-        this.updateViews([], [{ event, id, calendarId: calendar.id }]);
-        return true;
-    }
-
-    /**
-     * Delete an event by its ID.
-     * @param eventId ID of event to be deleted.
-     */
-    async deleteEvent(eventId: string): Promise<void> {
-        const { calendar, location } = this.getInfoForEditableEvent(eventId);
-        this.store.delete(eventId);
-        await calendar.deleteEvent(location);
-        this.updateViews([eventId], []);
-    }
-
-    /**
-     * Update an event with a given ID.
-     * @param eventId ID of event to update.
-     * @param newEvent new event contents
-     * @returns true if update was successful, false otherwise.
-     */
     async updateEventWithId(
         eventId: string,
         newEvent: OFCEvent
     ): Promise<boolean> {
-        const { calendar, location: oldLocation } =
-            this.getInfoForEditableEvent(eventId);
-        const { path, lineNumber } = oldLocation;
-        console.debug("updating event with ID", eventId);
-
-        await calendar.modifyEvent(
-            { path, lineNumber },
-            newEvent,
-            (newLocation) => {
-                this.store.delete(eventId);
-                this.store.add({
-                    calendar,
-                    location: newLocation,
-                    id: eventId,
-                    event: newEvent,
-                });
+        const oldRecord = this.index.getRecord(eventId);
+        const info = this.getInfoForFullNoteEvent(eventId);
+        const calendar = this.calendar;
+        if (!info || !calendar) throw new Error("Event does not exist");
+        const { location } = info;
+        if (!oldRecord) throw new Error("Event does not exist");
+        const persistedEvent = this.mergePersistedMetadata(
+            oldRecord.event,
+            newEvent
+        );
+        const oldPath = location.path;
+        const plannedPath = calendar.getNewLocation(location, persistedEvent)
+            .file.path;
+        const mutationPaths = [...new Set([oldPath, plannedPath])];
+        const mutation = this.acquireMutationPaths(mutationPaths);
+        const mutationEpoch = this.index.epoch;
+        let released = false;
+        try {
+            const persisted = await calendar.modifyEvent(
+                location,
+                persistedEvent
+            );
+            const { location: finalLocation, event: diskEvent } = persisted;
+            const finalPath = finalLocation.file.path;
+            if (finalPath !== plannedPath || !calendar.hasFile(finalPath)) {
+                throw new Error(
+                    `Updated event note was not found at ${finalPath}.`
+                );
             }
-        );
+            if (mutationEpoch !== this.index.epoch) {
+                this.releaseMutation(mutation);
+                released = true;
+                await this.reconcileMutationPaths([
+                    ...mutation.paths,
+                    oldPath,
+                    finalPath,
+                ]);
+                return true;
+            }
+            this.index.commitRename(oldPath, finalPath, diskEvent);
+            this.publishTouched([oldPath, finalPath]);
+            if (mutation.queuedCallbacks.length > 0) {
+                this.releaseMutation(mutation);
+                released = true;
+                await this.drainSuppressedCallbacks(mutation);
+            }
+            return true;
+        } catch (error) {
+            this.releaseMutation(mutation);
+            released = true;
+            await this.reconcileMutationPaths([...mutation.paths]);
+            throw error;
+        } finally {
+            if (!released) this.releaseMutation(mutation);
+        }
+    }
 
-        this.updateViews(
-            [eventId],
-            [{ id: eventId, calendarId: calendar.id, event: newEvent }]
+    processEvent(
+        id: string,
+        process: (event: OFCEvent) => OFCEvent
+    ): Promise<boolean> {
+        const event = this.getEventById(id);
+        if (!event) throw new Error("Event does not exist");
+        return this.updateEventWithId(id, process(event));
+    }
+
+    async fileUpdated(file: TFile): Promise<void> {
+        if (
+            this.queueSuppressedCallback({ type: "changed", path: file.path }, [
+                file.path,
+            ])
+        ) {
+            return;
+        }
+        const calendar = this.calendar;
+        if (!calendar) return;
+        try {
+            await this.index.refresh(file.path, calendar, {
+                path: file.path,
+                handle: file,
+            });
+        } finally {
+            this.publishTouched([file.path]);
+        }
+    }
+
+    async fileRenamed(file: TFile, oldPath: string): Promise<void> {
+        const calendar = this.calendar;
+        if (!calendar) return;
+        calendar.fileRenamed(oldPath, file.path);
+        if (
+            this.queueSuppressedCallback(
+                { type: "renamed", oldPath, newPath: file.path },
+                [oldPath, file.path]
+            )
+        ) {
+            return;
+        }
+        try {
+            await this.index.rename(oldPath, file.path, calendar, {
+                path: file.path,
+                handle: file,
+            });
+        } finally {
+            this.publishTouched([oldPath, file.path]);
+        }
+    }
+
+    fileDeleted(path: string): void {
+        if (this.queueSuppressedCallback({ type: "deleted", path }, [path])) {
+            return;
+        }
+        this.index.deletePath(path);
+        this.publishTouched([path]);
+    }
+
+    private acquireMutationPaths(paths: string[]): MutationGuard {
+        if (paths.some((path) => this.activeMutationsByPath.has(path))) {
+            throw new Error("An event note mutation is already in progress.");
+        }
+        const mutation: MutationGuard = {
+            paths: new Set(paths),
+            queuedCallbacks: [],
+        };
+        mutation.paths.forEach((path) => {
+            this.activeMutationsByPath.set(path, mutation);
+            this.index.invalidatePath(path);
+        });
+        return mutation;
+    }
+
+    private releaseMutation(mutation: MutationGuard): void {
+        mutation.paths.forEach((path) => {
+            if (this.activeMutationsByPath.get(path) === mutation) {
+                this.activeMutationsByPath.delete(path);
+            }
+        });
+    }
+
+    private queueSuppressedCallback(
+        callback: SuppressedVaultCallback,
+        paths: string[]
+    ): boolean {
+        const mutations = new Set(
+            paths.flatMap((path) => {
+                const mutation = this.activeMutationsByPath.get(path);
+                return mutation ? [mutation] : [];
+            })
         );
+        if (mutations.size === 0) return false;
+        for (const mutation of mutations) {
+            mutation.queuedCallbacks.push(callback);
+            for (const path of paths) {
+                mutation.paths.add(path);
+                if (!this.activeMutationsByPath.has(path)) {
+                    this.activeMutationsByPath.set(path, mutation);
+                }
+            }
+        }
         return true;
     }
 
-    /**
-     * Transform an event that's already in the event store.
-     *
-     * A more "type-safe" wrapper around updateEventWithId(),
-     * use this function if the caller is only modifying few
-     * known properties of an event.
-     * @param id ID of event to transform.
-     * @param process function to transform the event.
-     * @returns true if the update was successful.
-     */
-    processEvent(
-        id: string,
-        process: (e: OFCEvent) => OFCEvent
-    ): Promise<boolean> {
-        const event = this.store.getEventById(id);
-        if (!event) {
-            throw new Error("Event does not exist");
-        }
-        const newEvent = process(event);
-        console.debug("process", newEvent, process);
-        return this.updateEventWithId(id, newEvent);
-    }
-
-    async moveEventToCalendar(
-        eventId: string,
-        newCalendarId: string
+    private async drainSuppressedCallbacks(
+        mutation: MutationGuard
     ): Promise<void> {
-        const event = this.store.getEventById(eventId);
-        const details = this.store.getEventDetails(eventId);
-        if (!details || !event) {
-            throw new Error(
-                `Tried moving unknown event ID ${eventId} to calendar ${newCalendarId}`
-            );
-        }
-        const { calendarId: oldCalendarId, location } = details;
-
-        const oldCalendar = this.calendars.get(oldCalendarId);
-        if (!oldCalendar) {
-            throw new Error(`Source calendar ${oldCalendarId} did not exist.`);
-        }
-        const newCalendar = this.calendars.get(newCalendarId);
-        if (!newCalendar) {
-            throw new Error(`Source calendar ${newCalendarId} does not exist.`);
-        }
-
-        // TODO: Support moving around events between all sorts of editable calendars.
-        if (
-            !(
-                oldCalendar instanceof FullNoteCalendar &&
-                newCalendar instanceof FullNoteCalendar &&
-                location
-            )
-        ) {
-            throw new Error(
-                `Both calendars must be Full Note Calendars to move events between them.`
-            );
-        }
-
-        await oldCalendar.move(location, newCalendar, (newLocation) => {
-            this.store.delete(eventId);
-            this.store.add({
-                calendar: newCalendar,
-                location: newLocation,
-                id: eventId,
-                event,
-            });
-        });
-    }
-
-    ///
-    // Filesystem hooks
-    ///
-
-    /**
-     * Delete all events located at a given path and notify subscribers.
-     * @param path path of file that has been deleted
-     */
-    deleteEventsAtPath(path: string) {
-        this.updateViews([...this.store.deleteEventsAtPath(path)], []);
-    }
-
-    /**
-     * Main hook into the filesystem.
-     * This callback should be called whenever a file has been updated or created.
-     * @param file File which has been updated
-     * @returns nothing
-     */
-    async fileUpdated(file: TFile): Promise<void> {
-        console.debug("fileUpdated() called for file", file.path);
-
-        // Get all calendars that contain events stored in this file.
-        const calendars = [...this.calendars.values()].flatMap((c) =>
-            c instanceof EditableCalendar && c.containsPath(file.path) ? c : []
-        );
-
-        // If no calendars exist, return early.
-        if (calendars.length === 0) {
-            return;
-        }
-
-        const idsToRemove: string[] = [];
-        const eventsToAdd: CacheEntry[] = [];
-
-        for (const calendar of calendars) {
-            const oldEvents = this.store.getEventsInFileAndCalendar(
-                file,
-                calendar
-            );
-            // TODO: Relying on calendars for file I/O means that we're potentially
-            // reading the file from disk multiple times. Could be more effecient if
-            // we break the abstraction layer here.
-            console.debug("get events in file", file.path);
-            const newEvents = await calendar.getEventsInFile(file);
-
-            const oldEventsMapped = oldEvents.map(({ event }) => event);
-            const newEventsMapped = newEvents.map(([event, _]) => event);
-            console.debug("comparing events", file.path, oldEvents, newEvents);
-            // TODO: It's possible events are not different, but the location has changed.
-            const eventsHaveChanged = eventsAreDifferent(
-                oldEventsMapped,
-                newEventsMapped
-            );
-
-            // If no events have changed from what's in the cache, then there's no need to update the event store.
-            if (!eventsHaveChanged) {
-                console.debug(
-                    "events have not changed, do not update store or view."
-                );
-                return;
-            }
-            console.debug(
-                "events have changed, updating store and views...",
-                oldEvents,
-                newEvents
-            );
-
-            const newEventsWithIds = newEvents.map(([event, location]) => ({
-                event,
-                id: event.id || this.generateId(),
-                location,
-                calendarId: calendar.id,
-            }));
-
-            // If events have changed in the calendar, then remove all the old events from the store and add in new ones.
-            const oldIds = oldEvents.map((r: StoredEvent) => r.id);
-            oldIds.forEach((id: string) => {
-                this.store.delete(id);
-            });
-            newEventsWithIds.forEach(({ event, id, location }) => {
-                this.store.add({
-                    calendar,
-                    location,
-                    id,
-                    event,
-                });
-            });
-
-            idsToRemove.push(...oldIds);
-            eventsToAdd.push(...newEventsWithIds);
-        }
-
-        this.updateViews(idsToRemove, eventsToAdd);
-    }
-
-    /**
-     * Revalidate calendars asynchronously. This is not a blocking function: as soon as new data
-     * is available for any remote calendar, its data will be updated in the cache and any subscribing views.
-     */
-    revalidateRemoteCalendars(force = false) {
-        if (this.revalidating) {
-            console.warn("Revalidation already in progress.");
-            return;
-        }
-        const now = Date.now();
-
-        if (
-            !force &&
-            now - this.lastRevalidation < MILLICONDS_BETWEEN_REVALIDATIONS
-        ) {
-            console.debug("Last revalidation was too soon.");
-            return;
-        }
-
-        const remoteCalendars = [...this.calendars.values()].flatMap((c) =>
-            c instanceof RemoteCalendar ? c : []
-        );
-
-        console.warn("Revalidating remote calendars...");
-        this.revalidating = true;
-        const promises = remoteCalendars.map((calendar) => {
-            return calendar
-                .revalidate()
-                .then(() => calendar.getEvents())
-                .then((events) => {
-                    const deletedEvents = [
-                        ...this.store.deleteEventsInCalendar(calendar),
-                    ];
-                    const newEvents = events.map(([event, location]) => ({
-                        event,
-                        id: event.id || this.generateId(),
-                        location,
-                        calendarId: calendar.id,
-                    }));
-                    newEvents.forEach(({ event, id, location }) => {
-                        this.store.add({
-                            calendar,
-                            location,
-                            id,
-                            event,
-                        });
-                    });
-                    this.updateCalendar({
-                        id: calendar.id,
-                        editable: false,
-                        color: calendar.color,
-                        events: newEvents,
-                    });
-                });
-        });
-        Promise.allSettled(promises).then((results) => {
-            this.revalidating = false;
-            this.lastRevalidation = Date.now();
-            console.debug("All remote calendars have been fetched.");
-            const errors = results.flatMap((result) =>
-                result.status === "rejected" ? result.reason : []
-            );
-            if (errors.length > 0) {
-                new Notice(
-                    "A remote calendar failed to load. Check the console for more details."
-                );
-                errors.forEach((reason) => {
-                    console.error(`Revalidation failed with reason: ${reason}`);
-                });
+        const paths = mutation.queuedCallbacks.flatMap((callback) => {
+            switch (callback.type) {
+                case "changed":
+                case "deleted":
+                    return [callback.path];
+                case "renamed":
+                    return [callback.oldPath, callback.newPath];
             }
         });
+        await this.reconcileMutationPaths(paths);
     }
 
-    get _storeForTest() {
-        return this.store;
+    private async reconcileMutationPaths(paths: string[]): Promise<void> {
+        const calendar = this.calendar;
+        if (!calendar) return;
+        const epoch = this.index.epoch;
+        const uniquePaths = [...new Set(paths)];
+        uniquePaths.forEach((path) => this.index.commit(path, null));
+        const diskAdapter = {
+            listFiles: () => calendar.listFiles(),
+            readEvent: (path: string) => calendar.readEventFromDisk(path),
+        };
+        for (const path of uniquePaths) {
+            if (epoch !== this.index.epoch) break;
+            try {
+                await this.index.refresh(path, diskAdapter);
+            } catch (error) {
+                console.error(
+                    `Could not reconcile event note ${path} from disk`,
+                    error
+                );
+            }
+        }
+        this.publishTouched(uniquePaths);
+    }
+
+    private mergePersistedMetadata(
+        previous: OFCEvent,
+        requested: OFCEvent
+    ): OFCEvent {
+        const merged = { ...requested } as OFCEvent;
+        if (previous.id === undefined) {
+            delete merged.id;
+        } else {
+            merged.id = previous.id;
+        }
+        if (previous.categories === undefined) {
+            delete merged.categories;
+        } else {
+            merged.categories = [...previous.categories];
+        }
+        if (merged.type === "single") {
+            if (
+                previous.type === "single" &&
+                previous.completed !== undefined
+            ) {
+                merged.completed = previous.completed;
+            } else {
+                delete merged.completed;
+            }
+        }
+        return merged;
+    }
+
+    private establishPublicationBaseline(): void {
+        this.publishedRecordsById.clear();
+        this.publishedIdByPath.clear();
+        for (const record of this.index.getImmutableRecordsForCache()) {
+            this.publishedRecordsById.set(record.id, record);
+            this.publishedIdByPath.set(record.path, record.id);
+        }
+    }
+
+    private publishTouched(paths: string[]): void {
+        const toRemove = new Set<string>();
+        const toAdd: CacheEntry[] = [];
+        for (const path of new Set(paths)) {
+            const previousId = this.publishedIdByPath.get(path);
+            const previous = previousId
+                ? this.publishedRecordsById.get(previousId)
+                : undefined;
+            const currentId = this.index.getIdForPath(path);
+            const current = currentId
+                ? this.index.getImmutableRecordForCache(currentId)
+                : null;
+
+            if (
+                previous &&
+                (!current ||
+                    current.id !== previous.id ||
+                    !eventsEqual(previous.event, current.event))
+            ) {
+                toRemove.add(previous.id);
+            }
+            if (
+                current &&
+                (!previous ||
+                    previous.id !== current.id ||
+                    !eventsEqual(previous.event, current.event))
+            ) {
+                const publicRecord = this.index.getRecord(current.id);
+                if (!publicRecord) {
+                    throw new Error(
+                        `Event ${current.id} disappeared during publication.`
+                    );
+                }
+                toAdd.push({
+                    id: publicRecord.id,
+                    event: publicRecord.event,
+                    sourceId: publicRecord.sourceId,
+                });
+            }
+
+            if (previousId) {
+                this.publishedRecordsById.delete(previousId);
+                this.publishedIdByPath.delete(path);
+            }
+            if (current) {
+                this.publishedRecordsById.set(current.id, current);
+                this.publishedIdByPath.set(path, current.id);
+            }
+        }
+        if (toRemove.size > 0 || toAdd.length > 0) {
+            this.updateViews([...toRemove], toAdd);
+        }
+    }
+
+    private updateViews(toRemove: string[], toAdd: CacheEntry[]): void {
+        for (const callback of [...this.updateViewCallbacks]) {
+            try {
+                callback({
+                    type: "events",
+                    toRemove: [...toRemove],
+                    toAdd: toAdd.map(({ id, sourceId, event }) => ({
+                        id,
+                        sourceId,
+                        event: {
+                            ...event,
+                            ...(event.categories
+                                ? { categories: [...event.categories] }
+                                : {}),
+                            ...(event.type === "recurring"
+                                ? {
+                                      ...(event.daysOfWeek
+                                          ? {
+                                                daysOfWeek: [
+                                                    ...event.daysOfWeek,
+                                                ],
+                                            }
+                                          : {}),
+                                      ...(event.skipDates
+                                          ? {
+                                                skipDates: [...event.skipDates],
+                                            }
+                                          : {}),
+                                  }
+                                : event.type === "rrule" && event.skipDates
+                                ? { skipDates: [...event.skipDates] }
+                                : {}),
+                        },
+                    })),
+                });
+            } catch (error) {
+                console.error("Full Calendar cache subscriber failed", error);
+            }
+        }
     }
 }

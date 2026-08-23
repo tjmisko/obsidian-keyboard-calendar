@@ -1,9 +1,11 @@
 # Local calendar with full notes as events
 
-Keep each event in a calendar as a separate note in your Obsidian vault. This is currently the only option for editable events in Full Calendar. Events are stored as frontmatter on notes that is set and updated by the Full Calendar plugin when [managing events](../events/manage.md) in the calendar.
+Keep each event as a separate Markdown note in one configured vault folder. This is the only event source in the lean fork. The setup flow prefers an existing `events` folder.
 
-You are free to add any additional frontmatter to the notes, as well as any text content, like a description of the event, meeting notes, or anything else.
+Only Markdown files directly inside the configured folder are eligible; the `.md` extension match is case-insensitive. Nested notes and non-Markdown files are never indexed. A note appears only when its frontmatter matches the [event format](../events/types.md); the `event` tag opts a note into the strict note-first format.
 
-The note title is also managed by the plugin in the format `<YYYY-MM-DD> <Event title>`.md.
+You may add unrelated frontmatter and any Markdown content, such as descriptions, links, or meeting notes. Supported calendar edits preserve that content.
 
-![Add calendar](../assets/add-calendar-source.gif)
+New timed event notes start with an `Untitled event` filename and open as ordinary Markdown buffers so you can name and edit them normally. Full Calendar never offers a calendar action that deletes the backing note.
+
+Changing or removing the configured folder affects settings only. It never moves, rewrites, or deletes existing notes. Notes outside the selected folder remain on disk but are not displayed.
