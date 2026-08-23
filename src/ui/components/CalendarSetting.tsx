@@ -54,26 +54,6 @@ function HeadingSetting<T extends Partial<CalendarInfo>>({
     );
 }
 
-function UrlSetting<T extends Partial<CalendarInfo>>({
-    source,
-}: BasicProps<T>) {
-    let sourceWithUrl = source as SourceWith<T, { url: undefined }>;
-    return (
-        <div className="setting-item-control">
-            <input
-                disabled
-                type="text"
-                value={sourceWithUrl.url}
-                style={{
-                    width: "100%",
-                    marginLeft: 4,
-                    marginRight: 4,
-                }}
-            />
-        </div>
-    );
-}
-
 interface CalendarSettingsProps {
     setting: Partial<CalendarInfo>;
     onColorChange: (s: string) => void;
@@ -98,9 +78,7 @@ export const CalendarSettingRow = ({
                 <DirectorySetting source={setting} />
             ) : setting.type === "dailynote" ? (
                 <HeadingSetting source={setting} />
-            ) : (
-                <UrlSetting source={setting} />
-            )}
+            ) : null}
             <input
                 style={{ maxWidth: "25%", minWidth: "3rem" }}
                 type="color"

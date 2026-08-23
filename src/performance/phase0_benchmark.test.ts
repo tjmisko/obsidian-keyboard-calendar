@@ -55,7 +55,6 @@ const initializers: CalendarInitializerMap = {
     FOR_TEST_ONLY: (info: CalendarInfo) => new BenchmarkCalendar(info.color),
     local: () => null,
     dailynote: () => null,
-    ical: () => null,
 };
 
 const sample = async (

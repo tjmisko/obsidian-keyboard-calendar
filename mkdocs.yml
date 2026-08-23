@@ -36,7 +36,6 @@ nav:
     - Calendar Types:
           - calendars/local.md
           - calendars/dailynote.md
-          - calendars/ics.md
     - Events:
           - events/types.md
           - events/manage.md

@@ -137,7 +137,7 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 | Phase 0 safety harness | Accepted and integrated at `49d7db8`; adversarial `ACCEPT` | Complete |
 | Phase 1 dead connectors | Accepted and integrated at `f4bff77`; adversarial `ACCEPT` | Complete |
 | Phase 2 CalDAV removal | Accepted and integrated at `63c7b5f`; backup confirmed; adversarial `ACCEPT` | Complete |
-| Phase 3 remote boundary | `REMOVE_ICS` recorded; implementation in progress | Complete the removal gate and adversarial review |
+| Phase 3 remote boundary | `REMOVE_ICS` candidate `ACCEPT`; integration/adversarial review pending | Integrate the candidate and complete adversarial review |
 | D1 writable folders | Undecided; recommendation: one | Explicit user decision before Phase 6 design |
 | D2 folder traversal | Undecided; recommendation: direct child | Explicit user decision before Phase 6 design |
 | Sidebar bridge removal | Deferred compatibility work | Persisted migration marker, workspace backup, explicit acceptance or stated version boundary |
@@ -187,6 +187,21 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 - Acceptance: coordinator integration and adversarial review both `ACCEPT`; the Phase 3 gate is open.
 - Integrated result: commit `63c7b5f`; 16 suites passed, 183 tests passed, 2 todo, and 44 snapshots passed. Compile, lint, production build, `git diff --check`, lock-based dependency inventory, and removed-package/bundle searches passed. Integrated artifacts are `main.js` 2,350,334 bytes, `styles.css`/`main.css` 39,844 bytes, and `package-lock.json` 727,089 bytes. This is a 283,615-byte reduction from the accepted post-Phase-1 `main.js`.
 - Adversarial result: `ACCEPT`, with no correctness finding. Residual acceptance is limited to the documented live-Obsidian restart, navigation, history, network-observation, and real-vault preservation checks.
+
+### Phase 3 candidate record — 2026-08-22
+
+- Formal decision: `REMOVE_ICS`. The pinned Obsidian request API cannot abort, stream, time out, or byte-limit a response before materializing it, and the retained `ical.js` parser was synchronous. No proportionate transport/parser design met the hard timeout and main-thread-stall gate.
+- Migration behavior: settings version 3 is active. Raw legacy ICS objects are replaced with only `{ legacyType: "ical", removedAtVersion: 3 }`; raw CalDAV sources still produce version-2 envelopes. Existing allowlisted enum/integer envelopes, safe future envelopes, unrelated top-level settings, and future settings versions are preserved. The original raw source positions continue to determine numeric local defaults.
+- Secret gate: the synthetic bearer-style ICS URL and five CalDAV field sentinels are absent from persisted/runtime migration output, logs, Notices, and snapshots. Persisting a changed scrub remains awaited before cache initialization; a failed write aborts initialization; already-v3 output requests no second save.
+- Removed runtime/UI: `ICSCalendar`, `RemoteCalendar`, the ICS parser/tests/snapshots, vendor parser declaration, runtime source branch/initializer, URL inputs/displays, remote cache state and source-replacement callback, population/hover/manual revalidation, revalidate command, URL-derived identifiers, and `window.fc`/`window.cache` debug globals.
+- Removed dependency and documentation: direct `ical.js`, its only lock entries, ICS and obsolete Google-calendar documentation pages/navigation, and both remote setup GIFs. Luxon and RRule remain for local recurrence.
+- Automated gate: 15 suites passed; 186 tests passed, 2 todo; 42 snapshots passed. Compile, lint, production build, `git diff --check`, package/lock searches, runtime/bundle marker searches, and removed remote-path searches pass.
+- Production artifacts: `main.js` 2,166,809 bytes; `styles.css` and generated `main.css` 40,048 bytes each; `package-lock.json` 726,501 bytes. Against the accepted post-Phase-2 integrated `main.js` of 2,350,334 bytes, this candidate removes 183,525 bytes; the lockfile removes 588 bytes.
+- Dependency inventory: the lockfile and manifest contain no `ical.js`. The worktree's shared `node_modules` symlink still reports already-installed packages from the root checkout as extraneous; those packages are not part of the candidate manifest/lock production graph.
+- Documentation contract: README, architecture, getting-started, Phase 4/5/6/8 contracts, manual matrix, rollback language, and the final size target now describe only the local source model. No speculative remote-source design remains in dependent phases.
+- Manual matrix: not run in this headless worktree. No Obsidian application, vault, real plugin data, or network source was opened. Live restart/navigation/history, observed-zero-network, and real-vault data-preservation checks remain coordinator/release acceptance items.
+- Rollback: reject/revert the Phase 3 candidate and restore the user-controlled pre-migration plugin-data backup. Git alone cannot restore a bearer-style ICS URL after the activated v3 scrub.
+- Candidate recommendation: `ACCEPT`; integration and independent adversarial review remain required before Phase 4.
 
 ## Phase 0 — Safety harness and non-destructive migration framework
 
@@ -309,7 +324,7 @@ Gate:
 
 Rollback trigger: startup crash, secret retained/leaked unexpectedly, changed local source selection, or any note write. Rollback requires both reverting the phase commit and restoring the user-controlled pre-migration `data.json`; Git alone cannot reverse a saved credential scrub.
 
-## Phase 3 — Decide, then isolate and harden optional read-only ICS
+## Phase 3 — Remove read-only ICS and the remote boundary
 
 Owner: remote-boundary agent
 
@@ -317,55 +332,26 @@ Risk: medium/high; remote URLs may be bearer secrets
 
 Formal decision — 2026-08-22: `REMOVE_ICS`. The pinned Obsidian API exposes only fully materialized response bodies and accepts no abort signal, streaming control, timeout, or byte limit. The current `ical.js` parser is synchronous. Browser streaming would lose Obsidian's cross-origin request behavior, while a desktop Node transport would not cover the plugin's supported mobile runtime. A dual native transport plus worker parser is disproportionate to this lean fork, and no qualifying bounded design was demonstrated. The finished product is therefore local-only.
 
-First run a technical spike and record one formal branch decision:
-
-- `KEEP_ICS`: demonstrate a genuinely abortable, byte-bounded transport plus off-main-thread parsing or a parser with a strict pre-parse bound proven not to stall the main thread.
-- `REMOVE_ICS`: if that proof is unavailable or disproportionate, delete ICS runtime/UI/packages and make the product local-only.
-
-`obsidian.request()` currently returns a complete response without abort/streaming control, and `ical.js` parsing is synchronous. `Promise.race`, a post-response length check, or a post-parse event-count limit does not satisfy the hard timeout/stall gate.
-
-If `KEEP_ICS`, retain:
-
-- `src/calendars/ICSCalendar.ts`.
-- `src/calendars/parsing/ics.ts`.
-- `src/calendars/RemoteCalendar.ts` until Phase 8 narrows or replaces it.
-- `ical.js`, Luxon, and required recurrence support.
-
 Changes:
 
-- Make local-only startup and rendering perform zero remote work and emit zero remote-revalidation logs.
-- Remove revalidation from calendar mouse-enter.
-- Refresh once after initial source population and through the explicit revalidate command.
-- Scope concurrency and errors per ICS source rather than one global stuck flag. Audit `EventCache`, `Calendar`, and `CalendarView`, because they participate in refresh and source IDs.
-- Replace URL-derived calendar IDs/names with opaque stable source IDs. Redact every payload/source debug log and remove `window.fc`/`window.cache` debug globals so URLs cannot leak indirectly.
-- Enforce HTTPS or normalized `webcal` to HTTPS.
-- Use the proven abortable transport and byte bound before parsing; enforce event-count/recurrence bounds as defense in depth after parsing.
-- Fail a malformed or slow feed without blocking local rendering or other feeds.
+- Remove `ICSCalendar`, its synchronous parser/tests/snapshots, `RemoteCalendar`, the vendor parser declaration, and `ical.js`.
+- Remove the ICS runtime initializer/schema/settings controls, all remote refresh state/calls/logs, the revalidate command, mouse-enter refresh, URL-derived identifiers, and obsolete remote setup documentation/assets.
+- Remove the `window.fc` and `window.cache` debug globals.
+- Activate settings migration v3. Raw legacy ICS sources become only `{ legacyType: "ical", removedAtVersion: 3 }`; existing CalDAV envelopes retain version 2; safe future redacted envelopes and future settings versions are preserved.
+- Make local-only startup and rendering contain no network or generic remote connector path.
 
 Tests:
 
-- Zero-source no-op and no-log behavior.
-- Successful read-only feed load and refresh.
-- Concurrent refresh deduplication and manual-force behavior.
-- Network failure isolation.
-- Malformed and oversized feed rejection.
-- Duplicate UID/recurrence-ID handling.
-- Google-generated ICS, DST, timezone, and omission fixtures.
+- Pre-v2 mixed input produces CalDAV-v2 and ICS-v3 envelopes from the original raw slots.
+- Already-v2, current-v3, and future-version stale ICS sources scrub correctly without downgrade; a second migration is byte-equivalent and requests no save.
+- The bearer-style ICS sentinel is absent from persisted/runtime output, logs, Notices, and snapshots.
+- Numeric defaults still resolve against original raw positions, persistence precedes runtime initialization, and a failed persistence write aborts initialization.
+- Runtime types, command registration, source controls, and cache population contain no remote/revalidation path.
 
-Gate for `KEEP_ICS`:
+Gate:
 
-- Local-only startup makes zero network requests.
-- Hovering the calendar makes zero network requests.
-- One failing ICS source does not block local events or another ICS source.
-- No log contains a source URL or query token.
-- No main-thread stall is observed on bounded fixtures.
-
-Gate for `REMOVE_ICS`:
-
-- Remove `ICSCalendar`, `RemoteCalendar` if unused, `ical.js` if unused, ICS settings/UI, all remote refresh paths, and all URL-derived identifiers.
+- Removed runtime, parser, package, UI, command, documentation, and asset searches pass.
 - Local-only startup and rendering make zero network requests and contain no generic remote connector path.
-
-The coordinator records `KEEP_ICS` or `REMOVE_ICS` before Phase 4 and updates the target contract, Phases 6 and 8 types/settings, package list, manual matrix, and final size target accordingly. Do not carry both designs forward speculatively.
 
 ## Phase 4 — Remove DailyNoteCalendar but keep daily-note links
 
@@ -400,9 +386,9 @@ Gate:
 - No metadata listener parses inline daily-note event items.
 - No daily note is edited during migration or startup.
 - Full-note create/open/drag/resize/omit remains unchanged.
-- Record the baseline daily-note-source event set, assert exactly that set disappears, and assert normalized full-note and retained-ICS event sets are unchanged.
+- Record the baseline daily-note-source event set, assert exactly that set disappears, and assert normalized full-note event sets are unchanged.
 
-Rollback trigger: daily-note navigation failure, any daily-note content mutation, unexpected full-note/retained-ICS event-set change, or a disappearance delta different from the recorded daily-note-source set.
+Rollback trigger: daily-note navigation failure, any daily-note content mutation, unexpected full-note event-set change, or a disappearance delta different from the recorded daily-note-source set.
 
 ## Phase 5 — Remove task UI and calendar event editor
 
@@ -423,18 +409,17 @@ Context-menu cut:
 - Retain “Omit this occurrence” for recurring local notes.
 - Remove calendar-driven “Delete”; it deletes the entire event note and is too destructive for the lean surface.
 - Ordinary event click remains the path to the note.
-- Retained remote ICS events expose no editable action.
 - Remove `@ladle/react` and story-only setup here if deleting `EditEvent.stories.tsx` leaves no remaining stories.
 
 Editor cut:
 
 - Delete `src/ui/event_modal.ts`, `src/ui/components/EditEvent.tsx`, its stories, and `launchEditModal` routing.
 - Remove already-dead `launchCreateModal` code.
-- Make click routing explicitly discriminate local full-note events from read-only ICS events.
+- Make click routing explicitly admit only local full-note events to editable-note actions.
 
 Gate:
 
-- Local click opens the normal buffer; remote click never enters editable-note code.
+- Local full-note clicks open the normal buffer; non-editable events never enter editable-note code.
 - Selection creates a full-note event.
 - Drag, resize, and recurrence omission work for supported single/weekly events; nth-weekday recurrence is visibly non-draggable and remains editable through YAML/omission.
 - Unrelated frontmatter and note body remain byte-equivalent.
@@ -447,10 +432,9 @@ Owner: native-settings agent
 
 Risk: medium; largest bundle win
 
-Do not design this phase until D1 is recorded and Phase 3 has recorded `KEEP_ICS` or `REMOVE_ICS`. Then replace source/settings UI using Obsidian `Setting` and `Modal` primitives for:
+Do not design this phase until D1 is recorded and Phase 3 removal is accepted. Then replace source/settings UI using Obsidian `Setting` and `Modal` primitives for:
 
 - The confirmed one-or-multiple local full-note folder model and colors.
-- Optional read-only ICS URL/color only under `KEEP_ICS`.
 - Default writable local calendar only if D1 retains multiple local sources.
 - First day and desktop initial view.
 
@@ -470,8 +454,8 @@ Remove packages/config:
 
 Gate:
 
-- Add/remove/recolor the confirmed local source model and, under `KEEP_ICS`, ICS sources; select a local default only when relevant; save, restart, and reload successfully.
-- Invalid URLs/directories cannot be persisted through unsafe casts.
+- Add/remove/recolor the confirmed local source model; select a local default only when relevant; save, restart, and reload successfully.
+- Invalid directories cannot be persisted through unsafe casts.
 - No `.tsx`, React import, ReactDOM import, or React package remains.
 - Expected net `main.js` reduction from the accepted pre-Phase-6 baseline: at least 800,000 decimal bytes, plus absence of React/ReactDOM/scheduler/object-assign in the metafile and runtime dependency tree. Rebaseline the final absolute target after replacement code is measured.
 
@@ -509,7 +493,7 @@ Owner: core-index agent
 
 Risk: highest; do not combine with feature deletion
 
-Do not begin until Phases 1–7 are accepted and the final source set is frozen to `local` under `REMOVE_ICS` or `local | ics` under `KEEP_ICS`.
+Do not begin until Phases 1–7 are accepted and the final event-source set is frozen to `local`.
 
 Target model:
 
@@ -522,12 +506,6 @@ type LocalEventRecord = {
     event: OFCEvent;
 };
 
-type RemoteEventRecord = { // KEEP_ICS only
-    kind: "ics";
-    id: string;
-    sourceId: string;
-    event: OFCEvent;
-};
 ```
 
 Use stable, namespaced IDs, a record map by ID, and a local path-to-ID map. Replace generic relationships and line-number indexing only after a shadow index proves equivalence.
@@ -536,7 +514,7 @@ Candidate deletions after shadow equivalence:
 
 - `OneToMany` and daily-note line indexes.
 - Generic source initializer maps.
-- `EditableCalendar`/`RemoteCalendar` inheritance in favor of narrow local and ICS adapters.
+- `EditableCalendar` inheritance in favor of a narrow local adapter.
 - Cross-calendar move support if the product is reduced to one writable folder.
 - Generic add/move wrappers that no longer have multiple editable source types.
 
@@ -545,7 +523,7 @@ Required shadow phase:
 - Run old and new local indexes read-only over the same fixtures.
 - Compare normalized `{ sourceId, path, event }` sets.
 - Perform no writes from either index.
-- Use path-based local IDs that are stable across reparses and namespaced ICS UIDs. A rename intentionally emits remove-old/add-new because the path changes.
+- Use path-based local IDs that are stable across reparses. A rename intentionally emits remove-old/add-new because the path changes.
 - Exercise rename, delete, rapid modify, and failed write paths.
 
 Decision gates before implementation:
@@ -574,9 +552,9 @@ Owner: cleanup/documentation agent
 
 Final targets:
 
-- Rebaselined `main.js` target at or below approximately 1.50 MB with `KEEP_ICS`, and lower under `REMOVE_ICS`; record decimal bytes and the esbuild metafile rather than treating the planning estimate as a correctness assertion.
+- Rebaselined `main.js` target at or below approximately 1.30 MB after the planned React removal; record decimal bytes and the esbuild metafile rather than treating the planning estimate as a correctness assertion.
 - Zero network activity and zero remote logs for local-only configuration.
-- No stored CalDAV credentials after accepted migration.
+- No stored CalDAV credentials or legacy ICS URLs after accepted migrations.
 - No React runtime, CalDAV stack, dead FullCalendar connector, daily-note event parser, task UI, sidebar view, or synthetic editor code.
 - Full test/build/lint gate and manual acceptance matrix pass twice across Obsidian restarts.
 
@@ -618,14 +596,13 @@ Run after every user-visible phase:
 12. Verify unrelated YAML and note body remain unchanged.
 13. Open/create a daily note from a date header.
 14. Restart Obsidian twice and repeat open/back/hotkey checks.
-15. From Phase 3 onward and only under `KEEP_ICS`, test one valid, one failing, and one slow/malformed feed without exposing its URL.
 
 ## Global adversarial stop and rollback rules
 
 Reject and revert the current phase immediately if any of these occurs:
 
 - Old settings cannot boot.
-- A full-note/retained-ICS event’s path, title, date, time, recurrence, or source-scoped normalized set differs unexpectedly. Phase 4’s exactly measured daily-note-source disappearance is the sole planned count delta.
+- A full-note event’s path, title, date, time, recurrence, or source-scoped normalized set differs unexpectedly. Phase 4’s exactly measured daily-note-source disappearance is the sole planned count delta.
 - A migration or index writes an event note or daily note.
 - Unrelated frontmatter/body content changes.
 - Back/Forward, `full-calendar-open`, command palette, Escape, or same-leaf behavior regresses.

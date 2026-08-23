@@ -62,7 +62,6 @@ const initializerMap = (
     FOR_TEST_ONLY: cb,
     local: () => null,
     dailynote: () => null,
-    ical: () => null,
 });
 
 const extractEvents = (source: OFCEventSource): OFCEvent[] =>
@@ -116,6 +115,31 @@ describe("event cache with readonly calendar", () => {
         expect(extractEvents(sources[0])).toEqual([event]);
         expect(sources[0].color).toEqual("#000000");
         expect(sources[0].editable).toBeFalsy();
+    });
+
+    it("populates locally without a generic remote or network path", async () => {
+        const cache = makeCache([mockEvent()]);
+        const fetchSpy = jest
+            .spyOn(globalThis, "fetch")
+            .mockRejectedValue(new Error("network must not be used"));
+        const debugSpy = jest
+            .spyOn(console, "debug")
+            .mockImplementation(() => undefined);
+        const warnSpy = jest
+            .spyOn(console, "warn")
+            .mockImplementation(() => undefined);
+        try {
+            await cache.populate();
+            expect(fetchSpy).not.toHaveBeenCalled();
+            expect((cache as any).revalidateRemoteCalendars).toBeUndefined();
+            expect(
+                JSON.stringify([...debugSpy.mock.calls, ...warnSpy.mock.calls])
+            ).not.toMatch(/remote|revalidat/i);
+        } finally {
+            fetchSpy.mockRestore();
+            debugSpy.mockRestore();
+            warnSpy.mockRestore();
+        }
     });
 
     it("populates multiple events", async () => {

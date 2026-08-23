@@ -68,7 +68,6 @@ export function addCalendarButton(
                 (dropdown = d.addOptions({
                     local: "Full note",
                     dailynote: "Daily Note",
-                    ical: "Remote (.ics format)",
                 }))
         )
         .addExtraButton((button) => {

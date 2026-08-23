@@ -9,10 +9,12 @@ import {
     capturePersistedSettings,
     captureRuntimeSettingsBaseline,
     decodeSettings,
+    ICS_REMOVAL_VERSION,
     loadMigratedSettings,
     loadMigratedSettingsBeforeRuntime,
     migrateSettings,
     prepareSettingsSave,
+    SETTINGS_VERSION,
 } from "./migration";
 
 const SENTINELS = {
@@ -21,6 +23,7 @@ const SENTINELS = {
     homeUrl: "https://sentinel-home.example.test/SENTINEL_HOME_TOKEN/",
     username: "SENTINEL_CALDAV_USERNAME",
     password: "SENTINEL_CALDAV_PASSWORD",
+    icsUrl: "https://sentinel-ics.example.test/private.ics?token=SENTINEL_ICS_BEARER_TOKEN",
 };
 
 const local = (directory = "Events"): CalendarInfo => ({
@@ -28,9 +31,9 @@ const local = (directory = "Events"): CalendarInfo => ({
     directory,
     color: "#123456",
 });
-const ical: CalendarInfo = {
+const legacyIcs = {
     type: "ical",
-    url: "https://example.test/public-calendar.ics",
+    url: SENTINELS.icsUrl,
     color: "#234567",
 };
 const legacyCalDav = {
@@ -61,11 +64,13 @@ const expectNoSentinels = (value: unknown): void => {
 describe("settings decoder", () => {
     it.each([
         ["local-only", { calendarSources: [local()] }, ["local"]],
-        ["ICS-only", { calendarSources: [ical] }, ["ical"]],
+        ["ICS-only", { calendarSources: [legacyIcs] }, []],
         [
             "mixed local/ICS/CalDAV/daily-note",
-            { calendarSources: [local(), ical, legacyCalDav, dailynote] },
-            ["local", "ical", "dailynote"],
+            {
+                calendarSources: [local(), legacyIcs, legacyCalDav, dailynote],
+            },
+            ["local", "dailynote"],
         ],
         ["CalDAV-only", { calendarSources: [legacyCalDav] }, []],
     ])("loads the %s legacy fixture", (_name, input, expectedTypes) => {
@@ -124,6 +129,20 @@ describe("settings decoder", () => {
         });
     });
 
+    it("classifies a legacy ICS source without admitting it to runtime", () => {
+        const result = decodeSettings(
+            { calendarSources: [legacyIcs] },
+            undefined,
+            jest.fn()
+        );
+        expect(result.settings.calendarSources).toEqual([]);
+        expect(result.report.sourceCounts.ical).toEqual({
+            seen: 1,
+            accepted: 0,
+            rejected: 1,
+        });
+    });
+
     it("deeply validates nested initial-view state", () => {
         expect(
             decodeSettings(
@@ -152,7 +171,7 @@ describe("settings decoder", () => {
     });
 
     it("resolves old string and numeric local defaults", () => {
-        const calendarSources = [ical, local("Work"), local("Home")];
+        const calendarSources = [legacyIcs, local("Work"), local("Home")];
         expect(
             decodeSettings(
                 { calendarSources, defaultCalendar: 2 },
@@ -173,28 +192,31 @@ describe("settings decoder", () => {
         const calendarSources = [
             legacyCalDav,
             { type: "local", directory: 42, color: "red" },
+            legacyIcs,
             { type: "removed-source", token: "discard-me" },
             local("Indexed"),
             local("Fallback"),
         ];
         expect(
             decodeSettings(
-                { calendarSources, defaultCalendar: 3 },
+                { calendarSources, defaultCalendar: 4 },
                 undefined,
                 jest.fn()
             ).settings.defaultCalendar
         ).toBe("local::Indexed");
     });
 
-    it("filters unsupported sources before runtime initialization", () => {
+    it("filters removed sources before runtime initialization", () => {
         const settings = decodeSettings(
-            { calendarSources: [legacyCalDav, dailynote, local(), ical] },
-            ["local", "ical"],
+            {
+                calendarSources: [legacyCalDav, dailynote, local(), legacyIcs],
+            },
+            undefined,
             jest.fn()
         ).settings;
         expect(settings.calendarSources.map((source) => source.type)).toEqual([
+            "dailynote",
             "local",
-            "ical",
         ]);
     });
 
@@ -209,21 +231,16 @@ describe("settings decoder", () => {
     });
 });
 
-describe("active credential-removal migration", () => {
-    it("redacts every source-provided CalDAV field and is idempotent", () => {
+describe("active removed-source migration", () => {
+    it("redacts CalDAV and ICS with their canonical versions and is idempotent", () => {
         const input = {
-            calendarSources: [legacyCalDav, local("Events")],
-            defaultCalendar: 1,
+            calendarSources: [legacyCalDav, legacyIcs, local("Events")],
+            defaultCalendar: 2,
             initialView: { desktop: "timeGridWeek", mobile: "timeGrid3Days" },
         };
         const original = JSON.stringify(input);
         const log = jest.fn();
-        const first = migrateSettings(
-            input,
-            ["caldav"],
-            CALDAV_REMOVAL_VERSION,
-            log
-        );
+        const first = migrateSettings(input, log);
 
         expect(JSON.stringify(input)).toBe(original);
         expect(first.changed).toBe(true);
@@ -231,17 +248,13 @@ describe("active credential-removal migration", () => {
         expect(first.settings.defaultCalendar).toBe("local::Events");
         expect(first.settings.redactedLegacySources).toEqual([
             { legacyType: "caldav", removedAtVersion: CALDAV_REMOVAL_VERSION },
+            { legacyType: "ical", removedAtVersion: ICS_REMOVAL_VERSION },
         ]);
         expectNoSentinels(first.settings);
         expectNoSentinels(log.mock.calls);
         expectNoSentinels((Notice as any).notices || []);
 
-        const second = migrateSettings(
-            first.settings,
-            ["caldav"],
-            CALDAV_REMOVAL_VERSION,
-            log
-        );
+        const second = migrateSettings(first.settings, log);
         expect(second.settings).toEqual(first.settings);
         expect(JSON.stringify(second.settings)).toBe(
             JSON.stringify(first.settings)
@@ -258,8 +271,6 @@ describe("active credential-removal migration", () => {
                     { type: "caldav", password: "MALFORMED_SENTINEL" },
                 ],
             },
-            ["caldav"],
-            CALDAV_REMOVAL_VERSION,
             jest.fn()
         );
         const output = JSON.stringify(migrated.settings);
@@ -270,22 +281,47 @@ describe("active credential-removal migration", () => {
         ]);
     });
 
+    it("adds ICS v3 to an existing CalDAV v2 migration envelope", () => {
+        const migrated = migrateSettings(
+            {
+                settingsVersion: CALDAV_REMOVAL_VERSION,
+                calendarSources: [legacyIcs, local()],
+                redactedLegacySources: [
+                    {
+                        legacyType: "caldav",
+                        removedAtVersion: CALDAV_REMOVAL_VERSION,
+                    },
+                ],
+            },
+            jest.fn()
+        );
+
+        expect(migrated.settings.settingsVersion).toBe(SETTINGS_VERSION);
+        expect(migrated.settings.redactedLegacySources).toEqual([
+            { legacyType: "caldav", removedAtVersion: CALDAV_REMOVAL_VERSION },
+            { legacyType: "ical", removedAtVersion: ICS_REMOVAL_VERSION },
+        ]);
+        expectNoSentinels(migrated.settings);
+    });
+
     it("scrubs stale sources at current versions and never downgrades future versions", () => {
         const current = migrateSettings(
-            { settingsVersion: 2, calendarSources: [legacyCalDav] },
-            ["caldav"],
-            CALDAV_REMOVAL_VERSION,
+            {
+                settingsVersion: 3,
+                calendarSources: [legacyCalDav, legacyIcs],
+            },
             jest.fn()
         );
         const future = migrateSettings(
-            { settingsVersion: 17, calendarSources: [legacyCalDav] },
-            ["caldav"],
-            CALDAV_REMOVAL_VERSION,
+            {
+                settingsVersion: 17,
+                calendarSources: [legacyCalDav, legacyIcs],
+            },
             jest.fn()
         );
 
         expect(current.saveRequested).toBe(true);
-        expect(current.settings.settingsVersion).toBe(2);
+        expect(current.settings.settingsVersion).toBe(3);
         expect(future.saveRequested).toBe(true);
         expect(future.settings.settingsVersion).toBe(17);
         expectNoSentinels(current.settings);
@@ -296,7 +332,7 @@ describe("active credential-removal migration", () => {
         const migrated = migrateSettings(
             {
                 customPreference: { enabled: true },
-                calendarSources: [legacyCalDav],
+                calendarSources: [legacyCalDav, legacyIcs],
                 redactedLegacySources: [
                     {
                         legacyType: "caldav",
@@ -305,8 +341,6 @@ describe("active credential-removal migration", () => {
                     },
                 ],
             },
-            ["caldav"],
-            CALDAV_REMOVAL_VERSION,
             jest.fn()
         );
 
@@ -318,7 +352,38 @@ describe("active credential-removal migration", () => {
         );
         expect(migrated.settings.redactedLegacySources).toEqual([
             { legacyType: "caldav", removedAtVersion: CALDAV_REMOVAL_VERSION },
+            { legacyType: "ical", removedAtVersion: ICS_REMOVAL_VERSION },
         ]);
+    });
+
+    it("preserves safe future envelopes while scrubbing stale raw ICS", () => {
+        const first = migrateSettings(
+            {
+                settingsVersion: 17,
+                calendarSources: [legacyIcs],
+                redactedLegacySources: [
+                    {
+                        legacyType: "ical",
+                        removedAtVersion: 12,
+                        url: "ENVELOPE_URL_SENTINEL",
+                    },
+                ],
+            },
+            jest.fn()
+        );
+        expect(first.settings.settingsVersion).toBe(17);
+        expect(first.settings.redactedLegacySources).toEqual([
+            { legacyType: "ical", removedAtVersion: 12 },
+            { legacyType: "ical", removedAtVersion: ICS_REMOVAL_VERSION },
+        ]);
+        expect(JSON.stringify(first.settings)).not.toContain(
+            "ENVELOPE_URL_SENTINEL"
+        );
+        expectNoSentinels(first.settings);
+
+        const second = migrateSettings(first.settings, jest.fn());
+        expect(second.settings).toEqual(first.settings);
+        expect(second.saveRequested).toBe(false);
     });
 
     it.each(["icloud", "CalDAV", "CALDAV"])(
@@ -330,8 +395,6 @@ describe("active credential-removal migration", () => {
                         { type, password: "UNSUPPORTED_TYPE_SENTINEL" },
                     ],
                 },
-                ["caldav"],
-                CALDAV_REMOVAL_VERSION,
                 jest.fn()
             );
             expect(migrated.settings.calendarSources).toEqual([]);
@@ -343,8 +406,14 @@ describe("active credential-removal migration", () => {
     );
 
     it.each([
-        ["mixed", { calendarSources: [local(), legacyCalDav, dailynote] }],
+        [
+            "mixed",
+            {
+                calendarSources: [local(), legacyCalDav, legacyIcs, dailynote],
+            },
+        ],
         ["CalDAV-only", { calendarSources: [legacyCalDav] }],
+        ["ICS-only", { calendarSources: [legacyIcs] }],
         ["malformed root", null],
         [
             "malformed members",
@@ -367,12 +436,14 @@ describe("active credential-removal migration", () => {
                     operations.push("cache-reset");
                     for (const source of settings.calendarSources) {
                         expect(source.type).not.toBe("caldav");
+                        expect(source.type).not.toBe("ical");
                     }
                 },
                 jest.fn()
             );
             for (const source of result.settings.calendarSources) {
                 expect(source.type).not.toBe("caldav");
+                expect(source.type).not.toBe("ical");
             }
 
             expect(operations[0]).toBe("load");
@@ -397,11 +468,10 @@ describe("active credential-removal migration", () => {
         expect(initialize).not.toHaveBeenCalled();
     });
 
-    it("boots CalDAV-only data through cache population with no adapter effect", async () => {
+    it("boots removed-source-only data through cache population with no adapter effect", async () => {
         const forbiddenAdapterEffect = jest.fn(() => null);
         const initializers: CalendarInitializerMap = {
             local: forbiddenAdapterEffect,
-            ical: forbiddenAdapterEffect,
             dailynote: forbiddenAdapterEffect,
             FOR_TEST_ONLY: forbiddenAdapterEffect,
         };
@@ -409,7 +479,9 @@ describe("active credential-removal migration", () => {
 
         await expect(
             loadMigratedSettingsBeforeRuntime(
-                async () => ({ calendarSources: [legacyCalDav] }),
+                async () => ({
+                    calendarSources: [legacyCalDav, legacyIcs],
+                }),
                 async () => undefined,
                 async (settings) => {
                     cache.reset(settings.calendarSources);
@@ -422,11 +494,9 @@ describe("active credential-removal migration", () => {
         expect(cache.calendars.size).toBe(0);
     });
 
-    it("makes no persistence call for already-migrated settings", async () => {
+    it("makes no persistence call for already-v3 settings", async () => {
         const first = migrateSettings(
             { calendarSources: [legacyCalDav, local()] },
-            ["caldav"],
-            CALDAV_REMOVAL_VERSION,
             jest.fn()
         );
         const persist = jest.fn(async () => undefined);
@@ -474,8 +544,6 @@ describe("production persistence after migration", () => {
     it("preserves the version and redacted envelope during unrelated saves", () => {
         const migrated = migrateSettings(
             { calendarSources: [legacyCalDav, local("Events")] },
-            ["caldav"],
-            CALDAV_REMOVAL_VERSION,
             jest.fn()
         ).settings;
         const persisted = capturePersistedSettings(migrated);
@@ -486,7 +554,7 @@ describe("production persistence after migration", () => {
 
         expect(prepared.changed).toBe(true);
         expect(prepared.persisted.firstDay).toBe(1);
-        expect(prepared.persisted.settingsVersion).toBe(CALDAV_REMOVAL_VERSION);
+        expect(prepared.persisted.settingsVersion).toBe(SETTINGS_VERSION);
         expect(prepared.persisted.redactedLegacySources).toEqual([
             { legacyType: "caldav", removedAtVersion: CALDAV_REMOVAL_VERSION },
         ]);
@@ -496,8 +564,6 @@ describe("production persistence after migration", () => {
     it("requests no write when runtime settings are untouched", () => {
         const migrated = migrateSettings(
             { calendarSources: [legacyCalDav, local("Events")] },
-            ["caldav"],
-            CALDAV_REMOVAL_VERSION,
             jest.fn()
         ).settings;
         const prepared = prepareSettingsSave(
@@ -517,7 +583,7 @@ describe("production persistence after migration", () => {
         };
         const current = decodeSettings(input, undefined, jest.fn()).settings;
         const baseline = captureRuntimeSettingsBaseline(current);
-        current.calendarSources.push(ical);
+        current.calendarSources.push(dailynote);
         current.initialView.desktop = "dayGridMonth";
 
         const first = prepareSettingsSave(input, baseline, current);
@@ -534,7 +600,7 @@ describe("production persistence after migration", () => {
             (second.persisted.calendarSources as CalendarInfo[]).map(
                 (source) => source.type
             )
-        ).toEqual(["local", "ical", "local"]);
+        ).toEqual(["local", "dailynote", "local"]);
         expect(second.persisted.initialView).toEqual({
             desktop: "dayGridMonth",
             mobile: "listWeek",

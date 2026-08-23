@@ -5,11 +5,19 @@ import {
     resolveDefaultFullNoteCalendar,
 } from "../types/calendar_settings";
 
-export const CALDAV_REMOVAL_VERSION = 2;
-export const SETTINGS_VERSION = CALDAV_REMOVAL_VERSION;
-
 export type PersistedSourceType = "local" | "ical" | "caldav" | "dailynote";
 export type SourceTypeBucket = PersistedSourceType | "unknown";
+
+export const CALDAV_REMOVAL_VERSION = 2;
+export const ICS_REMOVAL_VERSION = 3;
+export const SETTINGS_VERSION = ICS_REMOVAL_VERSION;
+
+export const REMOVED_SOURCE_VERSIONS: Readonly<
+    Partial<Record<PersistedSourceType, number>>
+> = {
+    caldav: CALDAV_REMOVAL_VERSION,
+    ical: ICS_REMOVAL_VERSION,
+};
 
 export interface FullCalendarSettings {
     calendarSources: CalendarInfo[];
@@ -77,7 +85,6 @@ const SOURCE_TYPES: readonly PersistedSourceType[] = [
 ];
 const RUNTIME_SOURCE_TYPES: readonly PersistedSourceType[] = [
     "local",
-    "ical",
     "dailynote",
 ];
 
@@ -143,9 +150,10 @@ const readRedactedLegacySources = (
         ) {
             return [];
         }
+        const legacyType = entry.legacyType as PersistedSourceType;
         return [
             {
-                legacyType: entry.legacyType as PersistedSourceType,
+                legacyType,
                 removedAtVersion: entry.removedAtVersion,
             },
         ];
@@ -296,16 +304,18 @@ export const capturePersistedSettings = <T>(settings: T): T =>
  */
 export function migrateSettings(
     input: unknown,
-    removedTypes: readonly PersistedSourceType[],
-    targetVersion: number,
     log: (message: string, details: unknown) => void = console.debug
 ): MigrationResult {
+    const removalVersions = REMOVED_SOURCE_VERSIONS;
+    const targetVersion = SETTINGS_VERSION;
     const { settings: decoded, report } = decodeSettings(
         input,
         RUNTIME_SOURCE_TYPES,
         log
     );
-    const removed = new Set(removedTypes);
+    const removed = new Set(
+        Object.keys(removalVersions) as PersistedSourceType[]
+    );
     const retainedSources = decoded.calendarSources.filter(
         (source) => source.type === "FOR_TEST_ONLY" || !removed.has(source.type)
     );
@@ -321,11 +331,13 @@ export function migrateSettings(
     // into the envelope or serialized to diagnostics.
     const newEnvelopes = rawSources.flatMap((source) => {
         const legacyType = bucketSourceType(source);
-        return legacyType !== "unknown" && removed.has(legacyType)
+        const removedAtVersion =
+            legacyType === "unknown" ? undefined : removalVersions[legacyType];
+        return removedAtVersion !== undefined
             ? [
                   {
                       legacyType,
-                      removedAtVersion: targetVersion,
+                      removedAtVersion,
                   } as RedactedLegacyEnvelope,
               ]
             : [];
@@ -375,12 +387,7 @@ export async function loadMigratedSettings(
     log: (message: string, details: unknown) => void = console.debug
 ): Promise<MigrationResult> {
     const loaded = await load();
-    const migrated = migrateSettings(
-        loaded,
-        ["caldav"],
-        CALDAV_REMOVAL_VERSION,
-        log
-    );
+    const migrated = migrateSettings(loaded, log);
     if (migrated.saveRequested) {
         await persist(migrated.settings);
     }

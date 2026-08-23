@@ -21,7 +21,6 @@ import EventCache from "./core/EventCache";
 import { ObsidianIO } from "./ObsidianAdapter";
 import FullNoteCalendar from "./calendars/FullNoteCalendar";
 import DailyNoteCalendar from "./calendars/DailyNoteCalendar";
-import ICSCalendar from "./calendars/ICSCalendar";
 import EventNoteEditor from "./ui/EventNoteEditor";
 import {
     capturePersistedSettings,
@@ -56,8 +55,6 @@ export default class FullCalendarPlugin extends Plugin {
                       info.heading
                   )
                 : null,
-        ical: (info) =>
-            info.type === "ical" ? new ICSCalendar(info.color, info.url) : null,
         FOR_TEST_ONLY: () => null,
     });
 
@@ -186,9 +183,6 @@ export default class FullCalendarPlugin extends Plugin {
             })
         );
 
-        // @ts-ignore
-        window.cache = this.cache;
-
         registerCalendarViews<WorkspaceLeaf, CalendarView>(
             (type, creator) => this.registerView(type, creator),
             (leaf, inSidebar) => new CalendarView(leaf, this, inSidebar)
@@ -231,9 +225,6 @@ export default class FullCalendarPlugin extends Plugin {
                                 FULL_CALENDAR_SIDEBAR_VIEW_TYPE
                             );
                             new Notice("Full Calendar has been reset.");
-                            return;
-                        case "full-calendar-revalidate":
-                            this.cache.revalidateRemoteCalendars(true);
                             return;
                         case "full-calendar-open":
                             void this.activateView();

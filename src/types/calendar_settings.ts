@@ -4,7 +4,6 @@ import { OFCEvent } from "./schema";
 const calendarOptionsSchema = z.discriminatedUnion("type", [
     z.object({ type: z.literal("local"), directory: z.string() }),
     z.object({ type: z.literal("dailynote"), heading: z.string() }),
-    z.object({ type: z.literal("ical"), url: z.string().url() }),
 ]);
 
 const colorValidator = z.object({ color: z.string() });
@@ -84,7 +83,7 @@ export function safeParseCalendarInfo(obj: unknown): CalendarInfo | null {
                     typeof obj === "object" &&
                     obj !== null &&
                     !Array.isArray(obj) &&
-                    ["local", "ical", "dailynote"].includes(
+                    ["local", "dailynote"].includes(
                         String((obj as { type?: unknown }).type)
                     )
                         ? String((obj as { type?: unknown }).type)

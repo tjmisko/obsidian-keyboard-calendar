@@ -32,12 +32,14 @@ describe("plugin registration seams", () => {
     it("registers the stable open command through an injectable callback", () => {
         const register = jest.fn();
         registerCalendarCommands(register, (metadata) => metadata);
-        expect(register).toHaveBeenCalledTimes(
-            CALENDAR_COMMAND_METADATA.length
-        );
+        expect(CALENDAR_COMMAND_METADATA).toHaveLength(4);
+        expect(register).toHaveBeenCalledTimes(4);
         expect(register).toHaveBeenCalledWith({
             id: "full-calendar-open",
             name: "Open Calendar",
         });
+        expect(CALENDAR_COMMAND_METADATA.map(({ id }) => id)).not.toContain(
+            "full-calendar-revalidate"
+        );
     });
 });

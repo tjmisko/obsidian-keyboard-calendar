@@ -9,7 +9,6 @@ export const CALENDAR_VIEW_REGISTRATIONS = [
 export const CALENDAR_COMMAND_METADATA = [
     { id: "full-calendar-new-event", name: "New Event" },
     { id: "full-calendar-reset", name: "Reset Event Cache" },
-    { id: "full-calendar-revalidate", name: "Revalidate remote calendars" },
     { id: "full-calendar-open", name: "Open Calendar" },
     { id: "full-calendar-open-sidebar", name: "Open in sidebar" },
 ] as const;

@@ -4,7 +4,7 @@ import {
 } from "./calendar_settings";
 
 const sources: CalendarInfo[] = [
-    { type: "ical", url: "https://example.com/calendar.ics", color: "red" },
+    { type: "dailynote", heading: "Calendar", color: "red" },
     { type: "local", directory: "Events/Work", color: "blue" },
     { type: "local", directory: "Events/Home", color: "green" },
 ];

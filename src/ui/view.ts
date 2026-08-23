@@ -420,9 +420,7 @@ export class CalendarView extends ItemView {
                     );
                 } else {
                     menu.addItem((item) => {
-                        item.setTitle(
-                            "No actions available on remote events"
-                        ).setDisabled(true);
+                        item.setTitle("No actions available").setDisabled(true);
                     });
                 }
 
@@ -451,13 +449,6 @@ export class CalendarView extends ItemView {
                 return true;
             },
         });
-        // @ts-ignore
-        window.fc = this.fullCalendarView;
-
-        this.registerDomEvent(this.containerEl, "mouseenter", () => {
-            this.plugin.cache.revalidateRemoteCalendars();
-        });
-
         if (this.callback) {
             this.plugin.cache.off("update", this.callback);
             this.callback = null;
@@ -500,20 +491,6 @@ export class CalendarView extends ItemView {
                         calendarId
                     );
                     console.debug("event that was added", addedEvent);
-                });
-            } else if (payload.type == "calendar") {
-                const {
-                    calendar: { id, events, editable, color },
-                } = payload;
-                console.debug("replacing calendar with id", payload.calendar);
-                this.fullCalendarView?.getEventSourceById(id)?.remove();
-                this.fullCalendarView?.addEventSource({
-                    id,
-                    events: events.flatMap(
-                        ({ id, event }) => toEventInput(id, event) || []
-                    ),
-                    editable,
-                    ...getCalendarColors(color),
                 });
             }
         });

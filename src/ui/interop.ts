@@ -266,7 +266,7 @@ export function toEventInput(
             return null;
         }
         // NOTE: this supports one occurrence per recurrence date, matching the
-        // note-first recurrence format and the existing ICS behavior.
+        // note-first recurrence format.
         const exdate = getRecurrenceExceptions(frontmatter.skipDates, dtstart);
 
         event = {
