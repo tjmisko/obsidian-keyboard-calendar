@@ -94,10 +94,11 @@
 
 .fc .fc-daygrid .fc-col-header-cell-cushion {
 	color: var(--text-faint);
-	font-size: 0.76rem;
+	font-size: 0.68rem;
 	font-variant-caps: all-small-caps;
 	font-weight: var(--font-medium, 500);
-	letter-spacing: 0.08em;
+	letter-spacing: 0.06em;
+	white-space: nowrap;
 }
 
 .fc .fc-daygrid .fc-daygrid-day-number {
@@ -153,6 +154,10 @@
 	color: var(--text-muted);
 }
 
+.fc .fc-col-header-cell {
+	container-type: inline-size;
+}
+
 .fc .ofc-day-header {
 	display: flex;
 	flex-direction: column;
@@ -165,16 +170,20 @@
 
 .fc .ofc-day-header-weekday {
 	color: var(--text-faint);
-	font-size: clamp(0.68rem, 0.72vw, 0.78rem);
+	font-size: 0.64rem;
+	font-size: clamp(0.5rem, 11cqw, 0.64rem);
 	font-variant-caps: all-small-caps;
 	font-weight: var(--font-semibold, 600);
-	letter-spacing: 0.08em;
+	letter-spacing: 0.06em;
+	white-space: nowrap;
 }
 
 .fc .ofc-day-header-date {
 	color: color-mix(in srgb, var(--text-normal) 72%, transparent);
-	font-size: clamp(0.68rem, 0.78vw, 0.82rem);
+	font-size: 0.68rem;
+	font-size: clamp(0.52rem, 11cqw, 0.68rem);
 	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
 }
 
 .fc .ofc-daily-note-link:hover .ofc-day-header-date {
@@ -193,7 +202,7 @@
 
 .fc .fc-toolbar-title {
 	color: color-mix(in srgb, var(--text-normal) 76%, transparent);
-	font-size: clamp(1rem, 1.4vw, 1.25rem);
+	font-size: 0.95rem !important;
 	font-weight: var(--font-semibold, 600);
 	letter-spacing: -0.01em;
 }
@@ -202,18 +211,18 @@
 	display: inline-flex !important;
 	align-items: center;
 	justify-content: center;
-	min-height: 1.75rem;
+	min-height: 1.5rem;
 	color: var(--text-muted) !important;
 	background: var(--fc-button-bg-color) !important;
 	border: 1px solid var(--fc-button-border-color) !important;
 	border-radius: var(--radius-s, 6px) !important;
 	box-shadow: none !important;
-	font-size: 0.78rem !important;
+	font-size: 0.68rem !important;
 	font-variant-caps: all-small-caps;
 	font-weight: var(--font-medium, 500) !important;
-	letter-spacing: 0.055em;
+	letter-spacing: 0.045em;
 	line-height: 1 !important;
-	padding: 0.15rem var(--size-4-2, 0.5rem) !important;
+	padding: 0.1rem 0.4rem !important;
 	transition:
 		background-color 120ms ease,
 		border-color 120ms ease,
@@ -257,18 +266,18 @@
 
 .fc .fc-prev-button,
 .fc .fc-next-button {
-	width: 1.75rem;
-	min-width: 1.75rem;
+	width: 1.5rem;
+	min-width: 1.5rem;
 	padding: 0 !important;
 }
 
 .fc .fc-button .fc-icon {
 	display: grid !important;
 	place-items: center;
-	width: 1rem !important;
-	height: 1rem !important;
+	width: 0.85rem !important;
+	height: 0.85rem !important;
 	margin: 0 !important;
-	font-size: 1rem !important;
+	font-size: 0.85rem !important;
 	line-height: 1 !important;
 }
 
