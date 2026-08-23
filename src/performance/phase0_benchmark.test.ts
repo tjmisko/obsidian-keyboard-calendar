@@ -1,9 +1,10 @@
 import { performance } from "perf_hooks";
 import type { App, TFile, WorkspaceLeaf } from "obsidian";
-import { Calendar, EventResponse } from "../calendars/Calendar";
+import FullNoteCalendar from "../calendars/FullNoteCalendar";
 import EventCache, { CalendarInitializerMap } from "../core/EventCache";
 import { CalendarInfo, OFCEvent, parseEvent } from "../types";
 import EventNoteEditor from "../ui/EventNoteEditor";
+import type { ObsidianInterface } from "../ObsidianAdapter";
 
 const WARMUP_RUNS = 5;
 const MEASURED_RUNS = 25;
@@ -33,27 +34,26 @@ const fixedEvents: OFCEvent[] = Array.from(
         })
 );
 
-class BenchmarkCalendar extends Calendar {
-    get type(): "FOR_TEST_ONLY" {
-        return "FOR_TEST_ONLY";
+class BenchmarkCalendar extends FullNoteCalendar {
+    constructor(color: string) {
+        super({} as ObsidianInterface, color, "events");
     }
 
-    get identifier(): string {
-        return "sanitized-phase0-fixture";
+    listFiles() {
+        return fixedEvents.map((_, index) => ({
+            path: `events/Event ${index}.md`,
+        }));
     }
 
-    get name(): string {
-        return "Sanitized phase 0 fixture";
-    }
-
-    async getEvents(): Promise<EventResponse[]> {
-        return fixedEvents.map((event) => [event, null]);
+    async readEvent(path: string): Promise<OFCEvent | null> {
+        const match = /Event (\d+)\.md$/.exec(path);
+        return match ? fixedEvents[Number(match[1])] || null : null;
     }
 }
 
 const initializers: CalendarInitializerMap = {
-    FOR_TEST_ONLY: (info: CalendarInfo) => new BenchmarkCalendar(info.color),
-    local: () => null,
+    FOR_TEST_ONLY: () => null,
+    local: (info: CalendarInfo) => new BenchmarkCalendar(info.color),
 };
 
 const sample = async (
@@ -118,8 +118,8 @@ describe("phase 0 deterministic performance baseline", () => {
                     const cache = new EventCache(initializers);
                     cache.reset([
                         {
-                            type: "FOR_TEST_ONLY",
-                            id: "sanitized-phase0-fixture",
+                            type: "local",
+                            directory: "events",
                             color: "#123456",
                         },
                     ]);

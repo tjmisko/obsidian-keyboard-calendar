@@ -4,7 +4,7 @@ import FullNoteCalendar, {
 } from "../calendars/FullNoteCalendar";
 import type { ObsidianInterface } from "../ObsidianAdapter";
 import type { OFCEvent } from "../types";
-import EventCache, { CalendarInitializerMap } from "./EventCache";
+import EventStore from "./EventStore";
 import { MockAppBuilder } from "../../test_helpers/AppBuilder";
 import { FileBuilder } from "../../test_helpers/FileBuilder";
 import {
@@ -96,7 +96,7 @@ describe("local event ownership and identity", () => {
     });
 });
 
-describe("read-only shadow equivalence", () => {
+describe("legacy-index equivalence", () => {
     it("matches the old direct-child source set without indexing nested or non-Markdown files", async () => {
         const app = MockAppBuilder.make()
             .file("Outside.md", new FileBuilder().frontmatter(event("Outside")))
@@ -164,31 +164,30 @@ describe("read-only shadow equivalence", () => {
         const oldIo: ObsidianInterface = {
             getAbstractFileByPath: (path) =>
                 app.vault.getAbstractFileByPath(path),
+            getRoot: () => app.vault.getRoot(),
             getFileByPath: (path) => {
                 const file = app.vault.getAbstractFileByPath(path);
                 return file instanceof TFile ? file : null;
             },
             getMetadata: (file) => app.metadataCache.getFileCache(file),
+            read: (file) => app.vault.read(file),
             create: forbidden.create,
             rewrite: forbidden.rewrite,
             rename: forbidden.rename,
         };
-        const initializers: CalendarInitializerMap = {
-            local: (info) =>
-                info.type === "local"
-                    ? new FullNoteCalendar(oldIo, info.color, info.directory)
-                    : null,
-            FOR_TEST_ONLY: () => null,
-        };
-        const oldCache = new EventCache(initializers);
-        oldCache.reset([
-            { type: "local", directory: "events", color: "#123456" },
-        ]);
-        await oldCache.populate();
-        const oldCalendar = [...oldCache.calendars.values()][0];
+        const oldCalendar = new FullNoteCalendar(oldIo, "#123456", "events");
         const sourceId = oldCalendar.id;
-        const oldStoredEvents =
-            oldCache._storeForTest.getEventsInCalendar(oldCalendar);
+        const oldStore = new EventStore();
+        const oldResults = await oldCalendar.getEvents();
+        oldResults.forEach(([event, location], index) =>
+            oldStore.add({
+                calendar: oldCalendar,
+                location,
+                id: `legacy-generated-${index}`,
+                event,
+            })
+        );
+        const oldStoredEvents = oldStore.getEventsInCalendar(oldCalendar);
         const oldSet = oldStoredEvents
             .map(({ event, location }) => ({
                 sourceId,
@@ -300,6 +299,72 @@ describe("read-only shadow equivalence", () => {
             directory: "events",
         });
         expect(() => index.assertInvariants()).not.toThrow();
+    });
+
+    it("defensively copies arrays without materializing absent optionals", async () => {
+        const recurring = {
+            title: "Weekly",
+            type: "recurring",
+            allDay: false,
+            startTime: "09:00",
+            endTime: "10:00",
+            daysOfWeek: ["M"],
+        } as OFCEvent;
+        const adapter = new MemoryReadAdapter({
+            "events/Weekly.md": recurring,
+        });
+        const index = new LocalEventIndex({
+            sourceId: "local::events",
+            directory: "events",
+        });
+
+        await index.populate(adapter);
+        (recurring as Extract<OFCEvent, { type: "recurring" }>).daysOfWeek[0] =
+            "T";
+        const stored = [...index.recordsById.values()][0].event;
+
+        expect(stored).toMatchObject({ daysOfWeek: ["M"] });
+        expect(stored).not.toHaveProperty("skipDates");
+        expect(() => index.assertInvariants()).not.toThrow();
+    });
+
+    it("deep-freezes the cache-only record seam", async () => {
+        const adapter = new MemoryReadAdapter({
+            "events/Weekly.md": {
+                title: "Weekly",
+                type: "recurring",
+                allDay: false,
+                startTime: "09:00",
+                endTime: "10:00",
+                daysOfWeek: ["M"],
+                skipDates: ["2026-08-24"],
+                categories: ["Work"],
+            },
+        });
+        const index = new LocalEventIndex({
+            sourceId: "local::events",
+            directory: "events",
+        });
+
+        await index.populate(adapter);
+        const stored = index.getImmutableRecordsForCache()[0];
+
+        expect(Object.isFrozen(stored)).toBe(true);
+        expect(Object.isFrozen(stored.event)).toBe(true);
+        expect(Object.isFrozen(stored.event.categories)).toBe(true);
+        if (stored.event.type !== "recurring") {
+            throw new Error("Expected recurring test event.");
+        }
+        const recurring = stored.event;
+        expect(Object.isFrozen(recurring.daysOfWeek)).toBe(true);
+        expect(Object.isFrozen(recurring.skipDates)).toBe(true);
+        expect(() => {
+            stored.event.title = "Mutated";
+        }).toThrow();
+        expect(() => {
+            recurring.daysOfWeek![0] = "T";
+        }).toThrow();
+        expect(index.getRecord(stored.id)?.event.title).toBe("Weekly");
     });
 });
 

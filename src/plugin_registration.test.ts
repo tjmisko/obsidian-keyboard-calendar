@@ -4,7 +4,9 @@ import {
     FULL_CALENDAR_VIEW_TYPE,
     registerCalendarCommands,
     registerCalendarViews,
+    reportEventNoteCreationFailure,
 } from "./plugin_registration";
+import { Notice } from "obsidian";
 
 describe("plugin registration seams", () => {
     it("registers only the stable active calendar view", () => {
@@ -37,5 +39,25 @@ describe("plugin registration seams", () => {
         expect(CALENDAR_COMMAND_METADATA.map(({ id }) => id)).not.toContain(
             "full-calendar-open-sidebar"
         );
+    });
+
+    it("reports asynchronous new-event command failures", () => {
+        const error = new Error("disk failed");
+        const consoleError = jest
+            .spyOn(console, "error")
+            .mockImplementation(() => undefined);
+        const mockNotice = Notice as unknown as { notices: string[] };
+        mockNotice.notices = [];
+
+        reportEventNoteCreationFailure(error);
+
+        expect(consoleError).toHaveBeenCalledWith(
+            "Could not create event note",
+            error
+        );
+        expect(mockNotice.notices).toEqual([
+            "Could not create the event note. Check the console for details.",
+        ]);
+        consoleError.mockRestore();
     });
 });

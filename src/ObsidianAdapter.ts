@@ -20,6 +20,9 @@ export interface ObsidianInterface {
      */
     getAbstractFileByPath(path: string): TAbstractFile | null;
 
+    /** Return the vault root without relying on empty-path normalization. */
+    getRoot(): import("obsidian").TFolder;
+
     /**
      * @param path path to get the file for.
      * Get a file from the Vault. Returns null if file doesn't exist or is a folder.
@@ -31,6 +34,9 @@ export interface ObsidianInterface {
      * Get the Obsidian-parsed metadata for the given file.
      */
     getMetadata(file: TFile): CachedMetadata | null;
+
+    /** Read current file bytes directly from the vault. */
+    read(file: TFile): Promise<string>;
 
     /**
      * Create a new file at the given path with the given contents.
@@ -127,6 +133,10 @@ export class ObsidianIO implements ObsidianInterface {
         return this.vault.getAbstractFileByPath(path);
     }
 
+    getRoot(): import("obsidian").TFolder {
+        return this.vault.getRoot();
+    }
+
     getFileByPath(path: string): TFile | null {
         const f = this.vault.getAbstractFileByPath(path);
         if (!f) {
@@ -140,5 +150,9 @@ export class ObsidianIO implements ObsidianInterface {
 
     getMetadata(file: TFile): CachedMetadata | null {
         return this.metadataCache.getFileCache(file);
+    }
+
+    read(file: TFile): Promise<string> {
+        return this.vault.read(file);
     }
 }

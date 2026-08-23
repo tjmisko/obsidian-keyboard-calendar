@@ -175,18 +175,20 @@ export function toEventInput(
     id: string,
     frontmatter: OFCEvent
 ): EventInput | null {
+    const categories = [...(frontmatter.categories || [])];
     let event: EventInput = {
         id,
         title: frontmatter.title,
         allDay: frontmatter.allDay,
         extendedProps: {
-            categories: frontmatter.categories || [],
+            categories,
         },
     };
     if (frontmatter.type === "recurring") {
-        const skipDates = frontmatter.skipDates || [];
+        const daysOfWeek = [...frontmatter.daysOfWeek];
+        const skipDates = [...(frontmatter.skipDates || [])];
         const recurrenceMetadata = {
-            daysOfWeek: frontmatter.daysOfWeek,
+            daysOfWeek,
             startRecur: frontmatter.startRecur,
             endRecur: frontmatter.endRecur,
             skipDates,
@@ -203,7 +205,7 @@ export function toEventInput(
             event = {
                 ...event,
                 rrule: rrulestr(
-                    `FREQ=WEEKLY;BYDAY=${frontmatter.daysOfWeek
+                    `FREQ=WEEKLY;BYDAY=${daysOfWeek
                         .map((day) => RRULE_DAYS[day])
                         .join(",")}`,
                     { dtstart: recurrenceStart.toJSDate() }
@@ -214,18 +216,18 @@ export function toEventInput(
                     recurrenceStart
                 ),
                 extendedProps: {
-                    categories: frontmatter.categories || [],
+                    categories,
                     ofcRecurrence: recurrenceMetadata,
                 },
             };
         } else {
             event = {
                 ...event,
-                daysOfWeek: frontmatter.daysOfWeek.map((c) => DAYS.indexOf(c)),
+                daysOfWeek: daysOfWeek.map((c) => DAYS.indexOf(c)),
                 startRecur: frontmatter.startRecur,
                 endRecur: frontmatter.endRecur,
                 extendedProps: {
-                    categories: frontmatter.categories || [],
+                    categories,
                     ofcRecurrence: recurrenceMetadata,
                 },
             };
@@ -265,7 +267,10 @@ export function toEventInput(
         }
         // NOTE: this supports one occurrence per recurrence date, matching the
         // note-first recurrence format.
-        const exdate = getRecurrenceExceptions(frontmatter.skipDates, dtstart);
+        const exdate = getRecurrenceExceptions(
+            [...frontmatter.skipDates],
+            dtstart
+        );
 
         event = {
             id,
@@ -283,7 +288,7 @@ export function toEventInput(
             exdate,
             exrule: getRecurrenceEndRule(frontmatter.endRecur, dtstart),
             extendedProps: {
-                categories: frontmatter.categories || [],
+                categories,
             },
         };
 
@@ -323,7 +328,7 @@ export function toEventInput(
                 start,
                 end,
                 extendedProps: {
-                    categories: frontmatter.categories || [],
+                    categories,
                 },
             };
         } else {
@@ -332,7 +337,7 @@ export function toEventInput(
                 start: frontmatter.date,
                 end: frontmatter.endDate || undefined,
                 extendedProps: {
-                    categories: frontmatter.categories || [],
+                    categories,
                 },
             };
         }

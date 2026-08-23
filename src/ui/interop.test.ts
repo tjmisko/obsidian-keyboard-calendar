@@ -58,9 +58,89 @@ describe("task-free event metadata", () => {
         });
         expect(event).not.toHaveProperty("completed");
     });
+
+    it.each([
+        [
+            "single",
+            parseEvent({
+                title: "Single",
+                type: "single",
+                date: "2026-08-22",
+                categories: ["work"],
+                allDay: true,
+            }),
+        ],
+        [
+            "weekly",
+            parseEvent({
+                title: "Weekly",
+                type: "recurring",
+                daysOfWeek: ["M"],
+                categories: ["work"],
+                allDay: true,
+            }),
+        ],
+        [
+            "RRULE",
+            parseEvent({
+                title: "Monthly",
+                type: "rrule",
+                startDate: "2026-08-01",
+                rrule: "FREQ=MONTHLY;BYDAY=1SA",
+                skipDates: [],
+                categories: ["work"],
+                allDay: true,
+            }),
+        ],
+    ])("returns mutable category output for frozen %s input", (_, event) => {
+        Object.freeze(event.categories);
+        Object.freeze(event);
+
+        const rendered = toEventInput("event-id", event);
+        const categories = rendered?.extendedProps?.categories as string[];
+
+        expect(Object.isFrozen(categories)).toBe(false);
+        expect(() => {
+            categories[0] = "changed";
+        }).not.toThrow();
+        expect(event.categories).toEqual(["work"]);
+    });
 });
 
 describe("recurring event rendering", () => {
+    it("returns mutable recurrence metadata arrays for frozen input", () => {
+        const event = parseEvent({
+            title: "Weekly review",
+            type: "recurring",
+            daysOfWeek: ["M"],
+            skipDates: ["2026-08-24"],
+            categories: ["work"],
+            allDay: true,
+        });
+        if (event.type !== "recurring") {
+            throw new Error("Expected recurring test event.");
+        }
+        Object.freeze(event.daysOfWeek);
+        Object.freeze(event.skipDates);
+        Object.freeze(event.categories);
+        Object.freeze(event);
+
+        const rendered = toEventInput("event-id", event);
+        const recurrence = rendered?.extendedProps?.ofcRecurrence as {
+            daysOfWeek: string[];
+            skipDates: string[];
+        };
+
+        expect(Object.isFrozen(recurrence.daysOfWeek)).toBe(false);
+        expect(Object.isFrozen(recurrence.skipDates)).toBe(false);
+        expect(() => {
+            recurrence.daysOfWeek[0] = "T";
+            recurrence.skipDates[0] = "2026-08-31";
+        }).not.toThrow();
+        expect(event.daysOfWeek).toEqual(["M"]);
+        expect(event.skipDates).toEqual(["2026-08-24"]);
+    });
+
     it.each([
         [
             "weekly",

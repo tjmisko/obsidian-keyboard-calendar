@@ -17,7 +17,8 @@ Below is a birds-eye view of the different components of the plugin, and the int
                  │              │
 ┌────────────┐   │              │       ┌─────────────┐     ┌──────────────┐
 │            ├───►              ├───────►             ├─────►              │
-│ EventStore │   │  EventCache  │       │ view.ts +   │     │ FullCalendar │
+│ LocalEvent │   │  EventCache  │       │ view.ts +   │     │ FullCalendar │
+│ Index      │   │              │       │             │     │              │
 │            ◄───┤              ◄───────┤ calendar.ts ◄─────┤ View*        │
 └────────────┘   │              │       │             │     │              │
                  │              │       └─────────────┘     └──────────────┘
@@ -52,13 +53,13 @@ Translation between `OFCEvent` and `EventInput` is handled in `interop.ts`. Each
 
 ### `core`
 
-The `core` directory consists of two classes, `EventStore` and `EventCache`. These two classes comprise the plugin's main event-managing logic.
+The `core` directory's active runtime consists of `LocalEventIndex` and `EventCache`. `EventStore` remains temporarily as a legacy equivalence oracle pending the separately reviewed Phase 8C cleanup; production event flow no longer uses it.
 
-The `EventStore` is the source of truth for events in the plugin. Its interface is similar to a simplified database that stores events, calendars and file locations. Files and calendars are one-to-many relationships: every event is related to exactly one calendar and at most one file, but calendars and files can have many events within them. The `EventStore` allows for efficient querying of events grouped by calendars and files. Every event in the `EventStore` has an ID generated when it enters the cache.
+`LocalEventIndex` holds the in-memory view of the one configured local full-note source. It admits only direct-child Markdown notes, assigns stable namespaced IDs from the source/path tuple, and maintains matching ID and path maps across scans and vault lifecycle events.
 
-The `EventCache` manages the state stored in the `EventStore`. Its main job is coordinating with both the view layer and the `Calendar`s which read events from the vault. The `EventCache` has two main hooks to update the `EventStore`:
+`EventCache` coordinates that index with the view layer and `FullNoteCalendar`, which reads and writes event notes. Its main hooks are:
 
--   Hook (via `MetadataCache.on('update')`) for when a file has changed so that it can tell `Calendar`s to re-parse that file.
+-   Vault and metadata hooks for direct-note create/update/rename/delete events.
 -   Hook for when an event with a given ID has been modified from the view.
     Other components can subscribe to state updates on the `EventCache`. Right now, the view is the only subscriber, but in the future it may be possible for other plugins to subscribe to updates.
 
@@ -76,4 +77,4 @@ The plugin has exactly one `EventCache` instance at any given time. It is initia
 
 While `core` and `calendars` make up the Model in the `MVC` pattern, the Views and Controllers are currently both living in the `ui` directory. The view connector to the FullCalendar library lives in `calendar.ts`. Most of the controller logic that interfaces with the `EventCache` lives, somewhat confusingly, in `view.ts`, which also instantiates the Obsidian plugin View. Event interactions route to ordinary Markdown notes, and source/preferences UI uses native Obsidian `Setting` and `Modal` primitives.
 
-**Architecture Invariant**: All event-note data I/O and writes are mediated by the `EventCache` and calendar adapters. UI code may use read-only Vault folder discovery to validate native settings choices, but it must not read, move, rewrite, or delete event notes directly or call the `EventStore`.
+**Architecture Invariant**: All event-note data I/O and writes are mediated by the `EventCache` and calendar adapters. UI code may use read-only Vault folder discovery to validate native settings choices, but it must not read, move, rewrite, or delete event notes directly or call either index implementation.

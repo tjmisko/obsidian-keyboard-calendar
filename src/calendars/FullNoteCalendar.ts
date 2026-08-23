@@ -1,10 +1,19 @@
-import { TFile, TFolder } from "obsidian";
+import { parseYaml, TFile, TFolder } from "obsidian";
 import { DateTime } from "luxon";
 import { rrulestr } from "rrule";
 import { EventPathLocation } from "../core/EventStore";
 import { ObsidianInterface } from "../ObsidianAdapter";
 import { OFCEvent, EventLocation, parseEvent, validateEvent } from "../types";
-import { EditableCalendar, EditableEventResponse } from "./EditableCalendar";
+import {
+    EditableCalendar,
+    EditableEventResponse,
+    PersistedEventWrite,
+} from "./EditableCalendar";
+import {
+    isDirectChildMarkdownPath,
+    LocalEventFile,
+    LocalEventReadAdapter,
+} from "../core/LocalEventIndex";
 
 export const FRIENDLY_RECURRENCE_ANCHOR = "1970-01-01";
 
@@ -439,7 +448,10 @@ const legacyModifications = (
     return modifications;
 };
 
-export default class FullNoteCalendar extends EditableCalendar {
+export default class FullNoteCalendar
+    extends EditableCalendar
+    implements LocalEventReadAdapter
+{
     app: ObsidianInterface;
     private _directory: string;
     private friendlyPaths = new Set<string>();
@@ -472,6 +484,57 @@ export default class FullNoteCalendar extends EditableCalendar {
             return [];
         }
         return [[event, { file, lineNumber: undefined }]];
+    }
+
+    listFiles(): readonly LocalEventFile[] {
+        const eventFolder = this.directory.replace(/^\/+|\/+$/g, "")
+            ? this.app.getAbstractFileByPath(this.directory)
+            : this.app.getRoot();
+        if (!eventFolder) {
+            throw new Error(`Cannot get folder ${this.directory}`);
+        }
+        if (!(eventFolder instanceof TFolder)) {
+            throw new Error(`${eventFolder} is not a directory.`);
+        }
+        return eventFolder.children.flatMap((file) =>
+            file instanceof TFile ? [{ path: file.path, handle: file }] : []
+        );
+    }
+
+    async readEvent(
+        path: string,
+        listedFile?: LocalEventFile
+    ): Promise<OFCEvent | null> {
+        if (!isDirectChildMarkdownPath(this.directory, path)) {
+            return null;
+        }
+        const file =
+            listedFile?.handle instanceof TFile
+                ? listedFile.handle
+                : this.app.getFileByPath(path);
+        if (!file) {
+            return null;
+        }
+        const result = await this.getEventsInFile(file);
+        return result[0]?.[0] || null;
+    }
+
+    async readEventFromDisk(path: string): Promise<OFCEvent | null> {
+        if (!isDirectChildMarkdownPath(this.directory, path)) {
+            return null;
+        }
+        const file = this.app.getFileByPath(path);
+        if (!file) return null;
+        const page = await this.app.read(file);
+        const rawFrontmatter = extractFrontmatter(page);
+        return parseFullNoteEvent(
+            rawFrontmatter ? parseYaml(rawFrontmatter) : null,
+            this.basenameForPath(path)
+        );
+    }
+
+    hasFile(path: string): boolean {
+        return this.app.getFileByPath(path) !== null;
     }
 
     private async getEventsInFolderRecursive(
@@ -509,7 +572,7 @@ export default class FullNoteCalendar extends EditableCalendar {
         return events;
     }
 
-    async createEvent(event: OFCEvent): Promise<EventLocation> {
+    getNewEventPath(): string {
         let suffix = 0;
         let path: string;
         const directory = this.directory.replace(/\/+$/, "");
@@ -519,12 +582,47 @@ export default class FullNoteCalendar extends EditableCalendar {
             suffix += 1;
         } while (this.app.getAbstractFileByPath(path));
 
+        return path;
+    }
+
+    async createEvent(
+        event: OFCEvent,
+        plannedPath = this.getNewEventPath()
+    ): Promise<PersistedEventWrite> {
+        if (
+            event.type !== "single" ||
+            event.allDay ||
+            !event.startTime ||
+            !event.endTime
+        ) {
+            throw new Error(
+                "Full-note events must have a date, start, and end time."
+            );
+        }
+        if (!isDirectChildMarkdownPath(this.directory, plannedPath)) {
+            throw new Error(
+                `Event path ${plannedPath} is outside the configured folder.`
+            );
+        }
         const file = await this.app.create(
-            path,
+            plannedPath,
             newTimedEventFrontmatter(event)
         );
         this.friendlyPaths.add(file.path);
-        return { file, lineNumber: undefined };
+        const writtenFrontmatter = extractFrontmatter(
+            newTimedEventFrontmatter(event)
+        );
+        const persistedEvent = parseFullNoteEvent(
+            writtenFrontmatter ? parseYaml(writtenFrontmatter) : null,
+            this.basenameForPath(file.path)
+        );
+        if (!persistedEvent) {
+            throw new Error(`Created event note ${file.path} is not readable.`);
+        }
+        return {
+            location: { file, lineNumber: undefined },
+            event: persistedEvent,
+        };
     }
 
     private isFriendlyEventFile(path: string): boolean {
@@ -563,15 +661,17 @@ export default class FullNoteCalendar extends EditableCalendar {
             return { file, lineNumber: undefined };
         }
 
-        const updatedPath = `${file.parent.path}/${filenameForEvent(event)}`;
+        const parentPath = file.parent.path.replace(/\/+$/, "");
+        const updatedPath = parentPath
+            ? `${parentPath}/${filenameForEvent(event)}`
+            : filenameForEvent(event);
         return { file: { path: updatedPath }, lineNumber: undefined };
     }
 
     async modifyEvent(
         location: EventPathLocation,
-        event: OFCEvent,
-        updateCacheWithLocation: (loc: EventLocation) => void
-    ): Promise<void> {
+        event: OFCEvent
+    ): Promise<PersistedEventWrite> {
         const { path } = location;
         const file = this.app.getFileByPath(path);
         if (!file) {
@@ -582,21 +682,40 @@ export default class FullNoteCalendar extends EditableCalendar {
         const newLocation = this.getNewLocation(location, event);
 
         const friendly = this.isFriendlyEventFile(path);
-
-        updateCacheWithLocation(newLocation);
+        const modifications = friendly
+            ? friendlyModifications(event)
+            : legacyModifications(event);
 
         if (file.path !== newLocation.file.path) {
             await this.app.rename(file, newLocation.file.path);
+            this.fileRenamed(path, newLocation.file.path);
         }
-        await this.app.rewrite(file, (page) =>
-            modifyFrontmatterString(
-                page,
-                friendly
-                    ? friendlyModifications(event)
-                    : legacyModifications(event)
-            )
+        const persistedEvent = await this.app.rewrite<OFCEvent>(
+            file,
+            (page) => {
+                const nextPage = modifyFrontmatterString(page, modifications);
+                const rawFrontmatter = extractFrontmatter(nextPage);
+                const parsedEvent = parseFullNoteEvent(
+                    rawFrontmatter ? parseYaml(rawFrontmatter) : null,
+                    this.basenameForPath(newLocation.file.path)
+                );
+                if (!parsedEvent) {
+                    throw new Error(
+                        `Updated event note ${newLocation.file.path} is not readable.`
+                    );
+                }
+                return [nextPage, parsedEvent];
+            }
         );
+        if (!persistedEvent) {
+            throw new Error(
+                `Updated event note ${newLocation.file.path} is not readable.`
+            );
+        }
+        return { location: newLocation, event: persistedEvent };
+    }
 
-        return;
+    private basenameForPath(path: string): string {
+        return path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/i, "");
     }
 }

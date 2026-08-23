@@ -21,6 +21,7 @@ import {
 import {
     registerCalendarCommands,
     registerCalendarViews,
+    reportEventNoteCreationFailure,
 } from "./plugin_registration";
 import {
     LEGACY_FULL_CALENDAR_SIDEBAR_VIEW_TYPE,
@@ -191,21 +192,29 @@ export default class FullCalendarPlugin extends Plugin {
 
         this.registerEvent(
             this.app.metadataCache.on("changed", (file) => {
-                this.cache.fileUpdated(file);
+                void this.cache
+                    .fileUpdated(file)
+                    .catch((error) =>
+                        console.error(
+                            "Could not refresh changed event note",
+                            error
+                        )
+                    );
             })
         );
 
         this.registerEvent(
-            this.app.vault.on("rename", async (file, oldPath) => {
+            this.app.vault.on("rename", (file, oldPath) => {
                 if (file instanceof TFile) {
                     console.debug("FILE RENAMED", file.path);
-                    this.cache.calendars.forEach((calendar) => {
-                        if (calendar instanceof FullNoteCalendar) {
-                            calendar.fileRenamed(oldPath, file.path);
-                        }
-                    });
-                    this.cache.deleteEventsAtPath(oldPath);
-                    await this.cache.fileUpdated(file);
+                    void this.cache
+                        .fileRenamed(file, oldPath)
+                        .catch((error) =>
+                            console.error(
+                                "Could not refresh renamed event note",
+                                error
+                            )
+                        );
                 }
             })
         );
@@ -214,7 +223,7 @@ export default class FullCalendarPlugin extends Plugin {
             this.app.vault.on("delete", (file) => {
                 if (file instanceof TFile) {
                     console.debug("FILE DELETED", file.path);
-                    this.cache.deleteEventsAtPath(file.path);
+                    this.cache.fileDeleted(file.path);
                 }
             })
         );
@@ -244,7 +253,7 @@ export default class FullCalendarPlugin extends Plugin {
                             );
                             void this.createTimedEventNote(
                                 dateEndpointsToFrontmatter(start, end, false)
-                            );
+                            ).catch(reportEventNoteCreationFailure);
                             return;
                         }
                         case "full-calendar-reset":

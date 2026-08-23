@@ -1,3 +1,5 @@
+import { Notice } from "obsidian";
+
 export const FULL_CALENDAR_VIEW_TYPE = "full-calendar-view";
 
 export const CALENDAR_VIEW_REGISTRATIONS = [
@@ -12,6 +14,13 @@ export const CALENDAR_COMMAND_METADATA = [
 
 export type CalendarCommandId =
     (typeof CALENDAR_COMMAND_METADATA)[number]["id"];
+
+export const reportEventNoteCreationFailure = (error: unknown): void => {
+    console.error("Could not create event note", error);
+    new Notice(
+        "Could not create the event note. Check the console for details."
+    );
+};
 
 export const registerCalendarViews = <Leaf, View>(
     register: (type: string, creator: (leaf: Leaf) => View) => void,

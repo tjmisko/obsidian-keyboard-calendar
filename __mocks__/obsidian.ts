@@ -50,12 +50,37 @@ export class TFolder extends TAbstractFile {
     }
 }
 
-export function parseYaml(yaml: string): Record<string, string> | null {
-    const [k, ...v] = yaml.split(":");
-    if (!k || !v) {
-        return null;
+export function parseYaml(yaml: string): Record<string, unknown> | null {
+    const result: Record<string, unknown> = {};
+    const lines = yaml.split(/\r?\n/);
+    const scalar = (raw: string): unknown => {
+        const value = raw.trim();
+        if (value === "null" || value === "~") return null;
+        if (value === "true") return true;
+        if (value === "false") return false;
+        if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value);
+        if (value.startsWith("[") && value.endsWith("]")) {
+            const body = value.slice(1, -1).trim();
+            return body ? body.split(",").map((item) => scalar(item)) : [];
+        }
+        return value.replace(/^(["'])(.*)\1$/, "$2");
+    };
+    for (let index = 0; index < lines.length; index += 1) {
+        const match = /^([^\s][^:]*):\s*(.*)$/.exec(lines[index]);
+        if (!match) continue;
+        const [, key, rawValue] = match;
+        if (rawValue) {
+            result[key.trim()] = scalar(rawValue);
+            continue;
+        }
+        const list: unknown[] = [];
+        while (/^\s+-\s+/.test(lines[index + 1] || "")) {
+            index += 1;
+            list.push(scalar(lines[index].replace(/^\s+-\s+/, "")));
+        }
+        result[key.trim()] = list;
     }
-    return Object.fromEntries([[k.trim(), v.join(":").trim()]]);
+    return Object.keys(result).length > 0 ? result : null;
 }
 
 export class Notice {

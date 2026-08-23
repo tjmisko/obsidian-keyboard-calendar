@@ -14,7 +14,8 @@
         "test": "jest --ci --silent=true",
         "test-dev": "jest --watch",
         "coverage": "jest --coverage",
-        "benchmark:phase0": "npm run build && OFC_PHASE0_BENCHMARK=1 jest --ci --runInBand --silent=false src/performance/phase0_benchmark.test.ts"
+        "benchmark:phase0": "npm run build && OFC_PHASE0_BENCHMARK=1 jest --ci --runInBand --silent=false src/performance/phase0_benchmark.test.ts",
+        "benchmark:phase8b": "npm run build && OFC_PHASE8B_BENCHMARK=1 jest --ci --runInBand --silent=false src/performance/phase8b_local_index_benchmark.test.ts"
     },
     "keywords": [],
     "author": {

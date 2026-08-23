@@ -5,6 +5,11 @@ import { Calendar } from "./Calendar";
 
 export type EditableEventResponse = [OFCEvent, EventLocation];
 
+export interface PersistedEventWrite {
+    location: EventLocation;
+    event: OFCEvent;
+}
+
 /**
  * Abstract class representing the interface for an Calendar whose source-of-truth
  * is the Obsidian Vault.
@@ -44,20 +49,18 @@ export abstract class EditableCalendar extends Calendar {
      * Create an event in this calendar.
      * @param event Event to create.
      */
-    abstract createEvent(event: OFCEvent): Promise<EventLocation>;
+    abstract createEvent(event: OFCEvent): Promise<PersistedEventWrite>;
 
     /**
      * Modify an event on disk.
      *
      * @param location Location of event
      * @param newEvent New event details
-     * @param updateCacheWithLocation This callback updates the cache with the new location
-     *        of the event. In order to avoid race conditions with file I/O, make sure this
-     *        is called before any files are changed on disk.
+     * @returns The final location and exact persisted event semantics after all
+     * file operations succeed.
      */
     abstract modifyEvent(
         location: EventPathLocation,
-        newEvent: OFCEvent,
-        updateCacheWithLocation: (loc: EventLocation) => void
-    ): Promise<void>;
+        newEvent: OFCEvent
+    ): Promise<PersistedEventWrite>;
 }
