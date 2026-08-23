@@ -10,6 +10,7 @@ import listPlugin from "@fullcalendar/list";
 import rrulePlugin from "@fullcalendar/rrule";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import {
+    formatCompactDateLabel,
     formatDateLabel,
     formatLongDateTitle,
     formatTimeLabel,
@@ -209,6 +210,11 @@ describe("calendar labels", () => {
     it("always formats date labels as YYYY-MM-DD", () => {
         expect(formatDateLabel(new Date(2026, 0, 2))).toBe("2026-01-02");
         expect(formatDateLabel(new Date(1999, 11, 31))).toBe("1999-12-31");
+    });
+
+    it("formats compact date labels without the year", () => {
+        expect(formatCompactDateLabel(new Date(2026, 7, 23))).toBe("Aug 23");
+        expect(formatCompactDateLabel(new Date(2026, 10, 4))).toBe("Nov 4");
     });
 
     it("formats day-view titles as a long-form date", () => {

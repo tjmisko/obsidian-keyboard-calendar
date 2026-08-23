@@ -21,7 +21,7 @@
 	--fc-page-bg-color: var(--background-primary);
 	--fc-border-color: var(--background-modifier-border);
 
-	--fc-now-indicator-color: var(--text-error-hover);
+	--fc-now-indicator-color: var(--color-orange, #e9973f);
 
 	--fc-more-link-bg-color: var(--background-primary-alt);
 	--fc-more-link-text-color: var(--text-accent);
@@ -184,6 +184,20 @@
 	font-size: clamp(0.52rem, 11cqw, 0.68rem);
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
+}
+
+.fc .ofc-day-header-date-compact {
+	display: none;
+}
+
+@container (max-width: 4rem) {
+	.fc .ofc-day-header-date-full {
+		display: none;
+	}
+
+	.fc .ofc-day-header-date-compact {
+		display: inline;
+	}
 }
 
 .fc .ofc-daily-note-link:hover .ofc-day-header-date {

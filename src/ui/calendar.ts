@@ -74,6 +74,24 @@ export const formatDateLabel = (date: Date): string =>
         date.getDate()
     )}`;
 
+const COMPACT_MONTH_LABELS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+];
+
+export const formatCompactDateLabel = (date: Date): string =>
+    `${COMPACT_MONTH_LABELS[date.getMonth()]} ${date.getDate()}`;
+
 const formatLongDateParts = (
     year: number,
     month: number,
@@ -221,9 +239,14 @@ export function renderCalendar(
             weekday.setAttribute("aria-hidden", "true");
 
             header.createSpan({
-                cls: "ofc-day-header-date",
+                cls: "ofc-day-header-date ofc-day-header-date-full",
                 text: formatDateLabel(date),
             });
+            const compactDate = header.createSpan({
+                cls: "ofc-day-header-date ofc-day-header-date-compact",
+                text: formatCompactDateLabel(date),
+            });
+            compactDate.setAttribute("aria-hidden", "true");
 
             return { domNodes: [header] };
         },
