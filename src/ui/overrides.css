@@ -165,18 +165,16 @@
 	color: var(--text-muted);
 }
 
-.fc .fc-col-header-cell {
-	container-type: inline-size;
-}
-
 .fc .ofc-day-header {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
+	width: 100%;
 	min-height: 2.75rem;
 	gap: 0.1rem;
 	line-height: 1.15;
+	container-type: inline-size;
 }
 
 .fc .ofc-day-header-weekday {
@@ -201,7 +199,7 @@
 	display: none;
 }
 
-@container (max-width: 4rem) {
+@container (max-width: 4.5rem) {
 	.fc .ofc-day-header-date-full {
 		display: none;
 	}
