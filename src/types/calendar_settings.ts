@@ -5,14 +5,6 @@ const calendarOptionsSchema = z.discriminatedUnion("type", [
     z.object({ type: z.literal("local"), directory: z.string() }),
     z.object({ type: z.literal("dailynote"), heading: z.string() }),
     z.object({ type: z.literal("ical"), url: z.string().url() }),
-    z.object({
-        type: z.literal("caldav"),
-        name: z.string(),
-        url: z.string().url(),
-        homeUrl: z.string().url(),
-        username: z.string(),
-        password: z.string(),
-    }),
 ]);
 
 const colorValidator = z.object({ color: z.string() });
@@ -92,7 +84,7 @@ export function safeParseCalendarInfo(obj: unknown): CalendarInfo | null {
                     typeof obj === "object" &&
                     obj !== null &&
                     !Array.isArray(obj) &&
-                    ["local", "ical", "caldav", "dailynote"].includes(
+                    ["local", "ical", "dailynote"].includes(
                         String((obj as { type?: unknown }).type)
                     )
                         ? String((obj as { type?: unknown }).type)
@@ -108,18 +100,8 @@ export function safeParseCalendarInfo(obj: unknown): CalendarInfo | null {
  * Construct a partial calendar source of the specified type
  */
 export function makeDefaultPartialCalendarSource(
-    type: CalendarInfo["type"] | "icloud"
+    type: CalendarInfo["type"]
 ): Partial<CalendarInfo> {
-    if (type === "icloud") {
-        return {
-            type: "caldav",
-            color: getComputedStyle(document.body)
-                .getPropertyValue("--interactive-accent")
-                .trim(),
-            url: "https://caldav.icloud.com",
-        };
-    }
-
     return {
         type: type,
         color: getComputedStyle(document.body)

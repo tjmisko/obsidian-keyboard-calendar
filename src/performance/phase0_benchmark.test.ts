@@ -56,7 +56,6 @@ const initializers: CalendarInitializerMap = {
     local: () => null,
     dailynote: () => null,
     ical: () => null,
-    caldav: () => null,
 };
 
 const sample = async (

@@ -111,34 +111,6 @@ function UrlInput<T extends Partial<CalendarInfo>>({
     );
 }
 
-function UsernameInput<T extends Partial<CalendarInfo>>({
-    source,
-    changeListener,
-}: BasicProps<T>) {
-    let sourceWithUsername = source as SourceWith<T, { username: undefined }>;
-    return (
-        <div className="setting-item">
-            <div className="setting-item-info">
-                <div className="setting-item-name">Username</div>
-                <div className="setting-item-description">
-                    Username for the account
-                </div>
-            </div>
-            <div className="setting-item-control">
-                <input
-                    required
-                    type="text"
-                    value={sourceWithUsername.username || ""}
-                    onChange={changeListener((x) => ({
-                        ...sourceWithUsername,
-                        username: x,
-                    }))}
-                />
-            </div>
-        </div>
-    );
-}
-
 function HeadingInput<T extends Partial<CalendarInfo>>({
     source,
     changeListener,
@@ -188,34 +160,6 @@ function HeadingInput<T extends Partial<CalendarInfo>>({
     );
 }
 
-function PasswordInput<T extends Partial<CalendarInfo>>({
-    source,
-    changeListener,
-}: BasicProps<T>) {
-    let sourceWithPassword = source as SourceWith<T, { password: undefined }>;
-    return (
-        <div className="setting-item">
-            <div className="setting-item-info">
-                <div className="setting-item-name">Password</div>
-                <div className="setting-item-description">
-                    Password for the account
-                </div>
-            </div>
-            <div className="setting-item-control">
-                <input
-                    required
-                    type="password"
-                    value={sourceWithPassword.password || ""}
-                    onChange={changeListener((x) => ({
-                        ...sourceWithPassword,
-                        password: x,
-                    }))}
-                />
-            </div>
-        </div>
-    );
-}
-
 interface AddCalendarProps {
     source: Partial<CalendarInfo>;
     directories: string[];
@@ -229,13 +173,9 @@ export const AddCalendarSource = ({
     headings,
     submit,
 }: AddCalendarProps) => {
-    const isCalDAV = source.type === "caldav";
-
     const [setting, setSettingState] = useState(source);
     const [submitting, setSubmitingState] = useState(false);
-    const [submitText, setSubmitText] = useState(
-        isCalDAV ? "Import Calendars" : "Add Calendar"
-    );
+    const [submitText, setSubmitText] = useState("Add Calendar");
 
     function makeChangeListener<T extends Partial<CalendarInfo>>(
         fromString: (val: string) => T
@@ -247,7 +187,7 @@ export const AddCalendarSource = ({
         e.preventDefault();
         if (!submitting) {
             setSubmitingState(true);
-            setSubmitText(isCalDAV ? "Importing Calendars" : "Adding Calendar");
+            setSubmitText("Adding Calendar");
             await submit(setting as CalendarInfo);
         }
     };
@@ -255,16 +195,10 @@ export const AddCalendarSource = ({
     return (
         <div className="vertical-tab-content">
             <form onSubmit={handleSubmit}>
-                {!isCalDAV && (
-                    // CalDAV can import multiple calendars. Instead of picking
-                    // a single color to be used for all calendars, default to the
-                    // colors reported from the server. Users can change that later
-                    // if they wish.
-                    <ColorPicker
-                        source={setting}
-                        changeListener={makeChangeListener}
-                    />
-                )}
+                <ColorPicker
+                    source={setting}
+                    changeListener={makeChangeListener}
+                />
                 {source.type === "local" && (
                     <DirectorySelect
                         source={setting}
@@ -279,24 +213,12 @@ export const AddCalendarSource = ({
                         headings={headings}
                     />
                 )}
-                {source.type === "ical" || source.type === "caldav" ? (
+                {source.type === "ical" ? (
                     <UrlInput
                         source={setting}
                         changeListener={makeChangeListener}
                     />
                 ) : null}
-                {isCalDAV && (
-                    <UsernameInput
-                        source={setting}
-                        changeListener={makeChangeListener}
-                    />
-                )}
-                {isCalDAV && (
-                    <PasswordInput
-                        source={setting}
-                        changeListener={makeChangeListener}
-                    />
-                )}
                 <div className="setting-item">
                     <div className="setting-item-info" />
                     <div className="setting-control">

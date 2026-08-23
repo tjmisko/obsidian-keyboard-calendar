@@ -74,44 +74,6 @@ function UrlSetting<T extends Partial<CalendarInfo>>({
     );
 }
 
-function NameSetting<T extends Partial<CalendarInfo>>({
-    source,
-}: BasicProps<T>) {
-    let sourceWithName = source as SourceWith<T, { name: undefined }>;
-    return (
-        <div className="setting-item-control">
-            <input
-                disabled
-                type="text"
-                value={sourceWithName.name}
-                style={{
-                    width: "100%",
-                    marginLeft: 4,
-                    marginRight: 4,
-                }}
-            />
-        </div>
-    );
-}
-
-function Username<T extends Partial<CalendarInfo>>({ source }: BasicProps<T>) {
-    let sourceWithUsername = source as SourceWith<T, { username: undefined }>;
-    return (
-        <div className="setting-item-control">
-            <input
-                disabled
-                type="text"
-                value={sourceWithUsername.username}
-                style={{
-                    width: "100%",
-                    marginLeft: 4,
-                    marginRight: 4,
-                }}
-            />
-        </div>
-    );
-}
-
 interface CalendarSettingsProps {
     setting: Partial<CalendarInfo>;
     onColorChange: (s: string) => void;
@@ -123,7 +85,6 @@ export const CalendarSettingRow = ({
     onColorChange,
     deleteCalendar,
 }: CalendarSettingsProps) => {
-    const isCalDAV = setting.type === "caldav";
     return (
         <div className="setting-item">
             <button
@@ -140,8 +101,6 @@ export const CalendarSettingRow = ({
             ) : (
                 <UrlSetting source={setting} />
             )}
-            {isCalDAV && <NameSetting source={setting} />}
-            {isCalDAV && <Username source={setting} />}
             <input
                 style={{ maxWidth: "25%", minWidth: "3rem" }}
                 type="color"

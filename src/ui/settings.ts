@@ -2,7 +2,6 @@ import FullCalendarPlugin from "../main";
 import {
     App,
     DropdownComponent,
-    Notice,
     PluginSettingTab,
     Setting,
     TFile,
@@ -20,7 +19,6 @@ import * as ReactDOM from "react-dom";
 import { createElement } from "react";
 import { getDailyNoteSettings } from "obsidian-daily-notes-interface";
 import ReactModal from "./ReactModal";
-import { importCalendars } from "src/calendars/parsing/caldav/import";
 export { DEFAULT_SETTINGS } from "../settings/migration";
 export type { FullCalendarSettings } from "../settings/migration";
 import { DEFAULT_SETTINGS, FullCalendarSettings } from "../settings/migration";
@@ -70,8 +68,6 @@ export function addCalendarButton(
                 (dropdown = d.addOptions({
                     local: "Full note",
                     dailynote: "Daily Note",
-                    icloud: "iCloud",
-                    caldav: "CalDAV",
                     ical: "Remote (.ics format)",
                 }))
         )
@@ -117,27 +113,7 @@ export function addCalendarButton(
                         ),
                         headings,
                         submit: async (source: CalendarInfo) => {
-                            if (source.type === "caldav") {
-                                try {
-                                    let sources = await importCalendars(
-                                        {
-                                            type: "basic",
-                                            username: source.username,
-                                            password: source.password,
-                                        },
-                                        source.url
-                                    );
-                                    sources.forEach((source) =>
-                                        submitCallback(source)
-                                    );
-                                } catch (e) {
-                                    if (e instanceof Error) {
-                                        new Notice(e.message);
-                                    }
-                                }
-                            } else {
-                                submitCallback(source);
-                            }
+                            submitCallback(source);
                             modal.close();
                         },
                     });

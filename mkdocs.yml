@@ -37,7 +37,6 @@ nav:
           - calendars/local.md
           - calendars/dailynote.md
           - calendars/ics.md
-          - calendars/caldav.md
     - Events:
           - events/types.md
           - events/manage.md

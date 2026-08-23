@@ -1,5 +1,3 @@
-import { CalendarInfo } from "./calendar_settings";
-
 export type { OFCEvent } from "./schema";
 export { parseEvent, validateEvent } from "./schema";
 
@@ -23,11 +21,3 @@ export type EventLocation = {
     file: { path: string };
     lineNumber: number | undefined;
 };
-
-export type Authentication = {
-    type: "basic";
-    username: string;
-    password: string;
-};
-
-export type CalDAVSource = Extract<CalendarInfo, { type: "caldav" }>;

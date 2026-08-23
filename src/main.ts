@@ -22,11 +22,11 @@ import { ObsidianIO } from "./ObsidianAdapter";
 import FullNoteCalendar from "./calendars/FullNoteCalendar";
 import DailyNoteCalendar from "./calendars/DailyNoteCalendar";
 import ICSCalendar from "./calendars/ICSCalendar";
-import CalDAVCalendar from "./calendars/CalDAVCalendar";
 import EventNoteEditor from "./ui/EventNoteEditor";
 import {
+    capturePersistedSettings,
     captureRuntimeSettingsBaseline,
-    decodeSettings,
+    loadMigratedSettingsBeforeRuntime,
     prepareSettingsSave,
 } from "./settings/migration";
 import {
@@ -58,20 +58,6 @@ export default class FullCalendarPlugin extends Plugin {
                 : null,
         ical: (info) =>
             info.type === "ical" ? new ICSCalendar(info.color, info.url) : null,
-        caldav: (info) =>
-            info.type === "caldav"
-                ? new CalDAVCalendar(
-                      info.color,
-                      info.name,
-                      {
-                          type: "basic",
-                          username: info.username,
-                          password: info.password,
-                      },
-                      info.url,
-                      info.homeUrl
-                  )
-                : null,
         FOR_TEST_ONLY: () => null,
     });
 
@@ -164,11 +150,11 @@ export default class FullCalendarPlugin extends Plugin {
         this.app.workspace.revealLeaf(leaf);
     }
     async onload() {
-        await this.loadSettings();
+        await this.loadSettings((settings) =>
+            this.cache.reset(settings.calendarSources)
+        );
 
         this.eventNoteEditor = new EventNoteEditor(this.app);
-
-        this.cache.reset(this.settings.calendarSources);
 
         this.registerEvent(
             this.app.metadataCache.on("changed", (file) => {
@@ -283,14 +269,20 @@ export default class FullCalendarPlugin extends Plugin {
         this.app.workspace.detachLeavesOfType(FULL_CALENDAR_SIDEBAR_VIEW_TYPE);
     }
 
-    async loadSettings() {
-        const loaded = await this.loadData();
-        // Phase 0 is intentionally read-only: decode a safe runtime view but
-        // leave the persisted source configuration byte-for-byte untouched.
-        this.settings = decodeSettings(loaded).settings;
-        this.persistedSettings = loaded;
-        this.runtimeSettingsBaseline = captureRuntimeSettingsBaseline(
-            this.settings
+    async loadSettings(
+        initializeRuntime?: (settings: FullCalendarSettings) => void
+    ) {
+        await loadMigratedSettingsBeforeRuntime(
+            () => this.loadData(),
+            (settings) => this.saveData(settings),
+            (settings) => {
+                this.settings = settings;
+                this.persistedSettings = capturePersistedSettings(settings);
+                this.runtimeSettingsBaseline = captureRuntimeSettingsBaseline(
+                    this.settings
+                );
+                initializeRuntime?.(this.settings);
+            }
         );
     }
 

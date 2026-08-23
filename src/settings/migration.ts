@@ -5,8 +5,8 @@ import {
     resolveDefaultFullNoteCalendar,
 } from "../types/calendar_settings";
 
-export const SETTINGS_VERSION = 1;
 export const CALDAV_REMOVAL_VERSION = 2;
+export const SETTINGS_VERSION = CALDAV_REMOVAL_VERSION;
 
 export type PersistedSourceType = "local" | "ical" | "caldav" | "dailynote";
 export type SourceTypeBucket = PersistedSourceType | "unknown";
@@ -73,6 +73,11 @@ const SOURCE_TYPES: readonly PersistedSourceType[] = [
     "local",
     "ical",
     "caldav",
+    "dailynote",
+];
+const RUNTIME_SOURCE_TYPES: readonly PersistedSourceType[] = [
+    "local",
+    "ical",
     "dailynote",
 ];
 
@@ -153,7 +158,7 @@ const readRedactedLegacySources = (
  */
 export function decodeSettings(
     input: unknown,
-    supportedTypes: readonly PersistedSourceType[] = SOURCE_TYPES,
+    supportedTypes: readonly PersistedSourceType[] = RUNTIME_SOURCE_TYPES,
     log: (message: string, details: unknown) => void = console.debug
 ): { settings: FullCalendarSettings; report: SettingsDecodeReport } {
     const rootWasObject = isRecord(input);
@@ -282,10 +287,12 @@ export function prepareSettingsSave(
 }
 
 export const captureRuntimeSettingsBaseline = cloneRuntimeSettings;
+export const capturePersistedSettings = <T>(settings: T): T =>
+    cloneJsonValue(settings);
 
 /**
- * Exercise a future source-removal migration without activating it. Only
- * generated enum/version metadata survives for removed sources.
+ * Apply a source-removal migration. Only generated enum/version metadata
+ * survives for removed sources.
  */
 export function migrateSettings(
     input: unknown,
@@ -295,7 +302,7 @@ export function migrateSettings(
 ): MigrationResult {
     const { settings: decoded, report } = decodeSettings(
         input,
-        SOURCE_TYPES,
+        RUNTIME_SOURCE_TYPES,
         log
     );
     const removed = new Set(removedTypes);
@@ -305,16 +312,24 @@ export function migrateSettings(
     const existingEnvelopes = isRecord(input)
         ? readRedactedLegacySources(input.redactedLegacySources)
         : [];
-    const newEnvelopes = decoded.calendarSources.flatMap((source) =>
-        source.type !== "FOR_TEST_ONLY" && removed.has(source.type)
+    const rawSources =
+        isRecord(input) && Array.isArray(input.calendarSources)
+            ? input.calendarSources
+            : [];
+    // Removed source types no longer exist in CalendarInfo, so recognize them
+    // only by their fixed legacy type bucket. No source-provided field is read
+    // into the envelope or serialized to diagnostics.
+    const newEnvelopes = rawSources.flatMap((source) => {
+        const legacyType = bucketSourceType(source);
+        return legacyType !== "unknown" && removed.has(legacyType)
             ? [
                   {
-                      legacyType: source.type,
+                      legacyType,
                       removedAtVersion: targetVersion,
                   } as RedactedLegacyEnvelope,
               ]
-            : []
-    );
+            : [];
+    });
     const envelopeKeys = new Set<string>();
     const redactedLegacySources = [
         ...existingEnvelopes,
@@ -331,13 +346,58 @@ export function migrateSettings(
         decoded.defaultCalendar,
         retainedSources
     );
+    const existingVersion =
+        isRecord(input) &&
+        typeof input.settingsVersion === "number" &&
+        Number.isInteger(input.settingsVersion)
+            ? input.settingsVersion
+            : 0;
+    const preservedRoot = isRecord(input) ? cloneJsonValue(input) : {};
     const settings: MigratedSettings = {
+        ...preservedRoot,
         ...decoded,
-        settingsVersion: targetVersion,
+        settingsVersion: Math.max(existingVersion, targetVersion),
         calendarSources: retainedSources,
         defaultCalendar: retainedDefault || "",
         redactedLegacySources,
     };
     const changed = canonicalJson(input) !== canonicalJson(settings);
     return { settings, report, changed, saveRequested: changed };
+}
+
+/**
+ * Load, scrub, and (only when changed) persist settings before callers hand
+ * any source list to the runtime cache.
+ */
+export async function loadMigratedSettings(
+    load: () => Promise<unknown>,
+    persist: (settings: MigratedSettings) => Promise<void>,
+    log: (message: string, details: unknown) => void = console.debug
+): Promise<MigrationResult> {
+    const loaded = await load();
+    const migrated = migrateSettings(
+        loaded,
+        ["caldav"],
+        CALDAV_REMOVAL_VERSION,
+        log
+    );
+    if (migrated.saveRequested) {
+        await persist(migrated.settings);
+    }
+    return migrated;
+}
+
+/**
+ * Sequence the active settings scrub ahead of runtime initialization. A failed
+ * settings write rejects before initialize can run.
+ */
+export async function loadMigratedSettingsBeforeRuntime(
+    load: () => Promise<unknown>,
+    persist: (settings: MigratedSettings) => Promise<void>,
+    initialize: (settings: MigratedSettings) => void | Promise<void>,
+    log: (message: string, details: unknown) => void = console.debug
+): Promise<MigrationResult> {
+    const migrated = await loadMigratedSettings(load, persist, log);
+    await initialize(migrated.settings);
+    return migrated;
 }
