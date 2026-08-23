@@ -1,7 +1,7 @@
 import { performance } from "perf_hooks";
 import type { App, TFile, WorkspaceLeaf } from "obsidian";
 import FullNoteCalendar from "../calendars/FullNoteCalendar";
-import EventCache, { CalendarInitializerMap } from "../core/EventCache";
+import EventCache, { LocalCalendarInitializer } from "../core/EventCache";
 import { CalendarInfo, OFCEvent, parseEvent } from "../types";
 import EventNoteEditor from "../ui/EventNoteEditor";
 import type { ObsidianInterface } from "../ObsidianAdapter";
@@ -51,10 +51,8 @@ class BenchmarkCalendar extends FullNoteCalendar {
     }
 }
 
-const initializers: CalendarInitializerMap = {
-    FOR_TEST_ONLY: () => null,
-    local: (info: CalendarInfo) => new BenchmarkCalendar(info.color),
-};
+const initialize: LocalCalendarInitializer = (info: CalendarInfo) =>
+    new BenchmarkCalendar(info.color);
 
 const sample = async (
     name: BenchmarkName,
@@ -115,7 +113,7 @@ describe("phase 0 deterministic performance baseline", () => {
             const startupIndex = await summarize(
                 "phase0-startup-index",
                 async () => {
-                    const cache = new EventCache(initializers);
+                    const cache = new EventCache(initialize);
                     cache.reset([
                         {
                             type: "local",

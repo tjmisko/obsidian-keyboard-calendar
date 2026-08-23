@@ -1,15 +1,13 @@
 import { performance } from "perf_hooks";
-import { TFile } from "obsidian";
+import { TFile, TFolder } from "obsidian";
 
-import FullNoteCalendar from "../calendars/FullNoteCalendar";
-import EventCache, {
-    CalendarInitializerMap,
-    eventsAreDifferent,
-} from "../core/EventCache";
-import EventStore from "../core/EventStore";
+import FullNoteCalendar, {
+    parseFullNoteEvent,
+} from "../calendars/FullNoteCalendar";
+import EventCache from "../core/EventCache";
 import { localEventRecordId } from "../core/LocalEventIndex";
 import type { ObsidianInterface } from "../ObsidianAdapter";
-import type { OFCEvent } from "../types";
+import { OFCEvent, validateEvent } from "../types";
 import { MockAppBuilder } from "../../test_helpers/AppBuilder";
 import { FileBuilder } from "../../test_helpers/FileBuilder";
 
@@ -18,7 +16,7 @@ const MEASURED_RUNS = 60;
 const FIXTURE_EVENT_COUNT = 250;
 const STARTUPS_PER_SAMPLE = 5;
 const REPARSES_PER_SAMPLE = 500;
-const OPEN_LOOKUPS_PER_SAMPLE = FIXTURE_EVENT_COUNT * 100;
+const OPEN_LOOKUPS_PER_SAMPLE = FIXTURE_EVENT_COUNT * 1000;
 const SOURCE_DIRECTORY = "events";
 const SOURCE_COLOR = "#123456";
 
@@ -114,17 +112,260 @@ const buildFixture = () => {
     return MockAppBuilder.make().folder(folder).done();
 };
 
-const normalizeLegacy = (store: EventStore, calendar: FullNoteCalendar) =>
+interface LegacyRecord {
+    id: string;
+    sourceId: string;
+    path: string;
+    event: OFCEvent;
+}
+
+interface LegacyAddRecord {
+    id: string;
+    sourceId: string;
+    event: OFCEvent;
+    location: { file: TFile; lineNumber: number | undefined };
+}
+
+interface LegacyEventDetails extends LegacyRecord {
+    location: { path: string; lineNumber: number | undefined };
+}
+
+interface LegacyIdentifier {
+    id: string;
+}
+
+class LegacyPath implements LegacyIdentifier {
+    readonly id: string;
+
+    constructor(file: { path: string }) {
+        this.id = file.path;
+    }
+}
+
+class LegacyEventId implements LegacyIdentifier {
+    constructor(readonly id: string) {}
+}
+
+/** Exact test-local relationship mechanics from the removed EventStore. */
+class LegacyOneToMany<T extends LegacyIdentifier, FK extends LegacyIdentifier> {
+    private foreign = new Map<string, string>();
+    private related = new Map<string, Set<string>>();
+
+    add(one: T, many: FK): void {
+        this.foreign.set(many.id, one.id);
+        let related = this.related.get(one.id);
+        if (!related) {
+            related = new Set();
+            this.related.set(one.id, related);
+        }
+        related.add(many.id);
+    }
+
+    delete(many: FK): void {
+        const oneId = this.foreign.get(many.id);
+        if (!oneId) return;
+        this.foreign.delete(many.id);
+        const related = this.related.get(oneId);
+        if (!related) {
+            throw new Error("Legacy relationship maps are inconsistent.");
+        }
+        related.delete(many.id);
+    }
+
+    getBy(key: T): Set<string> {
+        const related = this.related.get(key.id);
+        return related ? new Set(related) : new Set();
+    }
+
+    getRelated(key: FK): string | null {
+        return this.foreign.get(key.id) || null;
+    }
+
+    get groupByRelated(): Map<string, string[]> {
+        const result = new Map<string, string[]>();
+        for (const [key, values] of this.related) {
+            result.set(key, [...values.values()]);
+        }
+        return result;
+    }
+}
+
+/** Test-local archive of the removed pre-8B store behavior. */
+class LegacyIndexOracle {
+    private eventsById = new Map<string, OFCEvent>();
+    private sourceIndex = new LegacyOneToMany<
+        LegacyIdentifier,
+        LegacyEventId
+    >();
+    private pathIndex = new LegacyOneToMany<LegacyPath, LegacyEventId>();
+    private lineById = new Map<string, number>();
+
+    add(record: LegacyAddRecord): void {
+        if (this.eventsById.has(record.id)) {
+            throw new Error(`Duplicate legacy event ID ${record.id}.`);
+        }
+        console.debug("adding event", {
+            id: record.id,
+            event: record.event,
+            location: record.location,
+        });
+        this.eventsById.set(record.id, record.event);
+        this.sourceIndex.add(
+            { id: record.sourceId },
+            new LegacyEventId(record.id)
+        );
+        const { file, lineNumber } = record.location;
+        console.debug("adding event in file:", file.path);
+        this.pathIndex.add(new LegacyPath(file), new LegacyEventId(record.id));
+        if (lineNumber !== undefined) {
+            this.lineById.set(record.id, lineNumber);
+        }
+    }
+
+    deleteEventsAtPath(path: string): void {
+        const eventIds = this.pathIndex.getBy(new LegacyPath({ path }));
+        for (const id of eventIds) {
+            if (!this.eventsById.has(id)) continue;
+            this.sourceIndex.delete(new LegacyEventId(id));
+            this.pathIndex.delete(new LegacyEventId(id));
+            this.lineById.delete(id);
+            this.eventsById.delete(id);
+        }
+    }
+
+    get eventsBySource(): Map<string, LegacyRecord[]> {
+        const grouped = new Map<string, LegacyRecord[]>();
+        for (const [sourceId, ids] of this.sourceIndex.groupByRelated) {
+            grouped.set(sourceId, this.fetch(ids));
+        }
+        return grouped;
+    }
+
+    getEventsInSource(sourceId: string): LegacyRecord[] {
+        return this.fetch(this.sourceIndex.getBy({ id: sourceId }));
+    }
+
+    getEventsAtPath(path: string): LegacyRecord[] {
+        return this.fetch(this.pathIndex.getBy(new LegacyPath({ path })));
+    }
+
+    getEventDetails(id: string): LegacyEventDetails | null {
+        const event = this.eventsById.get(id);
+        const sourceId = this.sourceIndex.getRelated(new LegacyEventId(id));
+        const path = this.pathIndex.getRelated(new LegacyEventId(id));
+        const lineNumber = this.lineById.get(id);
+        return event && sourceId && path
+            ? {
+                  id,
+                  event,
+                  sourceId,
+                  path,
+                  location: { path, lineNumber },
+              }
+            : null;
+    }
+
+    get eventCount(): number {
+        return this.eventsById.size;
+    }
+
+    private fetch(ids: Iterable<string>): LegacyRecord[] {
+        const result: LegacyRecord[] = [];
+        for (const id of ids) {
+            const details = this.getEventDetails(id);
+            if (details) result.push(details);
+        }
+        return result;
+    }
+}
+
+type LegacyEventResponse = [
+    OFCEvent,
+    { file: TFile; lineNumber: number | undefined }
+];
+
+const legacyScan = async (
+    app: ReturnType<typeof buildFixture>
+): Promise<LegacyEventResponse[]> => {
+    const folder = app.vault.getAbstractFileByPath(SOURCE_DIRECTORY);
+    if (!(folder instanceof TFolder)) {
+        throw new Error("Missing benchmark source folder.");
+    }
+    const records: LegacyEventResponse[] = [];
+    for (const file of folder.children) {
+        if (!(file instanceof TFile)) continue;
+        records.push(...(await legacyReadFile(app, file)));
+    }
+    return records;
+};
+
+const legacyReadFile = async (
+    app: ReturnType<typeof buildFixture>,
+    file: TFile
+): Promise<LegacyEventResponse[]> => {
+    const event = parseFullNoteEvent(
+        app.metadataCache.getFileCache(file)?.frontmatter,
+        file.basename
+    );
+    return event ? [[event, { file, lineNumber: undefined }]] : [];
+};
+
+const legacyDeepEqual = (left: unknown, right: unknown): boolean => {
+    if (left === right) return true;
+    if (Array.isArray(left) && Array.isArray(right)) {
+        return (
+            left.length === right.length &&
+            left.every((value, index) => legacyDeepEqual(value, right[index]))
+        );
+    }
+    if (
+        typeof left !== "object" ||
+        left === null ||
+        typeof right !== "object" ||
+        right === null
+    ) {
+        return false;
+    }
+    const leftRecord = left as Record<string, unknown>;
+    const rightRecord = right as Record<string, unknown>;
+    const keys = Object.keys(leftRecord);
+    return (
+        keys.length === Object.keys(rightRecord).length &&
+        keys.every(
+            (key) =>
+                Object.prototype.hasOwnProperty.call(rightRecord, key) &&
+                legacyDeepEqual(leftRecord[key], rightRecord[key])
+        )
+    );
+};
+
+const legacyEventsAreDifferent = (
+    oldEvents: OFCEvent[],
+    newEvents: OFCEvent[]
+): boolean => {
+    const oldNormalized = oldEvents
+        .sort((left, right) => left.title.localeCompare(right.title))
+        .flatMap((event) => validateEvent(event) || []);
+    const newNormalized = newEvents
+        .sort((left, right) => left.title.localeCompare(right.title))
+        .flatMap((event) => validateEvent(event) || []);
+    return (
+        oldNormalized.length !== newNormalized.length ||
+        oldNormalized.some(
+            (event, index) => !legacyDeepEqual(event, newNormalized[index])
+        )
+    );
+};
+
+const normalizeLegacy = (store: LegacyIndexOracle, sourceId: string) =>
     store
-        .getEventsInCalendar(calendar)
-        .map(({ event, location }) => ({
-            sourceId: calendar.id,
-            path: location?.path,
+        .getEventsInSource(sourceId)
+        .map(({ event, path }) => ({
+            sourceId,
+            path,
             event,
         }))
-        .sort((left, right) =>
-            (left.path || "").localeCompare(right.path || "")
-        );
+        .sort((left, right) => left.path.localeCompare(right.path));
 
 const normalizeCandidate = (cache: EventCache) =>
     cache
@@ -185,12 +426,8 @@ describe("Phase 8B local-index benchmark", () => {
             sourceId: calendar.id,
             directory: SOURCE_DIRECTORY,
         };
-        const initializers: CalendarInitializerMap = {
-            local: () => calendar,
-            FOR_TEST_ONLY: () => null,
-        };
         const makeCandidateCache = async () => {
-            const cache = new EventCache(initializers);
+            const cache = new EventCache(() => calendar);
             cache.reset([
                 {
                     type: "local",
@@ -206,7 +443,7 @@ describe("Phase 8B local-index benchmark", () => {
         const targetFile = app.vault.getAbstractFileByPath(targetPath);
         expect(targetFile).toBeInstanceOf(TFile);
 
-        let latestLegacyStartupStore: EventStore | null = null;
+        let latestLegacyStartupStore: LegacyIndexOracle | null = null;
         let latestLegacyStartupEvents: Array<{
             event: OFCEvent;
             id: string;
@@ -215,17 +452,17 @@ describe("Phase 8B local-index benchmark", () => {
         const startupIndex = await compare(
             async () => {
                 for (let run = 0; run < STARTUPS_PER_SAMPLE; run += 1) {
-                    const store = new EventStore();
-                    const parsed = await calendar.getEvents();
+                    const store = new LegacyIndexOracle();
+                    const parsed = await legacyScan(app);
                     parsed.forEach(([event, location], index) =>
                         store.add({
-                            calendar,
+                            sourceId: calendar.id,
                             location,
                             id: String(index),
                             event,
                         })
                     );
-                    const eventsByCalendar = store.eventsByCalendar;
+                    const eventsByCalendar = store.eventsBySource;
                     const storedEvents =
                         eventsByCalendar.get(calendar.id) || [];
                     latestLegacyStartupEvents = storedEvents.map(
@@ -250,10 +487,10 @@ describe("Phase 8B local-index benchmark", () => {
                 .flatMap(({ events }) => events)
         ).toHaveLength(FIXTURE_EVENT_COUNT);
 
-        const legacyStore = new EventStore();
-        (await calendar.getEvents()).forEach(([event, location], index) =>
+        const legacyStore = new LegacyIndexOracle();
+        (await legacyScan(app)).forEach(([event, location], index) =>
             legacyStore.add({
-                calendar,
+                sourceId: calendar.id,
                 location,
                 id: String(index),
                 event,
@@ -264,15 +501,13 @@ describe("Phase 8B local-index benchmark", () => {
         const oneNoteReparse = await compare(
             async () => {
                 for (let run = 0; run < REPARSES_PER_SAMPLE; run += 1) {
-                    const parsed = await calendar.getEventsInFile(
+                    const parsed = await legacyReadFile(
+                        app,
                         targetFile as TFile
                     );
-                    const old = legacyStore.getEventsInFileAndCalendar(
-                        targetFile as TFile,
-                        calendar
-                    );
+                    const old = legacyStore.getEventsAtPath(targetPath);
                     if (
-                        eventsAreDifferent(
+                        legacyEventsAreDifferent(
                             old.map(({ event }) => event),
                             parsed.map(([event]) => event)
                         )
@@ -280,7 +515,7 @@ describe("Phase 8B local-index benchmark", () => {
                         legacyStore.deleteEventsAtPath(targetPath);
                         parsed.forEach(([event, location]) =>
                             legacyStore.add({
-                                calendar,
+                                sourceId: calendar.id,
                                 location,
                                 id: String(FIXTURE_EVENT_COUNT),
                                 event,
@@ -297,9 +532,7 @@ describe("Phase 8B local-index benchmark", () => {
             REPARSES_PER_SAMPLE
         );
 
-        const legacyTargetId = legacyStore.getEventsInFile({
-            path: targetPath,
-        })[0].id;
+        const legacyTargetId = legacyStore.getEventsAtPath(targetPath)[0].id;
         const candidateTargetId = localEventRecordId(
             source.sourceId,
             targetPath
@@ -312,7 +545,7 @@ describe("Phase 8B local-index benchmark", () => {
                 for (let run = 0; run < OPEN_LOOKUPS_PER_SAMPLE; run += 1) {
                     legacyOpenPath =
                         legacyStore.getEventDetails(legacyTargetId)?.location
-                            ?.path;
+                            .path;
                 }
             },
             async () => {
@@ -328,7 +561,7 @@ describe("Phase 8B local-index benchmark", () => {
         expect(legacyOpenPath).toBe(targetPath);
         expect(candidateOpenPath).toBe(targetPath);
 
-        const legacySet = normalizeLegacy(legacyStore, calendar);
+        const legacySet = normalizeLegacy(legacyStore, calendar.id);
         const candidateSet = normalizeCandidate(candidateCache);
         expect(legacySet).toHaveLength(FIXTURE_EVENT_COUNT);
         expect(candidateSet).toHaveLength(FIXTURE_EVENT_COUNT);

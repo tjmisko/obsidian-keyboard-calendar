@@ -41,6 +41,33 @@ const makeApp = (
 const dirName = "events";
 const color = "#BADA55";
 
+const readListedEvents = async (calendar: FullNoteCalendar) =>
+    (
+        await Promise.all(
+            calendar.listFiles().map(async (listedFile) => {
+                const event = await calendar.readEvent(
+                    listedFile.path,
+                    listedFile
+                );
+                return event
+                    ? [{ event, path: listedFile.path, listedFile }]
+                    : [];
+            })
+        )
+    ).flat();
+
+const readFileEvent = async (
+    calendar: FullNoteCalendar,
+    file: TFile
+): Promise<OFCEvent> => {
+    const event = await calendar.readEvent(file.path, {
+        path: file.path,
+        handle: file,
+    });
+    if (!event) throw new Error(`Could not parse test event ${file.path}.`);
+    return event;
+};
+
 describe("note-first frontmatter", () => {
     it("parses a minimal timed event using the filename as its title", () => {
         expect(
@@ -381,14 +408,10 @@ describe("Note Calendar Tests", () => {
                     .done()
             );
             const calendar = new FullNoteCalendar(obsidian, color, dirName);
-            const res = await calendar.getEvents();
+            const res = await readListedEvents(calendar);
             expect(res.length).toBe(inputs.length);
-            const events = res.map((e) => e[0]);
-            const paths = res.map((e) => e[1].file.path);
-
-            expect(
-                res.every((elt) => elt[1].lineNumber === undefined)
-            ).toBeTruthy();
+            const events = res.map(({ event }) => event);
+            const paths = res.map(({ path }) => path);
 
             for (const { event, title } of inputs.map((i) => ({
                 title: i.title,
@@ -403,16 +426,12 @@ describe("Note Calendar Tests", () => {
                 expect(paths).toContainEqual(`${dirName}/${title}`);
             }
 
-            for (const [
-                event,
-                {
-                    file: { path },
-                },
-            ] of res) {
+            for (const { event, path, listedFile } of res) {
                 const file = obsidian.getFileByPath(path)!;
-                const eventsFromFile = await calendar.getEventsInFile(file);
-                expect(eventsFromFile.length).toBe(1);
-                expect(eventsFromFile[0][0]).toEqual(event);
+                expect(listedFile.handle).toBe(file);
+                expect(await calendar.readEvent(path, listedFile)).toEqual(
+                    event
+                );
             }
         }
     );
@@ -446,8 +465,8 @@ describe("Note Calendar Tests", () => {
         );
         const calendar = new FullNoteCalendar(obsidian, color, dirName);
 
-        const paths = (await calendar.getEvents()).map(
-            ([, location]) => location.file.path
+        const paths = (await readListedEvents(calendar)).map(
+            ({ path }) => path
         );
 
         expect(paths).toEqual([`${dirName}/Direct.md`]);
@@ -516,7 +535,7 @@ describe("Note Calendar Tests", () => {
 
         expect(
             calendar.getNewLocation(
-                { path: "Root.md", lineNumber: undefined },
+                { path: "Root.md" },
                 parseEvent({
                     title: "Renamed",
                     type: "single",
@@ -543,11 +562,9 @@ describe("Note Calendar Tests", () => {
         (obsidian.create as jest.Mock).mockReturnValue({
             path: join(dirName, "2022-01-01 Test Event.md"),
         });
-        const { location, event: persistedEvent } = await calendar.createEvent(
+        const { event: persistedEvent } = await calendar.createEvent(
             parseEvent(event)
         );
-        const { lineNumber } = location;
-        expect(lineNumber).toBeUndefined();
         expect(persistedEvent).toMatchObject({
             title: "2022-01-01 Test Event",
             date: "2022-01-01",
@@ -667,12 +684,11 @@ describe("Note Calendar Tests", () => {
 
         const { location: newLoc, event: persistedEvent } =
             await calendar.modifyEvent(
-                { path: join("events", filename), lineNumber: undefined },
+                { path: join("events", filename) },
                 // @ts-ignore
                 { ...event, endTime: "13:30" }
             );
         expect(newLoc.file.path).toBe(join("events", filename));
-        expect(newLoc.lineNumber).toBeUndefined();
         expect(persistedEvent).toMatchObject({
             title: "Test Event",
             endTime: "13:30",
@@ -749,7 +765,7 @@ describe("Note Calendar Tests", () => {
         const file = obsidian.getFileByPath(`events/${filename}`)!;
         const contents = await obsidian.read(file);
 
-        const [[parsedEvent]] = await calendar.getEventsInFile(file);
+        const parsedEvent = await readFileEvent(calendar, file);
         const rendered = toEventInput("planning", parsedEvent)!;
         const movedEvent = fromEventApi({
             title: parsedEvent.title,
@@ -762,7 +778,7 @@ describe("Note Calendar Tests", () => {
         expect(movedEvent).not.toHaveProperty("completed");
 
         const { event: persistedEvent } = await calendar.modifyEvent(
-            { path: file.path, lineNumber: undefined },
+            { path: file.path },
             movedEvent
         );
 
@@ -841,7 +857,6 @@ describe("Note Calendar Tests", () => {
         const { event: persistedEvent } = await calendar.modifyEvent(
             {
                 path: `events/${filename}`,
-                lineNumber: undefined,
             },
             parseEvent({
                 title: "Moved",
@@ -905,7 +920,7 @@ describe("Note Calendar Tests", () => {
         const contents = await obsidian.read(file);
 
         await calendar.modifyEvent(
-            { path: file.path, lineNumber: undefined },
+            { path: file.path },
             parseEvent({
                 title: "Monday review",
                 type: "recurring",
@@ -993,7 +1008,7 @@ describe("Note Calendar Tests", () => {
         const file = obsidian.getFileByPath(`events/${filename}`)!;
         const contents = await obsidian.read(file);
 
-        const [[parsedEvent]] = await calendar.getEventsInFile(file);
+        const parsedEvent = await readFileEvent(calendar, file);
         const rendered = toEventInput("weekly", parsedEvent)!;
         const movedEvent = fromEventApi({
             title: parsedEvent.title,
@@ -1010,10 +1025,7 @@ describe("Note Calendar Tests", () => {
             skipDates: ["2026-08-17"],
         });
 
-        await calendar.modifyEvent(
-            { path: file.path, lineNumber: undefined },
-            movedEvent
-        );
+        await calendar.modifyEvent({ path: file.path }, movedEvent);
 
         const [, rewriteCallback] = (obsidian.rewrite as jest.Mock).mock
             .calls[0];
@@ -1042,50 +1054,4 @@ describe("Note Calendar Tests", () => {
             ].join("\n")
         );
     });
-    // it("modify an existing event with a new date", async () => {
-    // 	const event: OFCEvent = {
-    // 		title: "Test Event",
-    // 		date: "2022-01-01",
-    // 		startTime: "11:00",
-    // 		endTime: "12:30",
-    // 	};
-    // 	const filename = "2022-01-01 Test Event.md";
-    // 	const obsidian = makeApp(
-    // 		MockAppBuilder.make()
-    // 			.folder(
-    // 				new MockAppBuilder("events").file(
-    // 					filename,
-    // 					new FileBuilder().frontmatter(event)
-    // 				)
-    // 			)
-    // 			.done()
-    // 	);
-    // 	const calendar = new NoteCalendar(
-    // 		obsidian,
-    // 		color,
-    // 		dirName,
-    // 		false,
-    // 		true
-    // 	);
-
-    // 	const firstFile = obsidian.getAbstractFileByPath(
-    // 		join("events", filename)
-    // 	) as TFile;
-
-    // 	const contents = await obsidian.read(firstFile);
-
-    // 	const newLoc = await calendar.modifyEvent(
-    // 		{ path: join("events", filename), lineNumber: undefined },
-    // 		{ ...event, date: "2022-01-02" }
-    // 	);
-
-    // 	const newFilename = "2022-01-02 Test Event.md";
-    // 	expect(newLoc.file.path).toBe(join("events", newFilename));
-    // 	expect(newLoc.lineNumber).toBeUndefined();
-
-    // 	expect(obsidian.rewrite).toHaveReturnedTimes(1);
-    // 	const [file, rewriteCallback] = (obsidian.rewrite as jest.Mock).mock
-    // 		.calls[0];
-    // 	expect(file.path).toBe(join("events", filename));
-    // });
 });

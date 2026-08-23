@@ -38,36 +38,24 @@ export default class FullCalendarPlugin extends Plugin {
     private settingsLoaded = false;
     private requestLegacySidebarMigration: () => Promise<void> = () =>
         Promise.resolve();
-    cache: EventCache = new EventCache({
-        local: (info) =>
-            info.type === "local"
-                ? new FullNoteCalendar(
-                      new ObsidianIO(this.app),
-                      info.color,
-                      info.directory
-                  )
-                : null,
-        FOR_TEST_ONLY: () => null,
-    });
+    cache: EventCache = new EventCache(
+        (info) =>
+            new FullNoteCalendar(
+                new ObsidianIO(this.app),
+                info.color,
+                info.directory
+            )
+    );
 
     renderCalendar = renderCalendar;
     processFrontmatter = toEventInput;
     eventNoteEditor: EventNoteEditor | null = null;
 
-    private getDefaultFullNoteCalendar(): FullNoteCalendar | null {
-        return (
-            ([...this.cache.calendars.values()].find(
-                (calendar) => calendar instanceof FullNoteCalendar
-            ) as FullNoteCalendar | undefined) || null
-        );
-    }
-
     async createTimedEventNote(
         partialEvent: Partial<OFCEvent>,
         targetLeaf?: WorkspaceLeaf
     ): Promise<TFile | null> {
-        const calendar = this.getDefaultFullNoteCalendar();
-        if (!calendar) {
+        if (!this.cache.hasLocalCalendar()) {
             new Notice(
                 "Add a full-note calendar before creating an event note."
             );
@@ -79,7 +67,7 @@ export default class FullCalendarPlugin extends Plugin {
             type: "single",
             allDay: false,
         });
-        const location = await this.cache.createEvent(calendar.id, event);
+        const location = await this.cache.createEvent(event);
         const file = this.app.vault.getAbstractFileByPath(location.file.path);
         if (!(file instanceof TFile)) {
             throw new Error(

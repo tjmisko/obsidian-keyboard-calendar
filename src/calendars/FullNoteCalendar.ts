@@ -1,19 +1,31 @@
 import { parseYaml, TFile, TFolder } from "obsidian";
 import { DateTime } from "luxon";
 import { rrulestr } from "rrule";
-import { EventPathLocation } from "../core/EventStore";
 import { ObsidianInterface } from "../ObsidianAdapter";
-import { OFCEvent, EventLocation, parseEvent, validateEvent } from "../types";
 import {
-    EditableCalendar,
-    EditableEventResponse,
-    PersistedEventWrite,
-} from "./EditableCalendar";
+    fullNoteSourceId,
+    OFCEvent,
+    parseEvent,
+    validateEvent,
+} from "../types";
 import {
     isDirectChildMarkdownPath,
     LocalEventFile,
     LocalEventReadAdapter,
 } from "../core/LocalEventIndex";
+
+export interface FullNoteEventPath {
+    path: string;
+}
+
+export interface FullNoteEventLocation {
+    file: { path: string };
+}
+
+export interface PersistedEventWrite {
+    location: FullNoteEventLocation;
+    event: OFCEvent;
+}
 
 export const FRIENDLY_RECURRENCE_ANCHOR = "1970-01-01";
 
@@ -448,42 +460,27 @@ const legacyModifications = (
     return modifications;
 };
 
-export default class FullNoteCalendar
-    extends EditableCalendar
-    implements LocalEventReadAdapter
-{
+export default class FullNoteCalendar implements LocalEventReadAdapter {
     app: ObsidianInterface;
+    readonly color: string;
     private _directory: string;
     private friendlyPaths = new Set<string>();
 
     constructor(app: ObsidianInterface, color: string, directory: string) {
-        super(color);
         this.app = app;
+        this.color = color;
         this._directory = directory;
     }
     get directory(): string {
         return this._directory;
     }
 
-    get type(): "local" {
-        return "local";
-    }
-
-    get identifier(): string {
-        return this.directory;
-    }
-
-    get name(): string {
-        return this.directory;
-    }
-
-    async getEventsInFile(file: TFile): Promise<EditableEventResponse[]> {
-        const metadata = this.app.getMetadata(file);
-        const event = parseFullNoteEvent(metadata?.frontmatter, file.basename);
-        if (!event) {
-            return [];
-        }
-        return [[event, { file, lineNumber: undefined }]];
+    get id(): string {
+        return fullNoteSourceId({
+            type: "local",
+            color: this.color,
+            directory: this.directory,
+        });
     }
 
     listFiles(): readonly LocalEventFile[] {
@@ -515,8 +512,10 @@ export default class FullNoteCalendar
         if (!file) {
             return null;
         }
-        const result = await this.getEventsInFile(file);
-        return result[0]?.[0] || null;
+        return parseFullNoteEvent(
+            this.app.getMetadata(file)?.frontmatter,
+            file.basename
+        );
     }
 
     async readEventFromDisk(path: string): Promise<OFCEvent | null> {
@@ -535,41 +534,6 @@ export default class FullNoteCalendar
 
     hasFile(path: string): boolean {
         return this.app.getFileByPath(path) !== null;
-    }
-
-    private async getEventsInFolderRecursive(
-        folder: TFolder
-    ): Promise<EditableEventResponse[]> {
-        const events = await Promise.all(
-            folder.children.map(async (file) => {
-                if (file instanceof TFile) {
-                    return await this.getEventsInFile(file);
-                } else if (file instanceof TFolder) {
-                    return await this.getEventsInFolderRecursive(file);
-                } else {
-                    return [];
-                }
-            })
-        );
-        return events.flat();
-    }
-
-    async getEvents(): Promise<EditableEventResponse[]> {
-        const eventFolder = this.app.getAbstractFileByPath(this.directory);
-        if (!eventFolder) {
-            throw new Error(`Cannot get folder ${this.directory}`);
-        }
-        if (!(eventFolder instanceof TFolder)) {
-            throw new Error(`${eventFolder} is not a directory.`);
-        }
-        const events: EditableEventResponse[] = [];
-        for (const file of eventFolder.children) {
-            if (file instanceof TFile) {
-                const results = await this.getEventsInFile(file);
-                events.push(...results);
-            }
-        }
-        return events;
     }
 
     getNewEventPath(): string {
@@ -620,7 +584,7 @@ export default class FullNoteCalendar
             throw new Error(`Created event note ${file.path} is not readable.`);
         }
         return {
-            location: { file, lineNumber: undefined },
+            location: { file },
             event: persistedEvent,
         };
     }
@@ -643,13 +607,10 @@ export default class FullNoteCalendar
     }
 
     getNewLocation(
-        location: EventPathLocation,
+        location: FullNoteEventPath,
         event: OFCEvent
-    ): EventLocation {
-        const { path, lineNumber } = location;
-        if (lineNumber !== undefined) {
-            throw new Error("Note calendar cannot handle inline events.");
-        }
+    ): FullNoteEventLocation {
+        const { path } = location;
         const file = this.app.getFileByPath(path);
         if (!file) {
             throw new Error(
@@ -658,18 +619,18 @@ export default class FullNoteCalendar
         }
 
         if (this.isFriendlyEventFile(path)) {
-            return { file, lineNumber: undefined };
+            return { file };
         }
 
         const parentPath = file.parent.path.replace(/\/+$/, "");
         const updatedPath = parentPath
             ? `${parentPath}/${filenameForEvent(event)}`
             : filenameForEvent(event);
-        return { file: { path: updatedPath }, lineNumber: undefined };
+        return { file: { path: updatedPath } };
     }
 
     async modifyEvent(
-        location: EventPathLocation,
+        location: FullNoteEventPath,
         event: OFCEvent
     ): Promise<PersistedEventWrite> {
         const { path } = location;

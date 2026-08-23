@@ -1,10 +1,6 @@
-import { TFile } from "obsidian";
-import FullNoteCalendar, {
-    parseFullNoteEvent,
-} from "../calendars/FullNoteCalendar";
-import type { ObsidianInterface } from "../ObsidianAdapter";
+import { TFile, TFolder } from "obsidian";
+import { parseFullNoteEvent } from "../calendars/FullNoteCalendar";
 import type { OFCEvent } from "../types";
-import EventStore from "./EventStore";
 import { MockAppBuilder } from "../../test_helpers/AppBuilder";
 import { FileBuilder } from "../../test_helpers/FileBuilder";
 import {
@@ -156,42 +152,25 @@ describe("legacy-index equivalence", () => {
             )
             .done();
         const fixtureBytes = new Map(app.vault.contents);
-        const forbidden = {
-            create: jest.fn(),
-            rewrite: jest.fn(),
-            rename: jest.fn(),
-        };
-        const oldIo: ObsidianInterface = {
-            getAbstractFileByPath: (path) =>
-                app.vault.getAbstractFileByPath(path),
-            getRoot: () => app.vault.getRoot(),
-            getFileByPath: (path) => {
-                const file = app.vault.getAbstractFileByPath(path);
-                return file instanceof TFile ? file : null;
-            },
-            getMetadata: (file) => app.metadataCache.getFileCache(file),
-            read: (file) => app.vault.read(file),
-            create: forbidden.create,
-            rewrite: forbidden.rewrite,
-            rename: forbidden.rename,
-        };
-        const oldCalendar = new FullNoteCalendar(oldIo, "#123456", "events");
-        const sourceId = oldCalendar.id;
-        const oldStore = new EventStore();
-        const oldResults = await oldCalendar.getEvents();
-        oldResults.forEach(([event, location], index) =>
-            oldStore.add({
-                calendar: oldCalendar,
-                location,
-                id: `legacy-generated-${index}`,
-                event,
-            })
-        );
-        const oldStoredEvents = oldStore.getEventsInCalendar(oldCalendar);
+        const sourceId = "local::events";
+        const folder = app.vault.getAbstractFileByPath("events");
+        if (!(folder instanceof TFolder)) {
+            throw new Error("Missing legacy-oracle fixture folder.");
+        }
+        const oldStoredEvents: Array<{ event: OFCEvent; path: string }> = [];
+        for (const file of folder.children) {
+            if (!(file instanceof TFile)) continue;
+            const parsed = parseFullNoteEvent(
+                app.metadataCache.getFileCache(file)?.frontmatter,
+                file.basename
+            );
+            if (parsed)
+                oldStoredEvents.push({ event: parsed, path: file.path });
+        }
         const oldSet = oldStoredEvents
-            .map(({ event, location }) => ({
+            .map(({ event, path }) => ({
                 sourceId,
-                path: location!.path,
+                path,
                 event,
             }))
             .sort((left, right) => left.path.localeCompare(right.path));
@@ -234,9 +213,6 @@ describe("legacy-index equivalence", () => {
         expect([...restarted.recordsById.keys()].sort()).toEqual(firstIds);
 
         expect(Object.keys(adapter).sort()).toEqual(["listFiles", "readEvent"]);
-        expect(forbidden.create).not.toHaveBeenCalled();
-        expect(forbidden.rewrite).not.toHaveBeenCalled();
-        expect(forbidden.rename).not.toHaveBeenCalled();
         expect(app.vault.contents).toEqual(fixtureBytes);
     });
 

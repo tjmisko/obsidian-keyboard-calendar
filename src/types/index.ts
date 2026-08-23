@@ -15,8 +15,3 @@ export class FCError {
         this.message = message;
     }
 }
-
-export type EventLocation = {
-    file: { path: string };
-    lineNumber: number | undefined;
-};

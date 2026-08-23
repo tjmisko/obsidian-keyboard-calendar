@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import EventCache, { CalendarInitializerMap } from "../core/EventCache";
+import EventCache from "../core/EventCache";
 import {
     CalendarInfo,
     safeParseCalendarInfo,
@@ -937,12 +937,11 @@ describe("active removed-source migration", () => {
     });
 
     it("boots removed-source-only data through cache population with no adapter effect", async () => {
-        const forbiddenAdapterEffect = jest.fn(() => null);
-        const initializers: CalendarInitializerMap = {
-            local: forbiddenAdapterEffect,
-            FOR_TEST_ONLY: forbiddenAdapterEffect,
-        };
-        const cache = new EventCache(initializers);
+        const forbiddenAdapterEffect = jest.fn();
+        const cache = new EventCache(() => {
+            forbiddenAdapterEffect();
+            throw new Error("Removed-source data reached the local factory.");
+        });
 
         await expect(
             loadMigratedSettingsBeforeRuntime(
@@ -958,7 +957,7 @@ describe("active removed-source migration", () => {
             )
         ).resolves.toBeDefined();
         expect(forbiddenAdapterEffect).not.toHaveBeenCalled();
-        expect(cache.calendars.size).toBe(0);
+        expect(cache.hasLocalCalendar()).toBe(false);
     });
 
     it("removes exactly the recorded daily-note set without changing full-note events or note bytes", async () => {

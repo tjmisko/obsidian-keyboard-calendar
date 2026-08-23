@@ -25,8 +25,7 @@ describe("modifier-click full-note routing", () => {
         file.name = "Event.md";
         const cache = {
             getInfoForFullNoteEvent: jest.fn(() => ({
-                calendar: {},
-                location: { path: file.path, lineNumber: undefined },
+                location: { path: file.path },
             })),
         } as unknown as EventCache;
         const leaf = {

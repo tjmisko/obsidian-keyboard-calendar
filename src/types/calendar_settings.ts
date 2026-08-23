@@ -1,5 +1,4 @@
 import { ZodError, z } from "zod";
-import { OFCEvent } from "./schema";
 
 const calendarOptionsSchema = z.object({
     type: z.literal("local"),
@@ -8,30 +7,17 @@ const calendarOptionsSchema = z.object({
 
 const colorValidator = z.object({ color: z.string() });
 
-export type TestSource = {
-    type: "FOR_TEST_ONLY";
-    id: string;
-    events?: OFCEvent[];
-};
-
-export type CalendarInfo = (
-    | z.infer<typeof calendarOptionsSchema>
-    | TestSource
-) &
+export type CalendarInfo = z.infer<typeof calendarOptionsSchema> &
     z.infer<typeof colorValidator>;
 
-export const fullNoteSourceId = (
-    source: Extract<CalendarInfo, { type: "local" }>
-): string => `local::${source.directory}`;
+export const fullNoteSourceId = (source: CalendarInfo): string =>
+    `local::${source.directory}`;
 
 export function resolveDefaultFullNoteCalendar(
     defaultCalendar: unknown,
     sources: CalendarInfo[]
 ): string | null {
-    const localSources = sources.filter(
-        (source): source is Extract<CalendarInfo, { type: "local" }> =>
-            source.type === "local"
-    );
+    const localSources = sources;
     if (localSources.length === 0) {
         return null;
     }

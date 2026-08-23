@@ -1,15 +1,12 @@
 import { TFile } from "obsidian";
-import equal from "deep-equal";
 
-import { Calendar } from "../calendars/Calendar";
-import FullNoteCalendar from "../calendars/FullNoteCalendar";
-import { CalendarInfo, EventLocation, OFCEvent, validateEvent } from "../types";
+import FullNoteCalendar, {
+    FullNoteEventLocation,
+} from "../calendars/FullNoteCalendar";
+import { CalendarInfo, OFCEvent } from "../types";
 import { LocalEventIndex, LocalEventRecord } from "./LocalEventIndex";
 
-export type CalendarInitializerMap = Record<
-    CalendarInfo["type"],
-    (info: CalendarInfo) => Calendar | null
->;
+export type LocalCalendarInitializer = (info: CalendarInfo) => FullNoteCalendar;
 
 export type CacheEntry = { event: OFCEvent; id: string; sourceId: string };
 
@@ -22,19 +19,6 @@ export type UpdateViewCallback = (
           }
         | { type: "resync" }
 ) => void;
-
-/** Retained until the generic-cache cleanup in Phase 8C. */
-export const eventsAreDifferent = (
-    oldEvents: OFCEvent[],
-    newEvents: OFCEvent[]
-): boolean => {
-    oldEvents.sort((a, b) => a.title.localeCompare(b.title));
-    newEvents.sort((a, b) => a.title.localeCompare(b.title));
-    oldEvents = oldEvents.flatMap((event) => validateEvent(event) || []);
-    newEvents = newEvents.flatMap((event) => validateEvent(event) || []);
-    if (oldEvents.length !== newEvents.length) return true;
-    return oldEvents.some((event, index) => !equal(event, newEvents[index]));
-};
 
 const eventsEqual = (left: OFCEvent, right: OFCEvent): boolean => {
     const leftKeys = Object.keys(left) as Array<keyof OFCEvent>;
@@ -75,28 +59,26 @@ type SuppressedVaultCallback =
 
 /** Runtime coordinator for the single configured full-note source. */
 export default class EventCache {
-    private calendarInfos: CalendarInfo[] = [];
-    private calendarInitializers: CalendarInitializerMap;
+    private createLocalCalendar: LocalCalendarInitializer;
+    private calendar: FullNoteCalendar | null = null;
     private index = new LocalEventIndex(null);
     private publishedRecordsById = new Map<string, LocalEventRecord>();
     private publishedIdByPath = new Map<string, string>();
-    calendars = new Map<string, Calendar>();
     private updateViewCallbacks: UpdateViewCallback[] = [];
     private activeMutationsByPath = new Map<string, MutationGuard>();
     private population: { epoch: number; promise: Promise<void> } | null = null;
     initialized = false;
 
-    constructor(calendarInitializers: CalendarInitializerMap) {
-        this.calendarInitializers = calendarInitializers;
+    constructor(createLocalCalendar: LocalCalendarInitializer) {
+        this.createLocalCalendar = createLocalCalendar;
     }
 
     reset(infos: CalendarInfo[]): void {
         this.initialized = false;
         this.population = null;
-        this.calendarInfos = infos;
-        this.calendars.clear();
-        this.init();
-        const calendar = this.localCalendar;
+        const source = infos.find((info) => info.type === "local") || null;
+        this.calendar = source ? this.createLocalCalendar(source) : null;
+        const calendar = this.calendar;
         this.index.reset(
             calendar
                 ? { sourceId: calendar.id, directory: calendar.directory }
@@ -106,22 +88,8 @@ export default class EventCache {
         this.resync();
     }
 
-    init(): void {
-        if (this.calendars.size > 0) return;
-        const source = this.calendarInfos.find(
-            (info): info is Extract<CalendarInfo, { type: "local" }> =>
-                info.type === "local"
-        );
-        if (!source) return;
-        const calendar = this.calendarInitializers.local(source);
-        if (calendar instanceof FullNoteCalendar) {
-            this.calendars.set(calendar.id, calendar);
-        }
-    }
-
     populate(): Promise<void> {
-        this.init();
-        const calendar = this.localCalendar;
+        const calendar = this.calendar;
         if (!calendar) {
             this.initialized = true;
             return Promise.resolve();
@@ -168,7 +136,7 @@ export default class EventCache {
     }
 
     getAllEvents(): OFCEventSource[] {
-        const calendar = this.localCalendar;
+        const calendar = this.calendar;
         if (!calendar) return [];
         const events = this.index
             .getImmutableRecordsForCache()
@@ -187,37 +155,18 @@ export default class EventCache {
         return this.index.getRecord(id)?.event || null;
     }
 
-    getCalendarById(id: string): Calendar | undefined {
-        return this.calendars.get(id);
-    }
-
-    getInfoForEditableEvent(eventId: string): {
-        calendar: FullNoteCalendar;
-        location: { path: string; lineNumber: undefined };
-    } {
-        const path = this.index.getPathForId(eventId);
-        if (!path) {
-            throw new Error(`Event ID ${eventId} not present in event index.`);
-        }
-        const calendar = this.localCalendar;
-        if (!calendar) {
-            throw new Error("Local event source is not registered.");
-        }
-        return {
-            calendar,
-            location: { path, lineNumber: undefined },
-        };
+    hasLocalCalendar(): boolean {
+        return this.calendar !== null;
     }
 
     getInfoForFullNoteEvent(eventId: string): {
-        calendar: FullNoteCalendar;
-        location: { path: string; lineNumber: undefined };
+        location: { path: string };
     } | null {
-        try {
-            return this.getInfoForEditableEvent(eventId);
-        } catch {
-            return null;
-        }
+        const path = this.index.getPathForId(eventId);
+        if (!path) return null;
+        return {
+            location: { path },
+        };
     }
 
     on(eventType: "update", callback: UpdateViewCallback): UpdateViewCallback {
@@ -231,11 +180,9 @@ export default class EventCache {
         if (index >= 0) this.updateViewCallbacks.splice(index, 1);
     }
 
-    async createEvent(
-        calendarId: string,
-        event: OFCEvent
-    ): Promise<EventLocation> {
-        const calendar = this.requireLocalCalendar(calendarId);
+    async createEvent(event: OFCEvent): Promise<FullNoteEventLocation> {
+        const calendar = this.calendar;
+        if (!calendar) throw new Error("Local event source is not registered.");
         const plannedPath = calendar.getNewEventPath();
         const mutation = this.acquireMutationPaths([plannedPath]);
         const mutationEpoch = this.index.epoch;
@@ -281,7 +228,10 @@ export default class EventCache {
         newEvent: OFCEvent
     ): Promise<boolean> {
         const oldRecord = this.index.getRecord(eventId);
-        const { calendar, location } = this.getInfoForEditableEvent(eventId);
+        const info = this.getInfoForFullNoteEvent(eventId);
+        const calendar = this.calendar;
+        if (!info || !calendar) throw new Error("Event does not exist");
+        const { location } = info;
         if (!oldRecord) throw new Error("Event does not exist");
         const persistedEvent = this.mergePersistedMetadata(
             oldRecord.event,
@@ -351,7 +301,7 @@ export default class EventCache {
         ) {
             return;
         }
-        const calendar = this.localCalendar;
+        const calendar = this.calendar;
         if (!calendar) return;
         try {
             await this.index.refresh(file.path, calendar, {
@@ -364,7 +314,7 @@ export default class EventCache {
     }
 
     async fileRenamed(file: TFile, oldPath: string): Promise<void> {
-        const calendar = this.localCalendar;
+        const calendar = this.calendar;
         if (!calendar) return;
         calendar.fileRenamed(oldPath, file.path);
         if (
@@ -391,28 +341,6 @@ export default class EventCache {
         }
         this.index.deletePath(path);
         this.publishTouched([path]);
-    }
-
-    /** Compatibility alias retained until Phase 8C. */
-    deleteEventsAtPath(path: string): void {
-        this.fileDeleted(path);
-    }
-
-    private get localCalendar(): FullNoteCalendar | null {
-        for (const calendar of this.calendars.values()) {
-            if (calendar instanceof FullNoteCalendar) return calendar;
-        }
-        return null;
-    }
-
-    private requireLocalCalendar(id: string): FullNoteCalendar {
-        const calendar = this.calendars.get(id);
-        if (!(calendar instanceof FullNoteCalendar)) {
-            throw new Error(
-                `Calendar ID ${id} is not a writable local source.`
-            );
-        }
-        return calendar;
     }
 
     private acquireMutationPaths(paths: string[]): MutationGuard {
@@ -477,7 +405,7 @@ export default class EventCache {
     }
 
     private async reconcileMutationPaths(paths: string[]): Promise<void> {
-        const calendar = this.localCalendar;
+        const calendar = this.calendar;
         if (!calendar) return;
         const epoch = this.index.epoch;
         const uniquePaths = [...new Set(paths)];

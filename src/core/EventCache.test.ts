@@ -1,12 +1,14 @@
 import { TFile } from "obsidian";
-import FullNoteCalendar from "../calendars/FullNoteCalendar";
+import FullNoteCalendar, {
+    FullNoteEventLocation,
+    FullNoteEventPath,
+} from "../calendars/FullNoteCalendar";
 import type { ObsidianInterface } from "../ObsidianAdapter";
-import type { EventLocation, OFCEvent } from "../types";
+import type { OFCEvent } from "../types";
 import EventCache, {
-    CalendarInitializerMap,
+    LocalCalendarInitializer,
     UpdateViewCallback,
 } from "./EventCache";
-import type { EventPathLocation } from "./EventStore";
 import { MockAppBuilder } from "../../test_helpers/AppBuilder";
 import { FileBuilder } from "../../test_helpers/FileBuilder";
 
@@ -55,20 +57,20 @@ class TestFullNoteCalendar extends FullNoteCalendar {
             this.existing.add(path);
             this.events.set(path, createdEvent);
             return {
-                location: { file: file(path), lineNumber: undefined },
+                location: { file: file(path) },
                 event: createdEvent,
             };
         }
     );
     modifyEvent = jest.fn(
-        async (location: EventPathLocation, updatedEvent: OFCEvent) => {
+        async (location: FullNoteEventPath, updatedEvent: OFCEvent) => {
             const newPath = this.nextModifyPath || location.path;
             this.existing.delete(location.path);
             this.events.delete(location.path);
             this.existing.add(newPath);
             this.events.set(newPath, updatedEvent);
             return {
-                location: { file: file(newPath), lineNumber: undefined },
+                location: { file: file(newPath) },
                 event: updatedEvent,
             };
         }
@@ -91,12 +93,11 @@ class TestFullNoteCalendar extends FullNoteCalendar {
     }
 
     getNewLocation(
-        location: EventPathLocation,
+        location: FullNoteEventPath,
         _event: OFCEvent
-    ): EventLocation {
+    ): FullNoteEventLocation {
         return {
             file: file(this.nextModifyPath || location.path),
-            lineNumber: undefined,
         };
     }
 
@@ -111,12 +112,12 @@ const makeCache = (
         [calendar.directory]: calendar,
     }
 ): EventCache => {
-    const initializers: CalendarInitializerMap = {
-        local: (info) =>
-            info.type === "local" ? calendarsByDirectory[info.directory] : null,
-        FOR_TEST_ONLY: () => null,
+    const initialize: LocalCalendarInitializer = (info) => {
+        const configured = calendarsByDirectory[info.directory];
+        if (!configured) throw new Error("Missing configured test calendar.");
+        return configured;
     };
-    const cache = new EventCache(initializers);
+    const cache = new EventCache(initialize);
     cache.reset([
         {
             type: "local",
@@ -225,7 +226,7 @@ describe("single local EventCache runtime", () => {
         calendar.existing.delete("Moved.MD");
         expect(sourceEvents(cache)).toHaveLength(0);
 
-        const location = await cache.createEvent(calendar.id, event("Created"));
+        const location = await cache.createEvent(event("Created"));
         expect(location.file.path).toBe("Untitled event.md");
         expect(sourceEvents(cache)).toHaveLength(1);
     });
@@ -264,11 +265,7 @@ describe("single local EventCache runtime", () => {
             rename: jest.fn(),
         };
         const calendar = new FullNoteCalendar(io, "#123456", "");
-        const initializers: CalendarInitializerMap = {
-            local: () => calendar,
-            FOR_TEST_ONLY: () => null,
-        };
-        const cache = new EventCache(initializers);
+        const cache = new EventCache(() => calendar);
         cache.reset([{ type: "local", directory: "", color: "#123456" }]);
 
         await cache.populate();
@@ -450,13 +447,13 @@ describe("single local EventCache runtime", () => {
                 await cache.fileUpdated(file(path));
                 expect(sourceEvents(cache)).toHaveLength(0);
                 return {
-                    location: { file: file(path), lineNumber: undefined },
+                    location: { file: file(path) },
                     event: createdEvent,
                 };
             }
         );
 
-        const location = await cache.createEvent(calendar.id, event("Created"));
+        const location = await cache.createEvent(event("Created"));
 
         expect(location.file.path).toBe("events/Untitled event.md");
         expect(sourceEvents(cache)[0].event.title).toBe("Created");
@@ -473,14 +470,13 @@ describe("single local EventCache runtime", () => {
                 calendar.existing.add(path!);
                 calendar.events.set(path!, diskEvent);
                 return {
-                    location: { file: file(path!), lineNumber: undefined },
+                    location: { file: file(path!) },
                     event: diskEvent,
                 };
             }
         );
 
         await cache.createEvent(
-            calendar.id,
             event("Requested title", "2026-08-22", {
                 id: "discarded-authored-id",
                 categories: ["discarded-category"],
@@ -503,12 +499,12 @@ describe("single local EventCache runtime", () => {
         const callback = jest.fn();
         cache.on("update", callback);
         const pending = deferred<{
-            location: { file: TFile; lineNumber: undefined };
+            location: { file: TFile };
             event: OFCEvent;
         }>();
         calendar.createEvent.mockReturnValueOnce(pending.promise);
 
-        const creation = cache.createEvent(calendar.id, event("Created"));
+        const creation = cache.createEvent(event("Created"));
         calendar.events.set("events/A.md", event("A external"));
         await cache.fileUpdated(file("events/A.md"));
         calendar.existing.add("events/Untitled event.md");
@@ -516,7 +512,6 @@ describe("single local EventCache runtime", () => {
         pending.resolve({
             location: {
                 file: file("events/Untitled event.md"),
-                lineNumber: undefined,
             },
             event: event("Created"),
         });
@@ -543,9 +538,9 @@ describe("single local EventCache runtime", () => {
         cache.on("update", callback);
         calendar.createEvent.mockRejectedValueOnce(new Error("create failed"));
 
-        await expect(
-            cache.createEvent(calendar.id, event("Requested"))
-        ).rejects.toThrow("create failed");
+        await expect(cache.createEvent(event("Requested"))).rejects.toThrow(
+            "create failed"
+        );
         expect(sourceEvents(cache)).toHaveLength(0);
         expect(callback).not.toHaveBeenCalled();
 
@@ -555,7 +550,7 @@ describe("single local EventCache runtime", () => {
             throw new Error("create returned failure after side effect");
         });
         await expect(
-            cache.createEvent(calendar.id, event("Never claim me"))
+            cache.createEvent(event("Never claim me"))
         ).rejects.toThrow("after side effect");
         expect(sourceEvents(cache)[0].event.title).toBe("Actual disk event");
         expect(eventPayloads(callback)).toHaveLength(1);
@@ -579,7 +574,7 @@ describe("single local EventCache runtime", () => {
         const callback = jest.fn();
         cache.on("update", callback);
         const write = deferred<{
-            location: { file: TFile; lineNumber: undefined };
+            location: { file: TFile };
             event: OFCEvent;
         }>();
         calendar.modifyEvent.mockImplementationOnce(
@@ -613,7 +608,6 @@ describe("single local EventCache runtime", () => {
         write.resolve({
             location: {
                 file: file("events/A.md"),
-                lineNumber: undefined,
             },
             event: calendar.events.get("events/A.md")!,
         });
@@ -716,7 +710,7 @@ describe("single local EventCache runtime", () => {
         const callback = jest.fn();
         cache.on("update", callback);
         const pending = deferred<{
-            location: { file: TFile; lineNumber: undefined };
+            location: { file: TFile };
             event: OFCEvent;
         }>();
         calendar.modifyEvent.mockReturnValueOnce(pending.promise);
@@ -727,7 +721,6 @@ describe("single local EventCache runtime", () => {
         pending.resolve({
             location: {
                 file: file("events/A.md"),
-                lineNumber: undefined,
             },
             event: event("Requested"),
         });
@@ -745,7 +738,7 @@ describe("single local EventCache runtime", () => {
         await cache.populate();
         const id = sourceEvents(cache)[0].id;
         const pending = deferred<{
-            location: { file: TFile; lineNumber: undefined };
+            location: { file: TFile };
             event: OFCEvent;
         }>();
         calendar.modifyEvent.mockReturnValueOnce(pending.promise);
@@ -759,7 +752,6 @@ describe("single local EventCache runtime", () => {
         pending.resolve({
             location: {
                 file: file("events/A.md"),
-                lineNumber: undefined,
             },
             event: event("Requested"),
         });
@@ -794,7 +786,6 @@ describe("single local EventCache runtime", () => {
                 return {
                     location: {
                         file: file("events/B.md"),
-                        lineNumber: undefined,
                     },
                     event: value,
                 };
@@ -870,7 +861,6 @@ describe("single local EventCache runtime", () => {
             return {
                 location: {
                     file: file("events/A.md"),
-                    lineNumber: undefined,
                 },
                 event: event("Phantom"),
             };
@@ -896,7 +886,7 @@ describe("single local EventCache runtime", () => {
         await cache.populate();
         const oldId = sourceEvents(cache)[0].id;
         const pending = deferred<{
-            location: { file: TFile; lineNumber: undefined };
+            location: { file: TFile };
             event: OFCEvent;
         }>();
         eventsCalendar.modifyEvent.mockReturnValueOnce(pending.promise);
@@ -910,7 +900,6 @@ describe("single local EventCache runtime", () => {
         pending.resolve({
             location: {
                 file: file("events/A.md"),
-                lineNumber: undefined,
             },
             event: event("Old write"),
         });
@@ -921,11 +910,11 @@ describe("single local EventCache runtime", () => {
         ]);
 
         const createPending = deferred<{
-            location: { file: TFile; lineNumber: undefined };
+            location: { file: TFile };
             event: OFCEvent;
         }>();
         workCalendar.createEvent.mockReturnValueOnce(createPending.promise);
-        const creation = cache.createEvent(workCalendar.id, event("Created"));
+        const creation = cache.createEvent(event("Created"));
         cache.reset([{ type: "local", directory: "work", color: "#123456" }]);
         await cache.populate();
         workCalendar.existing.add("work/Untitled event.md");
@@ -933,7 +922,6 @@ describe("single local EventCache runtime", () => {
         createPending.resolve({
             location: {
                 file: file("work/Untitled event.md"),
-                lineNumber: undefined,
             },
             event: event("Created"),
         });
@@ -978,7 +966,7 @@ describe("single local EventCache runtime", () => {
         await cache.populate();
         const oldId = sourceEvents(cache)[0].id;
         const pending = deferred<{
-            location: { file: TFile; lineNumber: undefined };
+            location: { file: TFile };
             event: OFCEvent;
         }>();
         calendar.modifyEvent.mockReturnValueOnce(pending.promise);
@@ -1030,13 +1018,13 @@ describe("single local EventCache runtime", () => {
             calendar.events.set(path!, created);
             await cache.fileUpdated(file(path!));
             return {
-                location: { file: file(path!), lineNumber: undefined },
+                location: { file: file(path!) },
                 event: created,
             };
         });
 
         await expect(
-            cache.createEvent(calendar.id, event("Created"))
+            cache.createEvent(event("Created"))
         ).resolves.toBeDefined();
         expect(sourceEvents(cache)).toHaveLength(1);
         expect(good).toHaveBeenCalled();
@@ -1056,7 +1044,7 @@ describe("single local EventCache runtime", () => {
         const observer = jest.fn();
         cache.on("update", observer);
 
-        await cache.createEvent(calendar.id, event("Persisted"));
+        await cache.createEvent(event("Persisted"));
 
         const observed = observer.mock.calls[0][0];
         expect(observed.toRemove).toEqual([]);

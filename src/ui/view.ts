@@ -158,11 +158,7 @@ export class CalendarView extends ItemView {
         container.empty();
         let calendarEl = container.createEl("div");
 
-        if (
-            this.plugin.settings.calendarSources.filter(
-                (s) => s.type !== "FOR_TEST_ONLY"
-            ).length === 0
-        ) {
+        if (this.plugin.settings.calendarSources.length === 0) {
             renderOnboarding(this.app, this.plugin, calendarEl);
             return;
         }
@@ -246,9 +242,9 @@ export class CalendarView extends ItemView {
 
             eventMouseEnter: async (info) => {
                 try {
-                    const location = this.plugin.cache.getInfoForEditableEvent(
+                    const location = this.plugin.cache.getInfoForFullNoteEvent(
                         info.event.id
-                    ).location;
+                    )?.location;
                     if (location) {
                         this.app.workspace.trigger("hover-link", {
                             event: info.jsEvent,

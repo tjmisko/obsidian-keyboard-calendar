@@ -195,9 +195,8 @@ export function decodeSettings(
                   validatedSources
               )) || "";
     const supported = new Set(supportedTypes);
-    const supportedSources = validatedSources.filter(
-        (source) =>
-            source.type !== "FOR_TEST_ONLY" && supported.has(source.type)
+    const supportedSources = validatedSources.filter((source) =>
+        supported.has(source.type)
     );
     const selectedLocal = supportedSources.find(
         (source) =>
@@ -356,7 +355,7 @@ export function migrateSettings(
         Object.keys(removalVersions) as PersistedSourceType[]
     );
     const retainedSources = decoded.calendarSources.filter(
-        (source) => source.type === "FOR_TEST_ONLY" || !removed.has(source.type)
+        (source) => !removed.has(source.type)
     );
     const existingEnvelopes = isRecord(input)
         ? readRedactedLegacySources(input.redactedLegacySources)
