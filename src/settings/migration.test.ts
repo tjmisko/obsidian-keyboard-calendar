@@ -8,6 +8,7 @@ import {
     CALDAV_REMOVAL_VERSION,
     capturePersistedSettings,
     captureRuntimeSettingsBaseline,
+    commitSettingsBeforeRuntime,
     DAILY_NOTE_REMOVAL_VERSION,
     decodeSettings,
     ICS_REMOVAL_VERSION,
@@ -16,6 +17,8 @@ import {
     migrateSettings,
     prepareSettingsSave,
     SETTINGS_VERSION,
+    SETTINGS_REFRESH_FAILED_NOTICE,
+    SINGLE_LOCAL_SOURCE_VERSION,
 } from "./migration";
 import {
     PHASE4_DAILY_NOTE_EVENTS,
@@ -205,15 +208,15 @@ describe("settings decoder", () => {
                 { calendarSources, defaultCalendar: 2 },
                 undefined,
                 jest.fn()
-            ).settings.defaultCalendar
-        ).toBe("local::Home");
+            ).settings.calendarSources
+        ).toEqual([local("Home")]);
         expect(
             decodeSettings(
                 { calendarSources, defaultCalendar: "Work" },
                 undefined,
                 jest.fn()
-            ).settings.defaultCalendar
-        ).toBe("local::Work");
+            ).settings.calendarSources
+        ).toEqual([local("Work")]);
     });
 
     it("keeps numeric defaults tied to the original raw source slot", () => {
@@ -230,8 +233,8 @@ describe("settings decoder", () => {
                 { calendarSources, defaultCalendar: 4 },
                 undefined,
                 jest.fn()
-            ).settings.defaultCalendar
-        ).toBe("local::Indexed");
+            ).settings.calendarSources
+        ).toEqual([local("Indexed")]);
     });
 
     it("filters removed sources before runtime initialization", () => {
@@ -253,12 +256,133 @@ describe("settings decoder", () => {
             defaultCalendar: 99,
         };
         expect(
-            decodeSettings(input, undefined, jest.fn()).settings.defaultCalendar
-        ).toBe("local::First");
+            decodeSettings(input, undefined, jest.fn()).settings.calendarSources
+        ).toEqual([local("First")]);
     });
 });
 
 describe("active removed-source migration", () => {
+    it("selects the legacy default local and redacts only discarded local configuration", () => {
+        const input = {
+            settingsVersion: DAILY_NOTE_REMOVAL_VERSION,
+            calendarSources: [local("DiscardedFolderSentinel"), local("Keep")],
+            defaultCalendar: "local::Keep",
+            initialView: { desktop: "dayGridMonth", mobile: "listWeek" },
+            unrelated: { retained: true },
+        };
+
+        const migrated = migrateSettings(input, jest.fn());
+
+        expect(migrated.settings.calendarSources).toEqual([local("Keep")]);
+        expect(migrated.settings).not.toHaveProperty("defaultCalendar");
+        expect(migrated.settings.initialView).toEqual(input.initialView);
+        expect((migrated.settings as any).unrelated).toEqual({
+            retained: true,
+        });
+        expect(migrated.settings.redactedLegacySources).toEqual([
+            {
+                legacyType: "local",
+                removedAtVersion: SINGLE_LOCAL_SOURCE_VERSION,
+            },
+        ]);
+        expect(JSON.stringify(migrated.settings)).not.toContain(
+            "DiscardedFolderSentinel"
+        );
+    });
+
+    it("uses the numeric default's original mixed raw slot", () => {
+        const migrated = migrateSettings(
+            {
+                calendarSources: [
+                    legacyCalDav,
+                    { type: "local", directory: 42, color: "red" },
+                    legacyIcs,
+                    { type: "unknown" },
+                    local("Indexed"),
+                    local("Fallback"),
+                ],
+                defaultCalendar: 4,
+            },
+            jest.fn()
+        );
+
+        expect(migrated.settings.calendarSources).toEqual([local("Indexed")]);
+        expect(migrated.settings.redactedLegacySources).toEqual([
+            { legacyType: "caldav", removedAtVersion: CALDAV_REMOVAL_VERSION },
+            { legacyType: "ical", removedAtVersion: ICS_REMOVAL_VERSION },
+            {
+                legacyType: "local",
+                removedAtVersion: SINGLE_LOCAL_SOURCE_VERSION,
+            },
+        ]);
+        expect(migrated.settings).not.toHaveProperty("defaultCalendar");
+    });
+
+    it("retains a single legacy vault-root source", () => {
+        const migrated = migrateSettings(
+            { calendarSources: [local("")], defaultCalendar: "" },
+            jest.fn()
+        );
+
+        expect(migrated.settings.calendarSources).toEqual([local("")]);
+        expect(migrated.settings.redactedLegacySources).toEqual([]);
+        expect(migrated.settings).not.toHaveProperty("defaultCalendar");
+    });
+
+    it("collapses stale current and future multi-local settings without downgrading", () => {
+        const current = migrateSettings(
+            {
+                settingsVersion: SETTINGS_VERSION,
+                calendarSources: [local("First"), local("Second")],
+                defaultCalendar: "Second",
+            },
+            jest.fn()
+        );
+        const future = migrateSettings(
+            {
+                settingsVersion: 17,
+                calendarSources: [local("First"), local("Second")],
+                defaultCalendar: "local::Second",
+            },
+            jest.fn()
+        );
+
+        expect(current.settings.calendarSources).toEqual([local("Second")]);
+        expect(current.settings.settingsVersion).toBe(SETTINGS_VERSION);
+        expect(future.settings.calendarSources).toEqual([local("Second")]);
+        expect(future.settings.settingsVersion).toBe(17);
+        expect(current.saveRequested).toBe(true);
+        expect(future.saveRequested).toBe(true);
+    });
+
+    it("preserves a sanitized future local envelope and adds canonical v5", () => {
+        const migrated = migrateSettings(
+            {
+                settingsVersion: 17,
+                calendarSources: [local("First"), local("Second")],
+                redactedLegacySources: [
+                    {
+                        legacyType: "local",
+                        removedAtVersion: 12,
+                        directory: "ENVELOPE_LOCAL_SENTINEL",
+                    },
+                ],
+            },
+            jest.fn()
+        );
+
+        expect(migrated.settings.redactedLegacySources).toEqual([
+            { legacyType: "local", removedAtVersion: 12 },
+            {
+                legacyType: "local",
+                removedAtVersion: SINGLE_LOCAL_SOURCE_VERSION,
+            },
+        ]);
+        expect(JSON.stringify(migrated.settings)).not.toContain(
+            "ENVELOPE_LOCAL_SENTINEL"
+        );
+    });
+
     it("redacts every removed source with its canonical version and is idempotent", () => {
         const input = {
             calendarSources: [
@@ -278,7 +402,8 @@ describe("active removed-source migration", () => {
         expect(JSON.stringify(input)).toBe(original);
         expect(first.changed).toBe(true);
         expect(first.saveRequested).toBe(true);
-        expect(first.settings.defaultCalendar).toBe("local::Events");
+        expect(first.settings.calendarSources).toEqual([local("Events")]);
+        expect(first.settings).not.toHaveProperty("defaultCalendar");
         expect(first.settings.redactedLegacySources).toEqual([
             { legacyType: "caldav", removedAtVersion: CALDAV_REMOVAL_VERSION },
             { legacyType: "ical", removedAtVersion: ICS_REMOVAL_VERSION },
@@ -579,6 +704,96 @@ describe("active removed-source migration", () => {
         expect(notify).not.toHaveBeenCalled();
     });
 
+    it("persists connector and multi-local redaction before fixed notices and initialization", async () => {
+        const operations: string[] = [];
+        const notices: string[] = [];
+        const result = await loadMigratedSettingsBeforeRuntime(
+            async () => {
+                operations.push("load");
+                return {
+                    calendarSources: [
+                        legacyCalDav,
+                        legacyIcs,
+                        dailynote,
+                        local("DiscardedLocalSentinel"),
+                        local("Keep"),
+                    ],
+                    defaultCalendar: "Keep",
+                };
+            },
+            async () => {
+                operations.push("persist");
+            },
+            () => {
+                operations.push("initialize");
+            },
+            jest.fn(),
+            (message) => {
+                operations.push("notice");
+                notices.push(message);
+            }
+        );
+
+        expect(operations).toEqual([
+            "load",
+            "persist",
+            "notice",
+            "notice",
+            "initialize",
+        ]);
+        expect(notices).toEqual([
+            "A saved daily-note calendar source was removed. Existing daily notes were not changed.",
+            "Multiple local calendar sources were reduced to one. Event notes were not changed.",
+        ]);
+        expect(result.settings.calendarSources).toEqual([local("Keep")]);
+        expect(result.settings.redactedLegacySources).toEqual([
+            { legacyType: "caldav", removedAtVersion: CALDAV_REMOVAL_VERSION },
+            { legacyType: "ical", removedAtVersion: ICS_REMOVAL_VERSION },
+            {
+                legacyType: "dailynote",
+                removedAtVersion: DAILY_NOTE_REMOVAL_VERSION,
+            },
+            {
+                legacyType: "local",
+                removedAtVersion: SINGLE_LOCAL_SOURCE_VERSION,
+            },
+        ]);
+        expect(JSON.stringify(result.settings)).not.toContain(
+            "DiscardedLocalSentinel"
+        );
+    });
+
+    it("scrubs a stale legacy default without a multi-local notice", async () => {
+        const persist = jest.fn(async () => undefined);
+        const notify = jest.fn();
+        const first = await loadMigratedSettingsBeforeRuntime(
+            async () => ({
+                settingsVersion: SETTINGS_VERSION,
+                calendarSources: [local("Events")],
+                defaultCalendar: "local::Events",
+            }),
+            persist,
+            async () => undefined,
+            jest.fn(),
+            notify
+        );
+
+        expect(persist).toHaveBeenCalledTimes(1);
+        expect(notify).not.toHaveBeenCalled();
+        expect(first.settings).not.toHaveProperty("defaultCalendar");
+
+        persist.mockClear();
+        await loadMigratedSettingsBeforeRuntime(
+            async () => first.settings,
+            persist,
+            async () => undefined,
+            jest.fn(),
+            notify
+        );
+        expect(persist).not.toHaveBeenCalled();
+        expect(notify).not.toHaveBeenCalled();
+    });
+
     it("does not notify or initialize when the scrubbed settings write fails", async () => {
         const initialize = jest.fn();
         const notify = jest.fn();
@@ -595,6 +810,31 @@ describe("active removed-source migration", () => {
         ).rejects.toThrow("synthetic settings write failure");
         expect(notify).not.toHaveBeenCalled();
         expect(initialize).not.toHaveBeenCalled();
+    });
+
+    it("does not notify, initialize, or invoke note effects when multi-local persistence fails", async () => {
+        const initialize = jest.fn();
+        const notify = jest.fn();
+        const forbiddenNoteEffect = jest.fn();
+        await expect(
+            loadMigratedSettingsBeforeRuntime(
+                async () => ({
+                    calendarSources: [local("First"), local("Second")],
+                }),
+                async () => {
+                    throw new Error("synthetic v5 persistence failure");
+                },
+                (settings) => {
+                    initialize(settings);
+                    forbiddenNoteEffect();
+                },
+                jest.fn(),
+                notify
+            )
+        ).rejects.toThrow("synthetic v5 persistence failure");
+        expect(notify).not.toHaveBeenCalled();
+        expect(initialize).not.toHaveBeenCalled();
+        expect(forbiddenNoteEffect).not.toHaveBeenCalled();
     });
 
     it("boots removed-source-only data through cache population with no adapter effect", async () => {
@@ -681,21 +921,25 @@ describe("active removed-source migration", () => {
         expect(forbiddenNoteWrite).not.toHaveBeenCalled();
     });
 
-    it("makes no persistence call for already-v4 settings", async () => {
+    it("makes no persistence or notice call for already-v5 single-local settings", async () => {
         const first = migrateSettings(
             { calendarSources: [legacyCalDav, local()] },
             jest.fn()
         );
         const persist = jest.fn(async () => undefined);
-        const second = await loadMigratedSettings(
+        const notify = jest.fn();
+        const second = await loadMigratedSettingsBeforeRuntime(
             async () => first.settings,
             persist,
-            jest.fn()
+            async () => undefined,
+            jest.fn(),
+            notify
         );
 
         expect(second.saveRequested).toBe(false);
         expect(second.settings).toEqual(first.settings);
         expect(persist).not.toHaveBeenCalled();
+        expect(notify).not.toHaveBeenCalled();
     });
 });
 
@@ -708,7 +952,7 @@ describe("production persistence after migration", () => {
         );
         const persisted = capturePersistedSettings(loaded.settings);
         const baseline = captureRuntimeSettingsBaseline(loaded.settings);
-        loaded.settings.calendarSources.push(local("Work"));
+        loaded.settings.calendarSources = [local("Work")];
 
         const prepared = prepareSettingsSave(
             persisted,
@@ -720,7 +964,7 @@ describe("production persistence after migration", () => {
             (prepared.persisted.calendarSources as CalendarInfo[]).map(
                 (source) => source.type === "local" && source.directory
             )
-        ).toEqual(["Events", "Work"]);
+        ).toEqual(["Work"]);
         expect(
             (persisted.calendarSources as CalendarInfo[]).map(
                 (source) => source.type === "local" && source.directory
@@ -763,18 +1007,37 @@ describe("production persistence after migration", () => {
         expect(prepared.persisted).toEqual(migrated);
     });
 
-    it("keeps successive in-place source and nested-view edits observable", () => {
+    it("never writes the migration-only legacy default key back", () => {
+        const current = decodeSettings(
+            { calendarSources: [local("Events")] },
+            undefined,
+            jest.fn()
+        ).settings;
+        const prepared = prepareSettingsSave(
+            {
+                ...current,
+                defaultCalendar: "local::Events",
+            },
+            captureRuntimeSettingsBaseline(current),
+            current
+        );
+
+        expect(prepared.changed).toBe(true);
+        expect(prepared.persisted).not.toHaveProperty("defaultCalendar");
+    });
+
+    it("keeps successive one-source and nested-view edits observable", () => {
         const input = {
             calendarSources: [local("Events")],
             initialView: { desktop: "timeGridWeek", mobile: "timeGrid3Days" },
         };
         const current = decodeSettings(input, undefined, jest.fn()).settings;
         const baseline = captureRuntimeSettingsBaseline(current);
-        current.calendarSources.push(local("Work"));
+        current.calendarSources = [local("Work")];
         current.initialView.desktop = "dayGridMonth";
 
         const first = prepareSettingsSave(input, baseline, current);
-        current.calendarSources.push(local("Personal"));
+        current.calendarSources = [local("Personal")];
         current.initialView.mobile = "listWeek";
         const second = prepareSettingsSave(
             first.persisted,
@@ -787,11 +1050,98 @@ describe("production persistence after migration", () => {
             (second.persisted.calendarSources as CalendarInfo[]).map(
                 (source) => source.type
             )
-        ).toEqual(["local", "local", "local"]);
+        ).toEqual(["local"]);
+        expect((second.persisted.calendarSources as CalendarInfo[])[0]).toEqual(
+            local("Personal")
+        );
         expect(second.persisted.initialView).toEqual({
             desktop: "dayGridMonth",
             mobile: "listWeek",
         });
+    });
+});
+
+describe("transactional runtime settings updates", () => {
+    const currentSettings = () =>
+        decodeSettings(
+            {
+                calendarSources: [local("Events")],
+                initialView: {
+                    desktop: "timeGridWeek",
+                    mobile: "timeGrid3Days",
+                },
+            },
+            undefined,
+            jest.fn()
+        ).settings;
+
+    it("does not commit or refresh when persistence fails", async () => {
+        const current = currentSettings();
+        const persisted = capturePersistedSettings(current);
+        const baseline = captureRuntimeSettingsBaseline(current);
+        const commit = jest.fn();
+        const refresh = jest.fn();
+        const notify = jest.fn();
+
+        await expect(
+            commitSettingsBeforeRuntime(
+                persisted,
+                baseline,
+                { ...current, firstDay: 2 },
+                async () => {
+                    throw new Error("synthetic saveData failure");
+                },
+                commit,
+                refresh,
+                jest.fn(),
+                notify
+            )
+        ).rejects.toThrow("synthetic saveData failure");
+
+        expect(commit).not.toHaveBeenCalled();
+        expect(refresh).not.toHaveBeenCalled();
+        expect(notify).not.toHaveBeenCalled();
+        expect(current.firstDay).toBe(0);
+        expect(persisted.firstDay).toBe(0);
+    });
+
+    it("keeps committed memory and disk aligned when cache refresh fails", async () => {
+        const current = currentSettings();
+        const persisted = capturePersistedSettings(current);
+        const baseline = captureRuntimeSettingsBaseline(current);
+        const operations: string[] = [];
+        let committedSettings = current;
+        let committedPersisted: Record<string, unknown> = { ...persisted };
+        const notify = jest.fn();
+        const log = jest.fn();
+
+        await expect(
+            commitSettingsBeforeRuntime(
+                persisted,
+                baseline,
+                { ...current, firstDay: 3 },
+                async () => {
+                    operations.push("persist");
+                },
+                (settings, nextPersisted) => {
+                    operations.push("commit");
+                    committedSettings = settings;
+                    committedPersisted = nextPersisted;
+                },
+                async () => {
+                    operations.push("refresh");
+                    throw new Error("synthetic cache failure");
+                },
+                log,
+                notify
+            )
+        ).resolves.toBeDefined();
+
+        expect(operations).toEqual(["persist", "commit", "refresh"]);
+        expect(committedSettings.firstDay).toBe(3);
+        expect(committedPersisted.firstDay).toBe(3);
+        expect(log).toHaveBeenCalledWith(expect.any(Error));
+        expect(notify).toHaveBeenCalledWith(SETTINGS_REFRESH_FAILED_NOTICE);
     });
 });
 

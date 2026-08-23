@@ -11,7 +11,8 @@ export type SourceTypeBucket = PersistedSourceType | "unknown";
 export const CALDAV_REMOVAL_VERSION = 2;
 export const ICS_REMOVAL_VERSION = 3;
 export const DAILY_NOTE_REMOVAL_VERSION = 4;
-export const SETTINGS_VERSION = DAILY_NOTE_REMOVAL_VERSION;
+export const SINGLE_LOCAL_SOURCE_VERSION = 5;
+export const SETTINGS_VERSION = SINGLE_LOCAL_SOURCE_VERSION;
 
 export const REMOVED_SOURCE_VERSIONS: Readonly<
     Partial<Record<PersistedSourceType, number>>
@@ -23,7 +24,6 @@ export const REMOVED_SOURCE_VERSIONS: Readonly<
 
 export interface FullCalendarSettings {
     calendarSources: CalendarInfo[];
-    defaultCalendar: string;
     firstDay: number;
     initialView: {
         desktop: string;
@@ -35,7 +35,6 @@ export interface FullCalendarSettings {
 
 export const DEFAULT_SETTINGS: FullCalendarSettings = {
     calendarSources: [],
-    defaultCalendar: "",
     firstDay: 0,
     initialView: {
         desktop: "timeGridWeek",
@@ -78,6 +77,9 @@ export interface SettingsSavePreparation {
     changed: boolean;
     runtimeBaseline: FullCalendarSettings;
 }
+
+export const SETTINGS_REFRESH_FAILED_NOTICE =
+    "Settings were saved, but the event cache could not refresh. Restart Obsidian or reset the event cache.";
 
 const SOURCE_TYPES: readonly PersistedSourceType[] = [
     "local",
@@ -209,20 +211,26 @@ export function decodeSettings(
                   validatedSources
               )) || "";
     const supported = new Set(supportedTypes);
-    const calendarSources = validatedSources.filter(
+    const supportedSources = validatedSources.filter(
         (source) =>
             source.type !== "FOR_TEST_ONLY" && supported.has(source.type)
     );
-    const supportedLocalIds = calendarSources.flatMap((source) =>
-        source.type === "local" ? [fullNoteSourceId(source)] : []
+    const selectedLocal = supportedSources.find(
+        (source) =>
+            source.type === "local" &&
+            fullNoteSourceId(source) === resolvedBeforeFiltering
     );
-    const defaultCalendar = supportedLocalIds.includes(resolvedBeforeFiltering)
-        ? resolvedBeforeFiltering
-        : supportedLocalIds[0] || "";
+    const fallbackLocal = supportedSources.find(
+        (source) => source.type === "local"
+    );
+    const calendarSources = selectedLocal
+        ? [selectedLocal]
+        : fallbackLocal
+        ? [fallbackLocal]
+        : [];
 
     const settings: FullCalendarSettings = {
         calendarSources,
-        defaultCalendar,
         firstDay:
             typeof root.firstDay === "number" &&
             Number.isInteger(root.firstDay) &&
@@ -257,7 +265,6 @@ const cloneRuntimeSettings = (
 
 const RUNTIME_SETTING_KEYS = [
     "calendarSources",
-    "defaultCalendar",
     "firstDay",
     "initialView",
     "timeFormat24h",
@@ -277,6 +284,7 @@ export function prepareSettingsSave(
     const persisted: Record<string, unknown> = isRecord(input)
         ? cloneJsonValue(input)
         : {};
+    delete persisted.defaultCalendar;
 
     for (const key of RUNTIME_SETTING_KEYS) {
         if (
@@ -291,6 +299,44 @@ export function prepareSettingsSave(
         changed: canonicalJson(input) !== canonicalJson(persisted),
         runtimeBaseline: cloneRuntimeSettings(current),
     };
+}
+
+/**
+ * Persist an immutable settings candidate before publishing it to runtime.
+ * Refresh failures occur after the commit boundary and are reported without
+ * rolling memory back away from the saved representation.
+ */
+export async function commitSettingsBeforeRuntime(
+    persistedSettings: unknown,
+    runtimeBaseline: FullCalendarSettings,
+    nextSettings: FullCalendarSettings,
+    persist: (settings: Record<string, unknown>) => Promise<void>,
+    commit: (
+        settings: FullCalendarSettings,
+        persisted: Record<string, unknown>,
+        baseline: FullCalendarSettings
+    ) => void,
+    refresh: (settings: FullCalendarSettings) => void | Promise<void>,
+    log: (error: unknown) => void = console.error,
+    notify: (message: string) => void = () => undefined
+): Promise<SettingsSavePreparation> {
+    const candidate = captureRuntimeSettingsBaseline(nextSettings);
+    const prepared = prepareSettingsSave(
+        persistedSettings,
+        runtimeBaseline,
+        candidate
+    );
+    if (prepared.changed) {
+        await persist(prepared.persisted);
+    }
+    commit(candidate, prepared.persisted, prepared.runtimeBaseline);
+    try {
+        await refresh(candidate);
+    } catch (error) {
+        log(error);
+        notify(SETTINGS_REFRESH_FAILED_NOTICE);
+    }
+    return prepared;
 }
 
 export const captureRuntimeSettingsBaseline = cloneRuntimeSettings;
@@ -341,6 +387,12 @@ export function migrateSettings(
               ]
             : [];
     });
+    if (report.sourceCounts.local.accepted > 1) {
+        newEnvelopes.push({
+            legacyType: "local",
+            removedAtVersion: SINGLE_LOCAL_SOURCE_VERSION,
+        });
+    }
     const envelopeKeys = new Set<string>();
     const redactedLegacySources = [
         ...existingEnvelopes,
@@ -353,10 +405,6 @@ export function migrateSettings(
         envelopeKeys.add(key);
         return true;
     });
-    const retainedDefault = resolveDefaultFullNoteCalendar(
-        decoded.defaultCalendar,
-        retainedSources
-    );
     const existingVersion =
         isRecord(input) &&
         typeof input.settingsVersion === "number" &&
@@ -364,12 +412,12 @@ export function migrateSettings(
             ? input.settingsVersion
             : 0;
     const preservedRoot = isRecord(input) ? cloneJsonValue(input) : {};
+    delete preservedRoot.defaultCalendar;
     const settings: MigratedSettings = {
         ...preservedRoot,
         ...decoded,
         settingsVersion: Math.max(existingVersion, targetVersion),
         calendarSources: retainedSources,
-        defaultCalendar: retainedDefault || "",
         redactedLegacySources,
     };
     const changed = canonicalJson(input) !== canonicalJson(settings);
@@ -408,6 +456,11 @@ export async function loadMigratedSettingsBeforeRuntime(
     if (migrated.report.sourceCounts.dailynote.seen > 0) {
         notify(
             "A saved daily-note calendar source was removed. Existing daily notes were not changed."
+        );
+    }
+    if (migrated.report.sourceCounts.local.accepted > 1) {
+        notify(
+            "Multiple local calendar sources were reduced to one. Event notes were not changed."
         );
     }
     await initialize(migrated.settings);

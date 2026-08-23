@@ -3,7 +3,6 @@ export { parseEvent, validateEvent } from "./schema";
 
 export {
     fullNoteSourceId,
-    makeDefaultPartialCalendarSource,
     resolveDefaultFullNoteCalendar,
 } from "./calendar_settings";
 export type { CalendarInfo } from "./calendar_settings";

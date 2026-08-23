@@ -6,7 +6,7 @@ Keep your calendar in your vault! This plugin integrates the [FullCalendar](http
 
 This lean fork reads events only from frontmatter on full event notes in the local Obsidian vault. Daily-note date headers remain navigation links, but daily notes are not event stores. The plugin performs no calendar network requests.
 
-Remote ICS, CalDAV, and daily-note event sources are no longer supported. On first load, settings migration v4 removes those saved source objects and retains only redacted type/version markers. Existing daily-note list items remain untouched on disk and stop appearing as events. Rollback requires the pre-migration Obsidian backup and a plugin version from before the source removal.
+Remote ICS, CalDAV, and daily-note event sources are no longer supported. Settings migration v5 also reduces older multi-folder configurations to one writable local folder, preferring the previously selected default and otherwise the first valid folder. It removes the obsolete default selector and retains only redacted type/version markers for removed configuration. No migration moves, writes, or deletes an event note; existing daily-note list items also remain untouched and stop appearing as events. Rollback requires the pre-migration Obsidian backup and a plugin version from before the source removal.
 
 You can find the full documentation [here](https://obsidian-community.github.io/obsidian-full-calendar/)!
 

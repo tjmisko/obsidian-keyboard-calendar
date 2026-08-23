@@ -92,17 +92,3 @@ export function safeParseCalendarInfo(obj: unknown): CalendarInfo | null {
         return null;
     }
 }
-
-/**
- * Construct a partial calendar source of the specified type
- */
-export function makeDefaultPartialCalendarSource(
-    type: CalendarInfo["type"]
-): Partial<CalendarInfo> {
-    return {
-        type: type,
-        color: getComputedStyle(document.body)
-            .getPropertyValue("--interactive-accent")
-            .trim(),
-    };
-}

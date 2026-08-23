@@ -11,12 +11,7 @@ import {
     FullCalendarSettings,
     FullCalendarSettingTab,
 } from "./ui/settings";
-import {
-    OFCEvent,
-    parseEvent,
-    PLUGIN_SLUG,
-    resolveDefaultFullNoteCalendar,
-} from "./types";
+import { OFCEvent, parseEvent, PLUGIN_SLUG } from "./types";
 import EventCache from "./core/EventCache";
 import { ObsidianIO } from "./ObsidianAdapter";
 import FullNoteCalendar from "./calendars/FullNoteCalendar";
@@ -24,8 +19,8 @@ import EventNoteEditor from "./ui/EventNoteEditor";
 import {
     capturePersistedSettings,
     captureRuntimeSettingsBaseline,
+    commitSettingsBeforeRuntime,
     loadMigratedSettingsBeforeRuntime,
-    prepareSettingsSave,
 } from "./settings/migration";
 import {
     registerCalendarCommands,
@@ -54,16 +49,6 @@ export default class FullCalendarPlugin extends Plugin {
     eventNoteEditor: EventNoteEditor | null = null;
 
     private getDefaultFullNoteCalendar(): FullNoteCalendar | null {
-        const configuredId = resolveDefaultFullNoteCalendar(
-            this.settings.defaultCalendar,
-            this.settings.calendarSources
-        );
-        const configured = configuredId
-            ? this.cache.getCalendarById(configuredId)
-            : null;
-        if (configured instanceof FullNoteCalendar) {
-            return configured;
-        }
         return (
             ([...this.cache.calendars.values()].find(
                 (calendar) => calendar instanceof FullNoteCalendar
@@ -267,20 +252,26 @@ export default class FullCalendarPlugin extends Plugin {
         );
     }
 
-    async saveSettings() {
-        new Notice("Resetting the event cache with new settings...");
-        const prepared = prepareSettingsSave(
+    async updateSettings(nextSettings: FullCalendarSettings) {
+        await commitSettingsBeforeRuntime(
             this.persistedSettings,
             this.runtimeSettingsBaseline,
-            this.settings
+            nextSettings,
+            (persisted) => this.saveData(persisted),
+            (settings, persisted, baseline) => {
+                // Commit runtime state only after persistence succeeds. If
+                // refresh later fails, memory and disk remain aligned.
+                this.settings = settings;
+                this.persistedSettings = persisted;
+                this.runtimeSettingsBaseline = baseline;
+            },
+            async (settings) => {
+                this.cache.reset(settings.calendarSources);
+                await this.cache.populate();
+                this.cache.resync();
+            },
+            console.error,
+            (message) => new Notice(message)
         );
-        if (prepared.changed) {
-            await this.saveData(prepared.persisted);
-            this.persistedSettings = prepared.persisted;
-        }
-        this.runtimeSettingsBaseline = prepared.runtimeBaseline;
-        this.cache.reset(this.settings.calendarSources);
-        await this.cache.populate();
-        this.cache.resync();
     }
 }

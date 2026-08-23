@@ -1,8 +1,6 @@
 # FullCalendar Configuration
 
-There's a bunch of ways to configure how the underlying FullCalendar plugin displays events. Full Calendar exposes a few of these to users in settings.
-
-![](../assets/settings.png)
+Full Calendar exposes its retained display preferences through native Obsidian settings controls.
 
 ## First day of week
 

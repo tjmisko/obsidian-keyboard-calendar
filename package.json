@@ -27,8 +27,6 @@
         "@types/jest": "^29.2.3",
         "@types/luxon": "^2.0.9",
         "@types/node": "^16.11.6",
-        "@types/react": "^17.0.38",
-        "@types/react-dom": "^17.0.11",
         "@typescript-eslint/eslint-plugin": "^5.2.0",
         "@typescript-eslint/parser": "^5.2.0",
         "builtin-modules": "^3.2.0",
@@ -55,8 +53,6 @@
         "luxon": "^2.3.0",
         "moment": "^2.29.4",
         "obsidian-daily-notes-interface": "^0.9.4",
-        "react": "^17.0.2",
-        "react-dom": "^17.0.2",
         "rrule": "^2.7.2",
         "zod": "^3.21.4"
     }

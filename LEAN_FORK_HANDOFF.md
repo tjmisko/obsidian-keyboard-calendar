@@ -140,6 +140,7 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 | Phase 3 remote boundary | `REMOVE_ICS` accepted and integrated at `298c19a`; adversarial `ACCEPT` | Complete |
 | Phase 4 daily-note event source | Accepted and integrated at `6f54800`; adversarial `ACCEPT` | Complete |
 | Phase 5 task/editor cut | Accepted and integrated at `625f662`; adversarial `ACCEPT` | Complete; live-Obsidian checks remain in the release matrix |
+| Phase 6 native settings/React removal | Candidate complete; automated gates `ACCEPT`, adversarial review pending | Coordinator integration and live-Obsidian checks |
 | D1 writable folders | Decided: one writable local event folder; target folder is `events` | Complete |
 | D2 folder traversal | Decided: direct-child event notes only; nested folders are excluded | Complete |
 | Sidebar bridge removal | Deferred compatibility work | Persisted migration marker, workspace backup, explicit acceptance or stated version boundary |
@@ -243,6 +244,20 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 - Integrated result: commit `625f662`; 18 suites passed, 205 tests passed, 2 todo, and 41 snapshots passed. Compile, lint, production build, `git diff --check`, lock-based production inventory, removal searches, and lockfile reproducibility passed on the integrated root.
 - Integrated artifacts: `main.js` 2,125,368 bytes; `styles.css`/`main.css` 39,305 bytes; `package-lock.json` 412,018 bytes. Against accepted Phase 4 this removes 16,437 bundle bytes, 539 CSS bytes, and 314,483 lockfile bytes. The root build is smaller than the candidate-worktree measurement because its generated module-path comments do not include the shared-worktree path prefix.
 - Adversarial result: exact-SHA `ACCEPT` for `625f662ff4358af9ba6d0630fccddb11bcd345d3`, with no correctness finding. Intentional residuals are limited to `completed` schema/preservation compatibility, negative tests containing the removed task-property names, React-backed settings deferred to Phase 6, and the documented live-Obsidian release matrix.
+
+### Phase 6 candidate record — 2026-08-22
+
+- Candidate scope: replaces the React settings/source editor and onboarding flow with native Obsidian `Setting` and `Modal` primitives; deletes the three remaining React/TSX components, JSX configuration, direct React/ReactDOM packages and types, obsolete UI documentation assets, and the active default-calendar selector/key.
+- D1 source model: runtime/settings expose zero or one writable local source. The native modal lists sorted real non-root `TFolder` paths, prefers `events` only when it exists, revalidates the exact folder and six-digit color at submit time, and uses an explicit Save action for add/change/recolor. Remove changes configuration only. A retained legacy vault-root source remains visible but must be changed to a real non-root folder before a new submission can replace it.
+- Version-5 migration: older multi-local settings retain the local source selected by the legacy string ID/path or numeric original raw slot, otherwise the first valid local. Extra valid local configuration becomes one canonical `{ legacyType: "local", removedAtVersion: 5 }` envelope; safe future envelopes, connector envelopes at versions 2/3/4, future settings versions, mobile/desktop view preferences, and unrelated top-level settings remain sanitized and preserved. The migration-only `defaultCalendar` key is removed from runtime and persisted output.
+- Persistence ordering: source/preferences changes are immutable candidates. A failed settings write commits no runtime state and performs no cache refresh. After a successful write, memory commits before refresh; refresh failure keeps memory/disk aligned, emits a fixed restart/reset Notice, and resolves as saved. The multi-local migration Notice is fixed, path/color-free, after awaited persistence and before initialization. Failure blocks Notices, initialization, activation, and note effects. Migration and settings changes never move, write, or delete event notes.
+- Automated gate: 20 suites passed; 226 tests passed, 2 todo; 41 snapshots passed. Compile, lint, production build, `git diff --check`, lock reproducibility, lock-only production inventory, React/TSX/default-selector/docs/assets searches, and Phase 6 scope checks pass.
+- Dependency/metafile gate: direct runtime dependencies fall from 15 to 13. The lock graph falls from 430 to 420 packages and contains no exact React, ReactDOM, scheduler, or object-assign package node. A temporary in-memory esbuild metafile reports 158 inputs and zero React/ReactDOM/scheduler/object-assign paths; the artifact was not committed. Retained development-only `react-is` belongs to Jest formatting and is absent from the production graph and bundle.
+- Production artifacts: `main.js` 1,263,030 bytes; `styles.css` and generated `main.css` 39,509 bytes each; `package-lock.json` 404,064 bytes. This is 862,338 bytes below the accepted integrated Phase 5 `main.js` baseline of 2,125,368 and 872,895 bytes below the isolated Phase 5 candidate baseline of 2,135,925, passing the 800,000-byte reduction gate. The lockfile removes 7,954 bytes from Phase 5.
+- Documentation: README, source/getting-started/local/settings guides, and architecture notes describe one native-configured folder, migration v5, note-preserving change/removal, and read-only Vault folder validation. Three obsolete React-era setup/settings images are deleted.
+- D2 boundary: Phase 6 neither changes `FullNoteCalendar` traversal nor cache/update matching. The chosen direct-child model remains a Phase 8 shadow-equivalence/enforcement task; the new UI does not recurse, move, or touch notes.
+- Manual matrix: not run in this headless worktree. No Obsidian application, real vault, user plugin data, `.env`, or `.secrets` was opened. Live native modal behavior, save/restart/reload, cache-refresh recovery, event creation, history, daily-note headers, mobile-setting retention, and real-vault note/config preservation remain coordinator/release checks.
+- Recommendation: `ACCEPT` subject to exact-commit adversarial review and the documented live checks. Code rollback is a single candidate revert. Restoring discarded multi-source/default configuration also requires the user-controlled pre-v5 plugin-data backup; Git alone cannot restore migrated settings.
 
 ## Phase 0 — Safety harness and non-destructive migration framework
 
@@ -475,8 +490,8 @@ Risk: medium; largest bundle win
 
 Do not design this phase until D1 is recorded and Phase 3 removal is accepted. Then replace source/settings UI using Obsidian `Setting` and `Modal` primitives for:
 
-- The confirmed one-or-multiple local full-note folder model and colors.
-- Default writable local calendar only if D1 retains multiple local sources.
+- The confirmed single local full-note folder model and color.
+- No default-calendar selector; the one configured source is writable.
 - First day and desktop initial view.
 
 Then delete:
@@ -495,7 +510,7 @@ Remove packages/config:
 
 Gate:
 
-- Add/remove/recolor the confirmed local source model; select a local default only when relevant; save, restart, and reload successfully.
+- Add/change/remove/recolor the one local source; save, restart, and reload successfully.
 - Invalid directories cannot be persisted through unsafe casts.
 - No `.tsx`, React import, ReactDOM import, or React package remains.
 - Expected net `main.js` reduction from the accepted pre-Phase-6 baseline: at least 800,000 decimal bytes, plus absence of React/ReactDOM/scheduler/object-assign in the metafile and runtime dependency tree. Rebaseline the final absolute target after replacement code is measured.
