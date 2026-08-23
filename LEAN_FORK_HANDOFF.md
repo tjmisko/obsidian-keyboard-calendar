@@ -137,7 +137,7 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 | Phase 0 safety harness | Accepted and integrated at `49d7db8`; adversarial `ACCEPT` | Complete |
 | Phase 1 dead connectors | Accepted and integrated at `f4bff77`; adversarial `ACCEPT` | Complete |
 | Phase 2 CalDAV removal | Accepted and integrated at `63c7b5f`; backup confirmed; adversarial `ACCEPT` | Complete |
-| Phase 3 remote boundary | `REMOVE_ICS` candidate `ACCEPT`; integration/adversarial review pending | Integrate the candidate and complete adversarial review |
+| Phase 3 remote boundary | `REMOVE_ICS` accepted and integrated at `298c19a`; adversarial `ACCEPT` | Complete |
 | D1 writable folders | Undecided; recommendation: one | Explicit user decision before Phase 6 design |
 | D2 folder traversal | Undecided; recommendation: direct child | Explicit user decision before Phase 6 design |
 | Sidebar bridge removal | Deferred compatibility work | Persisted migration marker, workspace backup, explicit acceptance or stated version boundary |
@@ -188,7 +188,7 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 - Integrated result: commit `63c7b5f`; 16 suites passed, 183 tests passed, 2 todo, and 44 snapshots passed. Compile, lint, production build, `git diff --check`, lock-based dependency inventory, and removed-package/bundle searches passed. Integrated artifacts are `main.js` 2,350,334 bytes, `styles.css`/`main.css` 39,844 bytes, and `package-lock.json` 727,089 bytes. This is a 283,615-byte reduction from the accepted post-Phase-1 `main.js`.
 - Adversarial result: `ACCEPT`, with no correctness finding. Residual acceptance is limited to the documented live-Obsidian restart, navigation, history, network-observation, and real-vault preservation checks.
 
-### Phase 3 candidate record — 2026-08-22
+### Phase 3 accepted record — 2026-08-22
 
 - Formal decision: `REMOVE_ICS`. The pinned Obsidian request API cannot abort, stream, time out, or byte-limit a response before materializing it, and the retained `ical.js` parser was synchronous. No proportionate transport/parser design met the hard timeout and main-thread-stall gate.
 - Migration behavior: settings version 3 is active. Raw legacy ICS objects are replaced with only `{ legacyType: "ical", removedAtVersion: 3 }`; raw CalDAV sources still produce version-2 envelopes. Existing allowlisted enum/integer envelopes, safe future envelopes, unrelated top-level settings, and future settings versions are preserved. The original raw source positions continue to determine numeric local defaults.
@@ -201,7 +201,8 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 - Documentation contract: README, architecture, getting-started, Phase 4/5/6/8 contracts, manual matrix, rollback language, and the final size target now describe only the local source model. No speculative remote-source design remains in dependent phases.
 - Manual matrix: not run in this headless worktree. No Obsidian application, vault, real plugin data, or network source was opened. Live restart/navigation/history, observed-zero-network, and real-vault data-preservation checks remain coordinator/release acceptance items.
 - Rollback: reject/revert the Phase 3 candidate and restore the user-controlled pre-migration plugin-data backup. Git alone cannot restore a bearer-style ICS URL after the activated v3 scrub.
-- Candidate recommendation: `ACCEPT`; integration and independent adversarial review remain required before Phase 4.
+- Integrated result: commits `e5920ad` and `298c19a`; 15 suites passed, 186 tests passed, 2 todo, and 42 snapshots passed. Compile, lint, production build, `git diff --check`, lock inventory, and removed-runtime searches passed. Integrated artifacts are `main.js` 2,156,252 bytes, `styles.css`/`main.css` 39,844 bytes, and `package-lock.json` 726,501 bytes, a 194,082-byte integrated bundle reduction from accepted Phase 2.
+- Adversarial result: `ACCEPT`, with no correctness finding. FullCalendar core still contains dormant internal JSON-feed/XHR code, but the fork exposes no URL-bearing source, setting, initializer, or runtime route into it. Removing those unreachable renderer internals would require a separate FullCalendar fork. Residual acceptance is limited to the documented live-Obsidian restart, navigation/history, daily-note-header, observed-zero-network, and real-vault preservation checks.
 
 ## Phase 0 — Safety harness and non-destructive migration framework
 
