@@ -2,9 +2,11 @@
 
 ## Welcome page
 
-Open Full Calendar from the command palette or the ribbon icon for the first time and you'll be prompted to add a calendar. Add either a [Daily Note calendar](calendars/dailynote) or a [full note calendar](calendars/local) based in a directory in your Vault so that you can create and modify events. Calendar sources are local to the vault.
+Open Full Calendar from the command palette or the ribbon icon for the first time and you'll be prompted to add a [full-note calendar](calendars/local) based in a directory in your Vault. Events are separate Markdown notes with frontmatter, and calendar operation is local to the vault.
 
 ![Welcome page](assets/welcome-settings.gif)
+
+Dates in week and day headers link to the corresponding daily note. The link opens an existing note or creates it through Obsidian's daily-note integration. Daily notes are navigation targets, not event stores.
 
 ## Opening the calendar
 

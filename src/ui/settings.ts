@@ -4,7 +4,6 @@ import {
     DropdownComponent,
     PluginSettingTab,
     Setting,
-    TFile,
     TFolder,
 } from "obsidian";
 import {
@@ -17,7 +16,6 @@ import { CalendarSettings } from "./components/CalendarSetting";
 import { AddCalendarSource } from "./components/AddCalendarSource";
 import * as ReactDOM from "react-dom";
 import { createElement } from "react";
-import { getDailyNoteSettings } from "obsidian-daily-notes-interface";
 import ReactModal from "./ReactModal";
 export { DEFAULT_SETTINGS } from "../settings/migration";
 export type { FullCalendarSettings } from "../settings/migration";
@@ -67,7 +65,6 @@ export function addCalendarButton(
             (d) =>
                 (dropdown = d.addOptions({
                     local: "Full note",
-                    dailynote: "Daily Note",
                 }))
         )
         .addExtraButton((button) => {
@@ -87,22 +84,6 @@ export function addCalendarButton(
                                       )
                                       .filter((s): s is string => !!s)
                     )();
-                    let headings: string[] = [];
-                    let { template } = getDailyNoteSettings();
-
-                    if (template) {
-                        if (!template.endsWith(".md")) {
-                            template += ".md";
-                        }
-                        const file = app.vault.getAbstractFileByPath(template);
-                        if (file instanceof TFile) {
-                            headings =
-                                app.metadataCache
-                                    .getFileCache(file)
-                                    ?.headings?.map((h) => h.heading) || [];
-                        }
-                    }
-
                     return createElement(AddCalendarSource, {
                         source: makeDefaultPartialCalendarSource(
                             dropdown.getValue() as CalendarInfo["type"]
@@ -110,7 +91,6 @@ export function addCalendarButton(
                         directories: directories.filter(
                             (dir) => usedDirectories.indexOf(dir) === -1
                         ),
-                        headings,
                         submit: async (source: CalendarInfo) => {
                             submitCallback(source);
                             modal.close();

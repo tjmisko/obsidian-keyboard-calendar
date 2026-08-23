@@ -8,6 +8,7 @@ import {
     CALDAV_REMOVAL_VERSION,
     capturePersistedSettings,
     captureRuntimeSettingsBaseline,
+    DAILY_NOTE_REMOVAL_VERSION,
     decodeSettings,
     ICS_REMOVAL_VERSION,
     loadMigratedSettings,
@@ -16,6 +17,11 @@ import {
     prepareSettingsSave,
     SETTINGS_VERSION,
 } from "./migration";
+import {
+    PHASE4_DAILY_NOTE_EVENTS,
+    PHASE4_DAILY_NOTE_FIXTURE,
+    PHASE4_FULL_NOTE_EVENTS,
+} from "./phase4_dailynote_fixture";
 
 const SENTINELS = {
     name: "SENTINEL_CALDAV_NAME_user@example.test",
@@ -24,6 +30,9 @@ const SENTINELS = {
     username: "SENTINEL_CALDAV_USERNAME",
     password: "SENTINEL_CALDAV_PASSWORD",
     icsUrl: "https://sentinel-ics.example.test/private.ics?token=SENTINEL_ICS_BEARER_TOKEN",
+    dailyHeading: "SENTINEL_DAILY_HEADING_user@example.test",
+    dailyPath: "Daily/SENTINEL_DAILY_PATH.md",
+    dailyBody: "SENTINEL_DAILY_BODY_PRIVATE",
 };
 
 const local = (directory = "Events"): CalendarInfo => ({
@@ -45,10 +54,12 @@ const legacyCalDav = {
     password: SENTINELS.password,
     color: "#345678",
 };
-const dailynote: CalendarInfo = {
+const dailynote = {
     type: "dailynote",
-    heading: "Calendar",
+    heading: SENTINELS.dailyHeading,
     color: "#456789",
+    path: SENTINELS.dailyPath,
+    body: SENTINELS.dailyBody,
 };
 
 const serializedLog = (log: { mock: { calls: unknown[][] } }): string =>
@@ -61,6 +72,9 @@ const expectNoSentinels = (value: unknown): void => {
     }
 };
 
+const normalizedEventSet = (events: readonly unknown[]): string[] =>
+    events.map((event) => JSON.stringify(event)).sort();
+
 describe("settings decoder", () => {
     it.each([
         ["local-only", { calendarSources: [local()] }, ["local"]],
@@ -70,7 +84,7 @@ describe("settings decoder", () => {
             {
                 calendarSources: [local(), legacyIcs, legacyCalDav, dailynote],
             },
-            ["local", "dailynote"],
+            ["local"],
         ],
         ["CalDAV-only", { calendarSources: [legacyCalDav] }, []],
     ])("loads the %s legacy fixture", (_name, input, expectedTypes) => {
@@ -137,6 +151,20 @@ describe("settings decoder", () => {
         );
         expect(result.settings.calendarSources).toEqual([]);
         expect(result.report.sourceCounts.ical).toEqual({
+            seen: 1,
+            accepted: 0,
+            rejected: 1,
+        });
+    });
+
+    it("classifies a legacy daily-note source without admitting it to runtime", () => {
+        const result = decodeSettings(
+            { calendarSources: [dailynote] },
+            undefined,
+            jest.fn()
+        );
+        expect(result.settings.calendarSources).toEqual([]);
+        expect(result.report.sourceCounts.dailynote).toEqual({
             seen: 1,
             accepted: 0,
             rejected: 1,
@@ -215,7 +243,6 @@ describe("settings decoder", () => {
             jest.fn()
         ).settings;
         expect(settings.calendarSources.map((source) => source.type)).toEqual([
-            "dailynote",
             "local",
         ]);
     });
@@ -232,10 +259,16 @@ describe("settings decoder", () => {
 });
 
 describe("active removed-source migration", () => {
-    it("redacts CalDAV and ICS with their canonical versions and is idempotent", () => {
+    it("redacts every removed source with its canonical version and is idempotent", () => {
         const input = {
-            calendarSources: [legacyCalDav, legacyIcs, local("Events")],
-            defaultCalendar: 2,
+            calendarSources: [
+                legacyCalDav,
+                { type: "local", directory: 42, color: "red" },
+                legacyIcs,
+                dailynote,
+                local("Events"),
+            ],
+            defaultCalendar: 4,
             initialView: { desktop: "timeGridWeek", mobile: "timeGrid3Days" },
         };
         const original = JSON.stringify(input);
@@ -249,6 +282,10 @@ describe("active removed-source migration", () => {
         expect(first.settings.redactedLegacySources).toEqual([
             { legacyType: "caldav", removedAtVersion: CALDAV_REMOVAL_VERSION },
             { legacyType: "ical", removedAtVersion: ICS_REMOVAL_VERSION },
+            {
+                legacyType: "dailynote",
+                removedAtVersion: DAILY_NOTE_REMOVAL_VERSION,
+            },
         ]);
         expectNoSentinels(first.settings);
         expectNoSentinels(log.mock.calls);
@@ -269,6 +306,8 @@ describe("active removed-source migration", () => {
                 calendarSources: [
                     { type: "unknown", password: "UNKNOWN_SENTINEL" },
                     { type: "caldav", password: "MALFORMED_SENTINEL" },
+                    { type: "dailynote", heading: SENTINELS.dailyHeading },
+                    { type: "dailynote", path: SENTINELS.dailyPath },
                 ],
             },
             jest.fn()
@@ -278,18 +317,27 @@ describe("active removed-source migration", () => {
         expect(output).not.toContain("MALFORMED_SENTINEL");
         expect(migrated.settings.redactedLegacySources).toEqual([
             { legacyType: "caldav", removedAtVersion: CALDAV_REMOVAL_VERSION },
+            {
+                legacyType: "dailynote",
+                removedAtVersion: DAILY_NOTE_REMOVAL_VERSION,
+            },
         ]);
+        expectNoSentinels(migrated.settings);
     });
 
-    it("adds ICS v3 to an existing CalDAV v2 migration envelope", () => {
+    it("adds daily-note v4 to existing CalDAV v2 and ICS v3 envelopes", () => {
         const migrated = migrateSettings(
             {
-                settingsVersion: CALDAV_REMOVAL_VERSION,
-                calendarSources: [legacyIcs, local()],
+                settingsVersion: ICS_REMOVAL_VERSION,
+                calendarSources: [dailynote, local()],
                 redactedLegacySources: [
                     {
                         legacyType: "caldav",
                         removedAtVersion: CALDAV_REMOVAL_VERSION,
+                    },
+                    {
+                        legacyType: "ical",
+                        removedAtVersion: ICS_REMOVAL_VERSION,
                     },
                 ],
             },
@@ -300,6 +348,10 @@ describe("active removed-source migration", () => {
         expect(migrated.settings.redactedLegacySources).toEqual([
             { legacyType: "caldav", removedAtVersion: CALDAV_REMOVAL_VERSION },
             { legacyType: "ical", removedAtVersion: ICS_REMOVAL_VERSION },
+            {
+                legacyType: "dailynote",
+                removedAtVersion: DAILY_NOTE_REMOVAL_VERSION,
+            },
         ]);
         expectNoSentinels(migrated.settings);
     });
@@ -307,21 +359,21 @@ describe("active removed-source migration", () => {
     it("scrubs stale sources at current versions and never downgrades future versions", () => {
         const current = migrateSettings(
             {
-                settingsVersion: 3,
-                calendarSources: [legacyCalDav, legacyIcs],
+                settingsVersion: SETTINGS_VERSION,
+                calendarSources: [dailynote],
             },
             jest.fn()
         );
         const future = migrateSettings(
             {
                 settingsVersion: 17,
-                calendarSources: [legacyCalDav, legacyIcs],
+                calendarSources: [legacyCalDav, legacyIcs, dailynote],
             },
             jest.fn()
         );
 
         expect(current.saveRequested).toBe(true);
-        expect(current.settings.settingsVersion).toBe(3);
+        expect(current.settings.settingsVersion).toBe(SETTINGS_VERSION);
         expect(future.saveRequested).toBe(true);
         expect(future.settings.settingsVersion).toBe(17);
         expectNoSentinels(current.settings);
@@ -386,6 +438,36 @@ describe("active removed-source migration", () => {
         expect(second.saveRequested).toBe(false);
     });
 
+    it("preserves a safe future daily-note envelope and adds canonical v4", () => {
+        const first = migrateSettings(
+            {
+                settingsVersion: 17,
+                calendarSources: [dailynote],
+                redactedLegacySources: [
+                    {
+                        legacyType: "dailynote",
+                        removedAtVersion: 12,
+                        heading: SENTINELS.dailyHeading,
+                    },
+                ],
+            },
+            jest.fn()
+        );
+        expect(first.settings.settingsVersion).toBe(17);
+        expect(first.settings.redactedLegacySources).toEqual([
+            { legacyType: "dailynote", removedAtVersion: 12 },
+            {
+                legacyType: "dailynote",
+                removedAtVersion: DAILY_NOTE_REMOVAL_VERSION,
+            },
+        ]);
+        expectNoSentinels(first.settings);
+
+        const second = migrateSettings(first.settings, jest.fn());
+        expect(second.settings).toEqual(first.settings);
+        expect(second.saveRequested).toBe(false);
+    });
+
     it.each(["icloud", "CalDAV", "CALDAV"])(
         "discards the unsupported %s type without leaking its fields",
         (type) => {
@@ -437,6 +519,7 @@ describe("active removed-source migration", () => {
                     for (const source of settings.calendarSources) {
                         expect(source.type).not.toBe("caldav");
                         expect(source.type).not.toBe("ical");
+                        expect(source.type).not.toBe("dailynote");
                     }
                 },
                 jest.fn()
@@ -444,6 +527,7 @@ describe("active removed-source migration", () => {
             for (const source of result.settings.calendarSources) {
                 expect(source.type).not.toBe("caldav");
                 expect(source.type).not.toBe("ical");
+                expect(source.type).not.toBe("dailynote");
             }
 
             expect(operations[0]).toBe("load");
@@ -453,18 +537,63 @@ describe("active removed-source migration", () => {
         }
     );
 
-    it("does not initialize runtime when the scrubbed settings write fails", async () => {
+    it("notifies once after persistence and before initialization without source fields", async () => {
+        (Notice as any).notices = [];
+        const operations: string[] = [];
+        const first = await loadMigratedSettingsBeforeRuntime(
+            async () => {
+                operations.push("load");
+                return { calendarSources: [dailynote, { ...dailynote }] };
+            },
+            async () => {
+                operations.push("persist");
+            },
+            () => {
+                operations.push("initialize");
+            },
+            jest.fn(),
+            (message) => {
+                operations.push("notice");
+                new Notice(message);
+            }
+        );
+
+        expect(operations).toEqual(["load", "persist", "notice", "initialize"]);
+        expect((Notice as any).notices).toEqual([
+            "A saved daily-note calendar source was removed. Existing daily notes were not changed.",
+        ]);
+        expectNoSentinels(first.settings);
+        expectNoSentinels((Notice as any).notices);
+
+        (Notice as any).notices = [];
+        const persist = jest.fn(async () => undefined);
+        const notify = jest.fn();
+        await loadMigratedSettingsBeforeRuntime(
+            async () => first.settings,
+            persist,
+            async () => undefined,
+            jest.fn(),
+            notify
+        );
+        expect(persist).not.toHaveBeenCalled();
+        expect(notify).not.toHaveBeenCalled();
+    });
+
+    it("does not notify or initialize when the scrubbed settings write fails", async () => {
         const initialize = jest.fn();
+        const notify = jest.fn();
         await expect(
             loadMigratedSettingsBeforeRuntime(
-                async () => ({ calendarSources: [legacyCalDav] }),
+                async () => ({ calendarSources: [dailynote] }),
                 async () => {
                     throw new Error("synthetic settings write failure");
                 },
                 initialize,
-                jest.fn()
+                jest.fn(),
+                notify
             )
         ).rejects.toThrow("synthetic settings write failure");
+        expect(notify).not.toHaveBeenCalled();
         expect(initialize).not.toHaveBeenCalled();
     });
 
@@ -472,7 +601,6 @@ describe("active removed-source migration", () => {
         const forbiddenAdapterEffect = jest.fn(() => null);
         const initializers: CalendarInitializerMap = {
             local: forbiddenAdapterEffect,
-            dailynote: forbiddenAdapterEffect,
             FOR_TEST_ONLY: forbiddenAdapterEffect,
         };
         const cache = new EventCache(initializers);
@@ -480,7 +608,7 @@ describe("active removed-source migration", () => {
         await expect(
             loadMigratedSettingsBeforeRuntime(
                 async () => ({
-                    calendarSources: [legacyCalDav, legacyIcs],
+                    calendarSources: [dailynote],
                 }),
                 async () => undefined,
                 async (settings) => {
@@ -494,7 +622,66 @@ describe("active removed-source migration", () => {
         expect(cache.calendars.size).toBe(0);
     });
 
-    it("makes no persistence call for already-v3 settings", async () => {
+    it("removes exactly the recorded daily-note set without changing full-note events or note bytes", async () => {
+        const originalNoteBytes = PHASE4_DAILY_NOTE_FIXTURE.contents;
+        let noteBytes = originalNoteBytes;
+        const forbiddenNoteWrite = jest.fn(() => {
+            noteBytes = "forbidden mutation";
+        });
+        const beforeBySource = {
+            local: PHASE4_FULL_NOTE_EVENTS,
+            dailynote: PHASE4_DAILY_NOTE_EVENTS,
+        };
+        const before = normalizedEventSet([
+            ...beforeBySource.local,
+            ...beforeBySource.dailynote,
+        ]);
+
+        const migrated = await loadMigratedSettingsBeforeRuntime(
+            async () => ({
+                calendarSources: [
+                    local("Events"),
+                    {
+                        type: "dailynote",
+                        heading: PHASE4_DAILY_NOTE_FIXTURE.heading,
+                        color: "#456789",
+                    },
+                ],
+            }),
+            async () => undefined,
+            async (settings) => {
+                // This represents the removed adapter boundary: if a daily-note
+                // source reaches runtime, the test deliberately records the
+                // forbidden note effects that used to be possible.
+                if (
+                    settings.calendarSources.some(
+                        (source) =>
+                            (source as { type: string }).type === "dailynote"
+                    )
+                ) {
+                    forbiddenNoteWrite();
+                }
+            },
+            jest.fn(),
+            jest.fn()
+        );
+        const retainedTypes = new Set(
+            migrated.settings.calendarSources.map((source) => source.type)
+        );
+        const after = normalizedEventSet(
+            retainedTypes.has("local") ? beforeBySource.local : []
+        );
+        const disappeared = before.filter((event) => !after.includes(event));
+
+        expect(disappeared).toEqual(
+            normalizedEventSet(PHASE4_DAILY_NOTE_EVENTS)
+        );
+        expect(after).toEqual(normalizedEventSet(PHASE4_FULL_NOTE_EVENTS));
+        expect(noteBytes).toBe(originalNoteBytes);
+        expect(forbiddenNoteWrite).not.toHaveBeenCalled();
+    });
+
+    it("makes no persistence call for already-v4 settings", async () => {
         const first = migrateSettings(
             { calendarSources: [legacyCalDav, local()] },
             jest.fn()
@@ -583,11 +770,11 @@ describe("production persistence after migration", () => {
         };
         const current = decodeSettings(input, undefined, jest.fn()).settings;
         const baseline = captureRuntimeSettingsBaseline(current);
-        current.calendarSources.push(dailynote);
+        current.calendarSources.push(local("Work"));
         current.initialView.desktop = "dayGridMonth";
 
         const first = prepareSettingsSave(input, baseline, current);
-        current.calendarSources.push(local("Work"));
+        current.calendarSources.push(local("Personal"));
         current.initialView.mobile = "listWeek";
         const second = prepareSettingsSave(
             first.persisted,
@@ -600,7 +787,7 @@ describe("production persistence after migration", () => {
             (second.persisted.calendarSources as CalendarInfo[]).map(
                 (source) => source.type
             )
-        ).toEqual(["local", "dailynote", "local"]);
+        ).toEqual(["local", "local", "local"]);
         expect(second.persisted.initialView).toEqual({
             desktop: "dayGridMonth",
             mobile: "listWeek",

@@ -4,6 +4,4 @@ Keep each event in a calendar as a separate note in your Obsidian vault. This is
 
 You are free to add any additional frontmatter to the notes, as well as any text content, like a description of the event, meeting notes, or anything else.
 
-The note title is also managed by the plugin in the format `<YYYY-MM-DD> <Event title>`.md.
-
-![Add calendar](../assets/add-calendar-source.gif)
+New event notes start with an `Untitled event` filename and are opened as ordinary Markdown buffers so you can name and edit them normally.

@@ -10,13 +10,15 @@ export type SourceTypeBucket = PersistedSourceType | "unknown";
 
 export const CALDAV_REMOVAL_VERSION = 2;
 export const ICS_REMOVAL_VERSION = 3;
-export const SETTINGS_VERSION = ICS_REMOVAL_VERSION;
+export const DAILY_NOTE_REMOVAL_VERSION = 4;
+export const SETTINGS_VERSION = DAILY_NOTE_REMOVAL_VERSION;
 
 export const REMOVED_SOURCE_VERSIONS: Readonly<
     Partial<Record<PersistedSourceType, number>>
 > = {
     caldav: CALDAV_REMOVAL_VERSION,
     ical: ICS_REMOVAL_VERSION,
+    dailynote: DAILY_NOTE_REMOVAL_VERSION,
 };
 
 export interface FullCalendarSettings {
@@ -83,10 +85,7 @@ const SOURCE_TYPES: readonly PersistedSourceType[] = [
     "caldav",
     "dailynote",
 ];
-const RUNTIME_SOURCE_TYPES: readonly PersistedSourceType[] = [
-    "local",
-    "dailynote",
-];
+const RUNTIME_SOURCE_TYPES: readonly PersistedSourceType[] = ["local"];
 
 const DESKTOP_VIEWS = new Set([
     "timeGridDay",
@@ -402,9 +401,15 @@ export async function loadMigratedSettingsBeforeRuntime(
     load: () => Promise<unknown>,
     persist: (settings: MigratedSettings) => Promise<void>,
     initialize: (settings: MigratedSettings) => void | Promise<void>,
-    log: (message: string, details: unknown) => void = console.debug
+    log: (message: string, details: unknown) => void = console.debug,
+    notify: (message: string) => void = () => undefined
 ): Promise<MigrationResult> {
     const migrated = await loadMigratedSettings(load, persist, log);
+    if (migrated.report.sourceCounts.dailynote.seen > 0) {
+        notify(
+            "A saved daily-note calendar source was removed. Existing daily notes were not changed."
+        );
+    }
     await initialize(migrated.settings);
     return migrated;
 }

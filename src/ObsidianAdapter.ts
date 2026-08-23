@@ -1,7 +1,6 @@
 import {
     App,
     CachedMetadata,
-    EventRef,
     FileManager,
     MetadataCache,
     TAbstractFile,
@@ -32,21 +31,6 @@ export interface ObsidianInterface {
      * Get the Obsidian-parsed metadata for the given file.
      */
     getMetadata(file: TFile): CachedMetadata | null;
-
-    /**
-     * Return a promise that will listen for cache updates if no metadata
-     * cache entry exists for a file yet.
-     * @param file
-     */
-    waitForMetadata(file: TFile): Promise<CachedMetadata>;
-
-    /**
-     * @param file file to read.
-     * Read a file from the vault.
-     */
-    read(file: TFile): Promise<string>;
-
-    process<T>(file: TFile, func: (text: string) => T): Promise<T>;
 
     /**
      * Create a new file at the given path with the given contents.
@@ -169,42 +153,5 @@ export class ObsidianIO implements ObsidianInterface {
 
     getMetadata(file: TFile): CachedMetadata | null {
         return this.metadataCache.getFileCache(file);
-    }
-
-    waitForMetadata(file: TFile): Promise<CachedMetadata> {
-        return new Promise((resolve, reject) => {
-            const cache = this.metadataCache.getFileCache(file);
-            let ref: EventRef | null = null;
-            if (cache) {
-                resolve(cache);
-                return;
-            }
-            ref = this.metadataCache.on(
-                "changed",
-                (changedFile, data, cache) => {
-                    if (changedFile.path !== file.path) {
-                        console.debug(
-                            "waitForMetadata(): a different file has changed. continue listening..."
-                        );
-                        return;
-                    }
-                    resolve(cache);
-                    if (ref) {
-                        this.metadataCache.offref(ref);
-                    } else {
-                        console.warn("No ref was found after cache loaded.");
-                    }
-                    return;
-                }
-            );
-        });
-    }
-
-    read(file: TFile): Promise<string> {
-        return this.vault.cachedRead(file);
-    }
-
-    async process<T>(file: TFile, func: (text: string) => T): Promise<T> {
-        return func(await this.read(file));
     }
 }

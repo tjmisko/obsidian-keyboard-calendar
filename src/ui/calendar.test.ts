@@ -45,7 +45,8 @@ describe("calendar renderer", () => {
 
         renderCalendar({} as HTMLElement, eventSources);
 
-        const options = (Calendar as unknown as jest.Mock).mock.calls[0][1] as
+        const calls = (Calendar as unknown as jest.Mock).mock.calls;
+        const options = calls[calls.length - 1][1] as
             | CalendarOptions
             | undefined;
         expect(options?.eventSources).toBe(eventSources);
@@ -59,6 +60,59 @@ describe("calendar renderer", () => {
         expect(options?.headerToolbar).toMatchObject({
             right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
         });
+    });
+
+    it("retains daily-note links and click navigation on time-grid headers", () => {
+        Object.defineProperty(global, "window", {
+            configurable: true,
+            value: { innerWidth: 1024 },
+        });
+        const openDailyNote = jest.fn(async () => undefined);
+        const dailyNotePath = jest.fn(() => "Daily/2026-08-22.md");
+        renderCalendar({} as HTMLElement, [], {
+            dailyNotePath,
+            openDailyNote,
+        });
+        const calls = (Calendar as unknown as jest.Mock).mock.calls;
+        const options = calls[calls.length - 1][1] as
+            | CalendarOptions
+            | undefined;
+        const classes: string[] = [];
+        const attributes: Record<string, string> = {};
+        let click: ((event: any) => void) | undefined;
+        const link = {
+            addClass: (...values: string[]) => classes.push(...values),
+            setAttribute: (name: string, value: string) => {
+                attributes[name] = value;
+            },
+            addEventListener: (
+                type: string,
+                callback: (event: any) => void
+            ) => {
+                if (type === "click") click = callback;
+            },
+        };
+        const date = new Date(2026, 7, 22, 12, 0, 0);
+        options?.dayHeaderDidMount?.({
+            date,
+            el: { querySelector: () => link },
+            view: { type: "timeGridWeek" },
+        } as any);
+
+        expect(dailyNotePath).toHaveBeenCalledWith(date);
+        expect(classes).toEqual(["ofc-daily-note-link", "internal-link"]);
+        expect(attributes.href).toBe("Daily/2026-08-22.md");
+        expect(attributes["data-href"]).toBe("Daily/2026-08-22.md");
+        expect(attributes["aria-label"]).toContain("2026-08-22");
+
+        const event = {
+            preventDefault: jest.fn(),
+            stopPropagation: jest.fn(),
+        };
+        click?.(event);
+        expect(event.preventDefault).toHaveBeenCalled();
+        expect(event.stopPropagation).toHaveBeenCalled();
+        expect(openDailyNote).toHaveBeenCalledWith(date);
     });
 });
 

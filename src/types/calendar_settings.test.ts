@@ -4,7 +4,6 @@ import {
 } from "./calendar_settings";
 
 const sources: CalendarInfo[] = [
-    { type: "dailynote", heading: "Calendar", color: "red" },
     { type: "local", directory: "Events/Work", color: "blue" },
     { type: "local", directory: "Events/Home", color: "green" },
 ];
@@ -18,7 +17,7 @@ describe("default full-note calendar", () => {
 
     it("migrates the old numeric source index", () => {
         expect(resolveDefaultFullNoteCalendar(1, sources)).toBe(
-            "local::Events/Work"
+            "local::Events/Home"
         );
     });
 
@@ -32,14 +31,12 @@ describe("default full-note calendar", () => {
         expect(resolveDefaultFullNoteCalendar("missing", sources)).toBe(
             "local::Events/Work"
         );
-        expect(resolveDefaultFullNoteCalendar(0, sources)).toBe(
+        expect(resolveDefaultFullNoteCalendar(99, sources)).toBe(
             "local::Events/Work"
         );
     });
 
     it("returns null when no full-note source exists", () => {
-        expect(
-            resolveDefaultFullNoteCalendar("missing", [sources[0]])
-        ).toBeNull();
+        expect(resolveDefaultFullNoteCalendar("missing", [])).toBeNull();
     });
 });

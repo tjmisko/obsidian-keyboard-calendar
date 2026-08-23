@@ -12,7 +12,9 @@ import FullNoteCalendar, {
 } from "./FullNoteCalendar";
 import { parseEvent } from "../types/schema";
 
-const makeApp = (app: MockApp): ObsidianInterface => ({
+const makeApp = (
+    app: MockApp
+): ObsidianInterface & { read: (file: TFile) => Promise<string> } => ({
     getAbstractFileByPath: (path) => app.vault.getAbstractFileByPath(path),
     getFileByPath(path: string): TFile | null {
         const f = app.vault.getAbstractFileByPath(path);
@@ -25,16 +27,11 @@ const makeApp = (app: MockApp): ObsidianInterface => ({
         return f;
     },
     getMetadata: (file) => app.metadataCache.getFileCache(file),
-    waitForMetadata: (file) =>
-        new Promise((resolve) =>
-            resolve(app.metadataCache.getFileCache(file)!)
-        ),
     read: (file) => app.vault.read(file),
     create: jest.fn(),
     rewrite: jest.fn(),
     rename: jest.fn(),
     delete: jest.fn(),
-    process: jest.fn(),
 });
 
 const dirName = "events";

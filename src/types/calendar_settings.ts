@@ -1,10 +1,10 @@
 import { ZodError, z } from "zod";
 import { OFCEvent } from "./schema";
 
-const calendarOptionsSchema = z.discriminatedUnion("type", [
-    z.object({ type: z.literal("local"), directory: z.string() }),
-    z.object({ type: z.literal("dailynote"), heading: z.string() }),
-]);
+const calendarOptionsSchema = z.object({
+    type: z.literal("local"),
+    directory: z.string(),
+});
 
 const colorValidator = z.object({ color: z.string() });
 
@@ -83,9 +83,7 @@ export function safeParseCalendarInfo(obj: unknown): CalendarInfo | null {
                     typeof obj === "object" &&
                     obj !== null &&
                     !Array.isArray(obj) &&
-                    ["local", "dailynote"].includes(
-                        String((obj as { type?: unknown }).type)
-                    )
+                    ["local"].includes(String((obj as { type?: unknown }).type))
                         ? String((obj as { type?: unknown }).type)
                         : "unknown",
                 issueCount: e.issues.length,

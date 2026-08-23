@@ -1,20 +1,5 @@
 import "./overrides.css";
-import {
-    ItemView,
-    Menu,
-    normalizePath,
-    Notice,
-    TFile,
-    WorkspaceLeaf,
-} from "obsidian";
-import moment from "moment";
-import {
-    createDailyNote,
-    DEFAULT_DAILY_NOTE_FORMAT,
-    getAllDailyNotes,
-    getDailyNote,
-    getDailyNoteSettings,
-} from "obsidian-daily-notes-interface";
+import { ItemView, Menu, Notice, WorkspaceLeaf } from "obsidian";
 import { Calendar, EventSourceInput } from "@fullcalendar/core";
 import {
     formatDateLabel,
@@ -40,6 +25,10 @@ import {
     FULL_CALENDAR_VIEW_TYPE,
 } from "../plugin_registration";
 import { navigateFromCalendarEvent } from "./event_navigation";
+import {
+    openDailyNoteForDate,
+    resolveDailyNotePath,
+} from "./daily_note_navigation";
 
 export {
     FULL_CALENDAR_SIDEBAR_VIEW_TYPE,
@@ -155,43 +144,11 @@ export class CalendarView extends ItemView {
     }
 
     getDailyNotePath(date: Date): string {
-        const day = moment(date);
-        try {
-            const existingNote = getDailyNote(day, getAllDailyNotes());
-            if (existingNote) {
-                return existingNote.path;
-            }
-        } catch (error) {
-            console.debug("Could not resolve an existing daily note.", error);
-        }
-
-        const settings = getDailyNoteSettings();
-        const folder = settings?.folder?.trim() || "";
-        const format = settings?.format || DEFAULT_DAILY_NOTE_FORMAT;
-        return normalizePath(
-            [folder, day.format(format)].filter(Boolean).join("/")
-        );
+        return resolveDailyNotePath(date);
     }
 
     async openDailyNote(date: Date): Promise<void> {
-        const day = moment(date);
-        let file: TFile | null = null;
-        try {
-            file = getDailyNote(day, getAllDailyNotes()) as unknown as TFile;
-        } catch (error) {
-            console.debug("Could not resolve an existing daily note.", error);
-        }
-        file =
-            file || ((await createDailyNote(day)) as unknown as TFile | null);
-        if (!file) {
-            throw new Error("Could not create the daily note.");
-        }
-
-        let leaf = this.app.workspace.getMostRecentLeaf();
-        if (!leaf || leaf.getViewState().pinned) {
-            leaf = this.app.workspace.getLeaf("tab");
-        }
-        await leaf.openFile(file);
+        await openDailyNoteForDate(this.app, date);
     }
 
     translateSources() {

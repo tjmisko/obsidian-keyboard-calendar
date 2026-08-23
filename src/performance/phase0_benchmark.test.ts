@@ -54,7 +54,6 @@ class BenchmarkCalendar extends Calendar {
 const initializers: CalendarInitializerMap = {
     FOR_TEST_ONLY: (info: CalendarInfo) => new BenchmarkCalendar(info.color),
     local: () => null,
-    dailynote: () => null,
 };
 
 const sample = async (

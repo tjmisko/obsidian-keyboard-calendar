@@ -61,7 +61,6 @@ const initializerMap = (
 ): CalendarInitializerMap => ({
     FOR_TEST_ONLY: cb,
     local: () => null,
-    dailynote: () => null,
 });
 
 const extractEvents = (source: OFCEventSource): OFCEvent[] =>

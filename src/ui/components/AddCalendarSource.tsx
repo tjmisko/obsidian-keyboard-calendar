@@ -83,66 +83,15 @@ function ColorPicker<T extends Partial<CalendarInfo>>({
     );
 }
 
-function HeadingInput<T extends Partial<CalendarInfo>>({
-    source,
-    changeListener,
-    headings,
-}: BasicProps<T> & { headings: string[] }) {
-    let sourceWithHeading = source as SourceWith<T, { heading: undefined }>;
-    return (
-        <div className="setting-item">
-            <div className="setting-item-info">
-                <div className="setting-item-name">Heading</div>
-                <div className="setting-item-description">
-                    Heading to store events under in the daily note.
-                </div>
-            </div>
-            <div className="setting-item-control">
-                {headings.length > 0 ? (
-                    <select
-                        required
-                        value={sourceWithHeading.heading || ""}
-                        onChange={changeListener((x) => ({
-                            ...sourceWithHeading,
-                            heading: x,
-                        }))}
-                    >
-                        <option value="" disabled hidden>
-                            Choose a heading
-                        </option>
-                        {headings.map((o, idx) => (
-                            <option key={idx} value={o}>
-                                {o}
-                            </option>
-                        ))}
-                    </select>
-                ) : (
-                    <input
-                        required
-                        type="text"
-                        value={sourceWithHeading.heading || ""}
-                        onChange={changeListener((x) => ({
-                            ...sourceWithHeading,
-                            heading: x,
-                        }))}
-                    />
-                )}
-            </div>
-        </div>
-    );
-}
-
 interface AddCalendarProps {
     source: Partial<CalendarInfo>;
     directories: string[];
-    headings: string[];
     submit: (source: CalendarInfo) => Promise<void>;
 }
 
 export const AddCalendarSource = ({
     source,
     directories,
-    headings,
     submit,
 }: AddCalendarProps) => {
     const [setting, setSettingState] = useState(source);
@@ -176,13 +125,6 @@ export const AddCalendarSource = ({
                         source={setting}
                         changeListener={makeChangeListener}
                         directories={directories}
-                    />
-                )}
-                {source.type === "dailynote" && (
-                    <HeadingInput
-                        source={setting}
-                        changeListener={makeChangeListener}
-                        headings={headings}
                     />
                 )}
                 <div className="setting-item">

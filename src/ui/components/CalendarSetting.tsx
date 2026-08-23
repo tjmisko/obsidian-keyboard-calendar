@@ -1,4 +1,3 @@
-import { Notice } from "obsidian";
 import * as React from "react";
 import { SetStateAction, useState } from "react";
 
@@ -30,30 +29,6 @@ function DirectorySetting<T extends Partial<CalendarInfo>>({
     );
 }
 
-function HeadingSetting<T extends Partial<CalendarInfo>>({
-    source,
-}: BasicProps<T>) {
-    let sourceWithHeading = source as SourceWith<T, { heading: undefined }>;
-    return (
-        <div
-            className="setting-item-control"
-            style={{ display: "block", textAlign: "center" }}
-        >
-            <span>Under heading</span>{" "}
-            <input
-                disabled
-                type="text"
-                value={sourceWithHeading.heading}
-                style={{
-                    marginLeft: 4,
-                    marginRight: 4,
-                }}
-            />{" "}
-            <span style={{ paddingRight: ".5rem" }}>in daily notes</span>
-        </div>
-    );
-}
-
 interface CalendarSettingsProps {
     setting: Partial<CalendarInfo>;
     onColorChange: (s: string) => void;
@@ -76,8 +51,6 @@ export const CalendarSettingRow = ({
             </button>
             {setting.type === "local" ? (
                 <DirectorySetting source={setting} />
-            ) : setting.type === "dailynote" ? (
-                <HeadingSetting source={setting} />
             ) : null}
             <input
                 style={{ maxWidth: "25%", minWidth: "3rem" }}
@@ -145,16 +118,6 @@ export class CalendarSettings extends React.Component<
                     {this.state.dirty && (
                         <button
                             onClick={() => {
-                                if (
-                                    this.state.sources.filter(
-                                        (s) => s.type === "dailynote"
-                                    ).length > 1
-                                ) {
-                                    new Notice(
-                                        "Only one daily note calendar is allowed."
-                                    );
-                                    return;
-                                }
                                 this.props.submit(
                                     this.state.sources.map(
                                         (elt) => elt as CalendarInfo

@@ -223,29 +223,21 @@ export const EditEvent = ({
                             parseInt
                         )}
                     >
-                        {calendars
-                            .flatMap((cal) =>
-                                cal.type === "local" || cal.type === "dailynote"
-                                    ? [cal]
-                                    : []
-                            )
-                            .map((cal, idx) => (
-                                <option
-                                    key={idx}
-                                    value={idx}
-                                    disabled={
-                                        !(
-                                            initialEvent?.title === undefined ||
-                                            calendars[calendarIndex].type ===
-                                                cal.type
-                                        )
-                                    }
-                                >
-                                    {cal.type === "local"
-                                        ? cal.name
-                                        : "Daily Note"}
-                                </option>
-                            ))}
+                        {calendars.map((cal, idx) => (
+                            <option
+                                key={idx}
+                                value={idx}
+                                disabled={
+                                    !(
+                                        initialEvent?.title === undefined ||
+                                        calendars[calendarIndex].type ===
+                                            cal.type
+                                    )
+                                }
+                            >
+                                {cal.name}
+                            </option>
+                        ))}
                     </select>
                 </p>
                 <p>

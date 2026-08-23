@@ -20,7 +20,6 @@ import {
 import EventCache from "./core/EventCache";
 import { ObsidianIO } from "./ObsidianAdapter";
 import FullNoteCalendar from "./calendars/FullNoteCalendar";
-import DailyNoteCalendar from "./calendars/DailyNoteCalendar";
 import EventNoteEditor from "./ui/EventNoteEditor";
 import {
     capturePersistedSettings,
@@ -45,14 +44,6 @@ export default class FullCalendarPlugin extends Plugin {
                       new ObsidianIO(this.app),
                       info.color,
                       info.directory
-                  )
-                : null,
-        dailynote: (info) =>
-            info.type === "dailynote"
-                ? new DailyNoteCalendar(
-                      new ObsidianIO(this.app),
-                      info.color,
-                      info.heading
                   )
                 : null,
         FOR_TEST_ONLY: () => null,
@@ -273,7 +264,9 @@ export default class FullCalendarPlugin extends Plugin {
                     this.settings
                 );
                 initializeRuntime?.(this.settings);
-            }
+            },
+            console.debug,
+            (message: string) => new Notice(message)
         );
     }
 

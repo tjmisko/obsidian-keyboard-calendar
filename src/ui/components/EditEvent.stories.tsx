@@ -11,11 +11,6 @@ const calendars = [
         name: "second calendar",
         type: "local" as "local",
     },
-    {
-        id: "dailynote::calendar",
-        name: "Daily Note Calendar",
-        type: "dailynote" as "dailynote",
-    },
 ];
 
 const submit = async function (
