@@ -62,6 +62,34 @@ describe("calendar renderer", () => {
         });
     });
 
+    it("uses the same desktop toolbar and initial view without reading viewport width", () => {
+        Object.defineProperty(global, "window", {
+            configurable: true,
+            value: Object.defineProperty({}, "innerWidth", {
+                get: () => {
+                    throw new Error("viewport width must not be read");
+                },
+            }),
+        });
+
+        renderCalendar({} as HTMLElement, [], { initialView: "dayGridMonth" });
+
+        const calls = (Calendar as unknown as jest.Mock).mock.calls;
+        const options = calls[calls.length - 1][1] as CalendarOptions;
+        expect(options.initialView).toBe("dayGridMonth");
+        expect(options.headerToolbar).toEqual({
+            left: "prev,next today",
+            center: "title",
+            right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
+        });
+        expect(options.footerToolbar).toBe(false);
+        expect(options.views).not.toHaveProperty("timeGrid3Days");
+        expect(options.views?.timeGridDay).toMatchObject({
+            duration: { days: 1 },
+            buttonText: "day",
+        });
+    });
+
     it("retains daily-note links and click navigation on time-grid headers", () => {
         Object.defineProperty(global, "window", {
             configurable: true,

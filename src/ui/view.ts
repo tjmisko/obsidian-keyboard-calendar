@@ -12,10 +12,7 @@ import { fromEventApi, omitRecurringOccurrence, toEventInput } from "./interop";
 import { renderOnboarding } from "./onboard";
 import { openFullNoteForEvent } from "./actions";
 import { UpdateViewCallback } from "src/core/EventCache";
-import {
-    FULL_CALENDAR_SIDEBAR_VIEW_TYPE,
-    FULL_CALENDAR_VIEW_TYPE,
-} from "../plugin_registration";
+import { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
 import { navigateFromCalendarEvent } from "./event_navigation";
 import {
     openDailyNoteForDate,
@@ -24,10 +21,7 @@ import {
 import { getCalendarEventContextActions } from "./event_context";
 import { handleCalendarSelection } from "./event_creation";
 
-export {
-    FULL_CALENDAR_SIDEBAR_VIEW_TYPE,
-    FULL_CALENDAR_VIEW_TYPE,
-} from "../plugin_registration";
+export { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
 
 function getCalendarColors(color: string | null | undefined): {
     color: string;
@@ -63,21 +57,15 @@ function getCalendarColors(color: string | null | undefined): {
 
 export class CalendarView extends ItemView {
     plugin: FullCalendarPlugin;
-    inSidebar: boolean;
     fullCalendarView: Calendar | null = null;
     callback: UpdateViewCallback | null = null;
 
-    constructor(
-        leaf: WorkspaceLeaf,
-        plugin: FullCalendarPlugin,
-        inSidebar = false
-    ) {
+    constructor(leaf: WorkspaceLeaf, plugin: FullCalendarPlugin) {
         super(leaf);
         // Preserve this view in the leaf's Back/Forward history when an event
         // note replaces it as a normal Markdown buffer.
         this.navigation = true;
         this.plugin = plugin;
-        this.inSidebar = inSidebar;
         this.registerDomEvent(document, "keydown", (event) =>
             this.handleCalendarShortcut(event)
         );
@@ -128,13 +116,11 @@ export class CalendarView extends ItemView {
     }
 
     getViewType() {
-        return this.inSidebar
-            ? FULL_CALENDAR_SIDEBAR_VIEW_TYPE
-            : FULL_CALENDAR_VIEW_TYPE;
+        return FULL_CALENDAR_VIEW_TYPE;
     }
 
     getDisplayText() {
-        return this.inSidebar ? "Full Calendar" : "Calendar";
+        return "Calendar";
     }
 
     getDailyNotePath(date: Date): string {
@@ -188,7 +174,6 @@ export class CalendarView extends ItemView {
             this.fullCalendarView = null;
         }
         this.fullCalendarView = renderCalendar(calendarEl, sources, {
-            forceNarrow: this.inSidebar,
             eventClick: async (info) => {
                 try {
                     const openedNote = await navigateFromCalendarEvent({

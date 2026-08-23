@@ -12,7 +12,8 @@ export const CALDAV_REMOVAL_VERSION = 2;
 export const ICS_REMOVAL_VERSION = 3;
 export const DAILY_NOTE_REMOVAL_VERSION = 4;
 export const SINGLE_LOCAL_SOURCE_VERSION = 5;
-export const SETTINGS_VERSION = SINGLE_LOCAL_SOURCE_VERSION;
+export const DESKTOP_ONLY_SETTINGS_VERSION = 6;
+export const SETTINGS_VERSION = DESKTOP_ONLY_SETTINGS_VERSION;
 
 export const REMOVED_SOURCE_VERSIONS: Readonly<
     Partial<Record<PersistedSourceType, number>>
@@ -25,21 +26,16 @@ export const REMOVED_SOURCE_VERSIONS: Readonly<
 export interface FullCalendarSettings {
     calendarSources: CalendarInfo[];
     firstDay: number;
-    initialView: {
-        desktop: string;
-        mobile: string;
-    };
+    initialView: string;
     timeFormat24h: boolean;
     clickToCreateEventFromMonthView: boolean;
+    legacySidebarMigrationVersion?: number;
 }
 
 export const DEFAULT_SETTINGS: FullCalendarSettings = {
     calendarSources: [],
     firstDay: 0,
-    initialView: {
-        desktop: "timeGridWeek",
-        mobile: "timeGrid3Days",
-    },
+    initialView: "timeGridWeek",
     timeFormat24h: false,
     clickToCreateEventFromMonthView: true,
 };
@@ -95,8 +91,6 @@ const DESKTOP_VIEWS = new Set([
     "dayGridMonth",
     "listWeek",
 ]);
-const MOBILE_VIEWS = new Set(["timeGrid3Days", "timeGridDay", "listWeek"]);
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -120,20 +114,10 @@ const emptySourceCounts = (): SourceCounts => ({
 const readInitialView = (
     value: unknown
 ): FullCalendarSettings["initialView"] => {
-    if (!isRecord(value)) {
-        return { ...DEFAULT_SETTINGS.initialView };
-    }
-    return {
-        desktop:
-            typeof value.desktop === "string" &&
-            DESKTOP_VIEWS.has(value.desktop)
-                ? value.desktop
-                : DEFAULT_SETTINGS.initialView.desktop,
-        mobile:
-            typeof value.mobile === "string" && MOBILE_VIEWS.has(value.mobile)
-                ? value.mobile
-                : DEFAULT_SETTINGS.initialView.mobile,
-    };
+    const desktop = isRecord(value) ? value.desktop : value;
+    return typeof desktop === "string" && DESKTOP_VIEWS.has(desktop)
+        ? desktop
+        : DEFAULT_SETTINGS.initialView;
 };
 
 const readRedactedLegacySources = (
@@ -229,6 +213,12 @@ export function decodeSettings(
         ? [fallbackLocal]
         : [];
 
+    const legacySidebarMigrationVersion =
+        typeof root.legacySidebarMigrationVersion === "number" &&
+        Number.isInteger(root.legacySidebarMigrationVersion) &&
+        root.legacySidebarMigrationVersion >= 1
+            ? root.legacySidebarMigrationVersion
+            : undefined;
     const settings: FullCalendarSettings = {
         calendarSources,
         firstDay:
@@ -247,6 +237,9 @@ export function decodeSettings(
             typeof root.clickToCreateEventFromMonthView === "boolean"
                 ? root.clickToCreateEventFromMonthView
                 : DEFAULT_SETTINGS.clickToCreateEventFromMonthView,
+        ...(legacySidebarMigrationVersion !== undefined && {
+            legacySidebarMigrationVersion,
+        }),
     };
     const report = { rootWasObject, sourcesWereArray, sourceCounts };
     log("Decoded calendar settings", report);
@@ -269,6 +262,7 @@ const RUNTIME_SETTING_KEYS = [
     "initialView",
     "timeFormat24h",
     "clickToCreateEventFromMonthView",
+    "legacySidebarMigrationVersion",
 ] as const;
 
 /**
@@ -413,6 +407,9 @@ export function migrateSettings(
             : 0;
     const preservedRoot = isRecord(input) ? cloneJsonValue(input) : {};
     delete preservedRoot.defaultCalendar;
+    if (decoded.legacySidebarMigrationVersion === undefined) {
+        delete preservedRoot.legacySidebarMigrationVersion;
+    }
     const settings: MigratedSettings = {
         ...preservedRoot,
         ...decoded,

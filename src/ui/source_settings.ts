@@ -78,7 +78,6 @@ export async function saveLocalSourceSelection(
     }
     await writer.updateSettings({
         ...writer.settings,
-        initialView: { ...writer.settings.initialView },
         calendarSources: [source],
     });
     return source;
@@ -87,7 +86,6 @@ export async function saveLocalSourceSelection(
 export async function removeLocalSource(writer: SettingsWriter): Promise<void> {
     await writer.updateSettings({
         ...writer.settings,
-        initialView: { ...writer.settings.initialView },
         calendarSources: [],
     });
 }

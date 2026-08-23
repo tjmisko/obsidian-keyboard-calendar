@@ -24,17 +24,10 @@ const WEEKDAYS = [
 ];
 
 const INITIAL_VIEW_OPTIONS = {
-    DESKTOP: {
-        timeGridDay: "Day",
-        timeGridWeek: "Week",
-        dayGridMonth: "Month",
-        listWeek: "List",
-    },
-    MOBILE: {
-        timeGrid3Days: "3 Days",
-        timeGridDay: "Day",
-        listWeek: "List",
-    },
+    timeGridDay: "Day",
+    timeGridWeek: "Week",
+    dayGridMonth: "Month",
+    listWeek: "List",
 };
 
 type SubmitLocalSource = (directory: string, color: string) => Promise<boolean>;
@@ -178,37 +171,14 @@ export class FullCalendarSettingTab extends PluginSettingTab {
             .setName("Desktop Initial View")
             .setDesc("Choose the initial view range on desktop devices.")
             .addDropdown((dropdown) => {
-                Object.entries(INITIAL_VIEW_OPTIONS.DESKTOP).forEach(
+                Object.entries(INITIAL_VIEW_OPTIONS).forEach(
                     ([value, display]) => dropdown.addOption(value, display)
                 );
-                dropdown.setValue(this.plugin.settings.initialView.desktop);
+                dropdown.setValue(this.plugin.settings.initialView);
                 dropdown.onChange(async (initialView) => {
                     await this.commitSettings({
                         ...this.plugin.settings,
-                        initialView: {
-                            ...this.plugin.settings.initialView,
-                            desktop: initialView,
-                        },
-                    });
-                });
-            });
-
-        // Mobile view removal belongs to Phase 7.
-        new Setting(containerEl)
-            .setName("Mobile Initial View")
-            .setDesc("Choose the initial view range on mobile devices.")
-            .addDropdown((dropdown) => {
-                Object.entries(INITIAL_VIEW_OPTIONS.MOBILE).forEach(
-                    ([value, display]) => dropdown.addOption(value, display)
-                );
-                dropdown.setValue(this.plugin.settings.initialView.mobile);
-                dropdown.onChange(async (initialView) => {
-                    await this.commitSettings({
-                        ...this.plugin.settings,
-                        initialView: {
-                            ...this.plugin.settings.initialView,
-                            mobile: initialView,
-                        },
+                        initialView,
                     });
                 });
             });
@@ -224,7 +194,6 @@ export class FullCalendarSettingTab extends PluginSettingTab {
                 dropdown.onChange(async (codeAsString) => {
                     await this.commitSettings({
                         ...this.plugin.settings,
-                        initialView: { ...this.plugin.settings.initialView },
                         firstDay: Number(codeAsString),
                     });
                 });
@@ -238,7 +207,6 @@ export class FullCalendarSettingTab extends PluginSettingTab {
                 toggle.onChange(async (value) => {
                     await this.commitSettings({
                         ...this.plugin.settings,
-                        initialView: { ...this.plugin.settings.initialView },
                         timeFormat24h: value,
                     });
                 });

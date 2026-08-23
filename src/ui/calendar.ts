@@ -44,7 +44,7 @@ interface ExtraRenderProps {
     modifyEvent?: (event: EventApi, oldEvent: EventApi) => Promise<boolean>;
     eventMouseEnter?: (info: EventHoveringArg) => void;
     firstDay?: number;
-    initialView?: { desktop: string; mobile: string };
+    initialView?: string;
     timeFormat24h?: boolean;
     openContextMenuForEvent?: (
         event: EventApi,
@@ -52,7 +52,6 @@ interface ExtraRenderProps {
     ) => Promise<void>;
     dailyNotePath?: (date: Date) => string;
     openDailyNote?: (date: Date) => Promise<void>;
-    forceNarrow?: boolean;
 }
 
 const padTimePart = (value: number): string =>
@@ -133,8 +132,6 @@ export function renderCalendar(
     eventSources: EventSourceInput[],
     settings?: ExtraRenderProps
 ): Calendar {
-    const isMobile = window.innerWidth < 500;
-    const isNarrow = settings?.forceNarrow || isMobile;
     const {
         eventClick,
         select,
@@ -171,32 +168,18 @@ export function renderCalendar(
             interactionPlugin,
             rrulePlugin,
         ],
-        initialView:
-            settings?.initialView?.[isNarrow ? "mobile" : "desktop"] ||
-            (isNarrow ? "timeGrid3Days" : "timeGridWeek"),
+        initialView: settings?.initialView || "timeGridWeek",
         nowIndicator: true,
         scrollTimeReset: false,
         dayMaxEvents: true,
         weekNumberCalculation: "ISO",
 
-        headerToolbar: !isNarrow
-            ? {
-                  left: "prev,next today",
-                  center: "title",
-                  right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
-              }
-            : !isMobile
-            ? {
-                  right: "today,prev,next",
-                  left: "timeGrid3Days,timeGridDay,listWeek",
-              }
-            : false,
-        footerToolbar: isMobile
-            ? {
-                  right: "today,prev,next",
-                  left: "timeGrid3Days,timeGridDay,listWeek",
-              }
-            : false,
+        headerToolbar: {
+            left: "prev,next today",
+            center: "title",
+            right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
+        },
+        footerToolbar: false,
 
         views: {
             timeGrid: {
@@ -207,14 +190,9 @@ export function renderCalendar(
             timeGridDay: {
                 type: "timeGrid",
                 duration: { days: 1 },
-                buttonText: isNarrow ? "1" : "day",
+                buttonText: "day",
                 titleFormat: ({ start }) =>
                     formatLongDateParts(start.year, start.month, start.day),
-            },
-            timeGrid3Days: {
-                type: "timeGrid",
-                duration: { days: 3 },
-                buttonText: "3",
             },
         },
         firstDay: settings?.firstDay,

@@ -8,9 +8,10 @@ The first day of the week defaults to Sunday, but you can change it to Monday, o
 
 ![](../assets/change-week-start.gif)
 
-## Default calendar views
+## Default calendar view
 
-Change your default calendar views on Desktop and Mobile to match your preference.
+Choose the initial calendar view used on desktop. The lean fork is desktop-only
+and does not retain a separate mobile or three-day view preference.
 
 ## 24-hour time
 

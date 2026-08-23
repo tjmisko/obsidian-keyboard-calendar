@@ -174,7 +174,7 @@ describe("settings decoder", () => {
         });
     });
 
-    it("deeply validates nested initial-view state", () => {
+    it("migrates nested initial-view state to one validated desktop view", () => {
         expect(
             decodeSettings(
                 {
@@ -186,7 +186,7 @@ describe("settings decoder", () => {
                 undefined,
                 jest.fn()
             ).settings.initialView
-        ).toEqual({ desktop: "dayGridMonth", mobile: "listWeek" });
+        ).toBe("dayGridMonth");
         expect(
             decodeSettings(
                 {
@@ -198,7 +198,11 @@ describe("settings decoder", () => {
                 undefined,
                 jest.fn()
             ).settings.initialView
-        ).toEqual({ desktop: "timeGridWeek", mobile: "timeGrid3Days" });
+        ).toBe("timeGridWeek");
+        expect(
+            decodeSettings({ initialView: "listWeek" }, undefined, jest.fn())
+                .settings.initialView
+        ).toBe("listWeek");
     });
 
     it("resolves old string and numeric local defaults", () => {
@@ -262,6 +266,79 @@ describe("settings decoder", () => {
 });
 
 describe("active removed-source migration", () => {
+    it("upgrades v5 nested views to one desktop-only value and is idempotent", () => {
+        const input = {
+            settingsVersion: SINGLE_LOCAL_SOURCE_VERSION,
+            calendarSources: [local("Events")],
+            initialView: { desktop: "dayGridMonth", mobile: "listWeek" },
+            unrelated: { retained: true },
+        };
+        const original = JSON.stringify(input);
+
+        const first = migrateSettings(input, jest.fn());
+
+        expect(JSON.stringify(input)).toBe(original);
+        expect(first.settings.settingsVersion).toBe(SETTINGS_VERSION);
+        expect(first.settings.initialView).toBe("dayGridMonth");
+        expect(JSON.stringify(first.settings)).not.toContain("mobile");
+        expect((first.settings as any).unrelated).toEqual({ retained: true });
+        expect(first.saveRequested).toBe(true);
+
+        const second = migrateSettings(first.settings, jest.fn());
+        expect(second.settings).toEqual(first.settings);
+        expect(second.saveRequested).toBe(false);
+    });
+
+    it("scrubs stale nested views at v6 and future versions without downgrading", () => {
+        for (const settingsVersion of [SETTINGS_VERSION, 17]) {
+            const migrated = migrateSettings(
+                {
+                    settingsVersion,
+                    calendarSources: [local("Events")],
+                    initialView: {
+                        desktop: "listWeek",
+                        mobile: "timeGrid3Days",
+                    },
+                    legacySidebarMigrationVersion: 17,
+                    redactedLegacySources: [
+                        { legacyType: "ical", removedAtVersion: 12 },
+                    ],
+                    unrelated: { future: true },
+                },
+                jest.fn()
+            );
+
+            expect(migrated.settings.settingsVersion).toBe(settingsVersion);
+            expect(migrated.settings.initialView).toBe("listWeek");
+            expect(migrated.settings.legacySidebarMigrationVersion).toBe(17);
+            expect(migrated.settings.redactedLegacySources).toEqual([
+                { legacyType: "ical", removedAtVersion: 12 },
+            ]);
+            expect((migrated.settings as any).unrelated).toEqual({
+                future: true,
+            });
+            expect(JSON.stringify(migrated.settings)).not.toContain("mobile");
+            expect(migrated.saveRequested).toBe(true);
+        }
+    });
+
+    it("normalizes an invalid bridge marker without treating it as completion", () => {
+        const migrated = migrateSettings(
+            {
+                settingsVersion: SETTINGS_VERSION,
+                calendarSources: [local("Events")],
+                initialView: "timeGridWeek",
+                legacySidebarMigrationVersion: "not-a-version",
+            },
+            jest.fn()
+        );
+
+        expect(migrated.settings).not.toHaveProperty(
+            "legacySidebarMigrationVersion"
+        );
+        expect(migrated.saveRequested).toBe(true);
+    });
+
     it("selects the legacy default local and redacts only discarded local configuration", () => {
         const input = {
             settingsVersion: DAILY_NOTE_REMOVAL_VERSION,
@@ -275,7 +352,7 @@ describe("active removed-source migration", () => {
 
         expect(migrated.settings.calendarSources).toEqual([local("Keep")]);
         expect(migrated.settings).not.toHaveProperty("defaultCalendar");
-        expect(migrated.settings.initialView).toEqual(input.initialView);
+        expect(migrated.settings.initialView).toBe("dayGridMonth");
         expect((migrated.settings as any).unrelated).toEqual({
             retained: true,
         });
@@ -812,6 +889,28 @@ describe("active removed-source migration", () => {
         expect(initialize).not.toHaveBeenCalled();
     });
 
+    it("does not initialize when the v6 desktop-only migration write fails", async () => {
+        const initialize = jest.fn();
+        await expect(
+            loadMigratedSettingsBeforeRuntime(
+                async () => ({
+                    settingsVersion: SINGLE_LOCAL_SOURCE_VERSION,
+                    calendarSources: [local("Events")],
+                    initialView: {
+                        desktop: "dayGridMonth",
+                        mobile: "listWeek",
+                    },
+                }),
+                async () => {
+                    throw new Error("synthetic v6 persistence failure");
+                },
+                initialize,
+                jest.fn()
+            )
+        ).rejects.toThrow("synthetic v6 persistence failure");
+        expect(initialize).not.toHaveBeenCalled();
+    });
+
     it("does not notify, initialize, or invoke note effects when multi-local persistence fails", async () => {
         const initialize = jest.fn();
         const notify = jest.fn();
@@ -1026,7 +1125,7 @@ describe("production persistence after migration", () => {
         expect(prepared.persisted).not.toHaveProperty("defaultCalendar");
     });
 
-    it("keeps successive one-source and nested-view edits observable", () => {
+    it("keeps successive one-source and desktop-view edits observable", () => {
         const input = {
             calendarSources: [local("Events")],
             initialView: { desktop: "timeGridWeek", mobile: "timeGrid3Days" },
@@ -1034,11 +1133,11 @@ describe("production persistence after migration", () => {
         const current = decodeSettings(input, undefined, jest.fn()).settings;
         const baseline = captureRuntimeSettingsBaseline(current);
         current.calendarSources = [local("Work")];
-        current.initialView.desktop = "dayGridMonth";
+        current.initialView = "dayGridMonth";
 
         const first = prepareSettingsSave(input, baseline, current);
         current.calendarSources = [local("Personal")];
-        current.initialView.mobile = "listWeek";
+        current.initialView = "listWeek";
         const second = prepareSettingsSave(
             first.persisted,
             first.runtimeBaseline,
@@ -1054,10 +1153,7 @@ describe("production persistence after migration", () => {
         expect((second.persisted.calendarSources as CalendarInfo[])[0]).toEqual(
             local("Personal")
         );
-        expect(second.persisted.initialView).toEqual({
-            desktop: "dayGridMonth",
-            mobile: "listWeek",
-        });
+        expect(second.persisted.initialView).toBe("listWeek");
     });
 });
 
@@ -1066,14 +1162,43 @@ describe("transactional runtime settings updates", () => {
         decodeSettings(
             {
                 calendarSources: [local("Events")],
-                initialView: {
-                    desktop: "timeGridWeek",
-                    mobile: "timeGrid3Days",
-                },
+                initialView: "timeGridWeek",
             },
             undefined,
             jest.fn()
         ).settings;
+
+    it("merges the generated sidebar marker without disturbing persisted metadata", () => {
+        const persisted = {
+            settingsVersion: 17,
+            calendarSources: [local("Events")],
+            initialView: "timeGridWeek",
+            legacySidebarMigrationVersion: 0,
+            redactedLegacySources: [
+                { legacyType: "ical", removedAtVersion: 12 },
+            ],
+            unrelated: { retained: true },
+        };
+        const baseline = decodeSettings(
+            persisted,
+            undefined,
+            jest.fn()
+        ).settings;
+        const prepared = prepareSettingsSave(persisted, baseline, {
+            ...baseline,
+            legacySidebarMigrationVersion: 1,
+        });
+
+        expect(prepared.persisted).toMatchObject({
+            settingsVersion: 17,
+            legacySidebarMigrationVersion: 1,
+            redactedLegacySources: [
+                { legacyType: "ical", removedAtVersion: 12 },
+            ],
+            unrelated: { retained: true },
+        });
+        expect(prepared.persisted.calendarSources).toEqual([local("Events")]);
+    });
 
     it("does not commit or refresh when persistence fails", async () => {
         const current = currentSettings();

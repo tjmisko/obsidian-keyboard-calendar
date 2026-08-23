@@ -22,7 +22,6 @@ describe("native onboarding", () => {
         const plugin = {
             settings: {
                 ...DEFAULT_SETTINGS,
-                initialView: { ...DEFAULT_SETTINGS.initialView },
             },
             updateSettings: jest.fn(async function (
                 this: { settings: FullCalendarSettings },
@@ -56,7 +55,6 @@ describe("native onboarding", () => {
         const app = makeApp();
         const initial = {
             ...DEFAULT_SETTINGS,
-            initialView: { ...DEFAULT_SETTINGS.initialView },
         };
         const plugin = {
             settings: initial,
@@ -78,7 +76,6 @@ describe("native onboarding", () => {
         const plugin = {
             settings: {
                 ...DEFAULT_SETTINGS,
-                initialView: { ...DEFAULT_SETTINGS.initialView },
             },
             updateSettings: jest.fn(async function (
                 this: { settings: FullCalendarSettings },

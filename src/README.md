@@ -1,6 +1,6 @@
 # Plugin Architecture
 
-Obsidian Full Calendar's goal is to give users a robust calendar view into their Obsidian Vault. It displays and modifies events stored in full-note frontmatter. Calendar operation is local-only; daily notes remain navigation targets from date headers rather than event stores.
+Obsidian Full Calendar's goal is to give desktop users a robust normal-tab calendar view into their Obsidian Vault. It displays and modifies events stored in full-note frontmatter. Calendar operation is local-only; daily notes remain navigation targets from date headers rather than event stores. The retired sidebar view type exists only in a narrow workspace-layout compatibility bridge.
 
 Obsidian Full Calendar takes its name from [FullCalendar](https://github.com/fullcalendar/fullcalendar), a "Full-sized drag & drop event calendar in JavaScript." This plugin uses FullCalendar as its calendar view. While the naming can be ambiguous, this document will always refer to the FullCalendar view library without any spaces, or as `fullcalendar.io`. The plugin will be referred to either as "the plugin", "Full Calendar" with a space, or "Obsidian Full Calendar".
 

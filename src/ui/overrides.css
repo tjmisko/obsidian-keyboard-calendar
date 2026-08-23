@@ -1,6 +1,3 @@
-.is-phone .fc {
-	height: calc(100% - 4rem);
-}
 .fc {
 	height: 100%;
 	color: var(--text-muted);

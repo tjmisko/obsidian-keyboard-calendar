@@ -12,11 +12,12 @@ Either click on the ribbon icon, or run the "Full Calendar: Open Calendar" comma
 
 ![Open calendar](assets/open-calendar.gif)
 
-## Sidebar Calendar
-
-You can also open the calendar in the sidebar with the "Open in sidebar" command.
-
-![Sidebar calendar](assets/sidebar.gif)
+Full Calendar is a desktop-only normal-tab view. Existing workspace layouts
+saved with the older sidebar view are redirected to a normal calendar tab by a
+retained compatibility bridge; the sidebar is no longer an active feature.
+Back up Obsidian before upgrading. Git rollback cannot restore a migrated
+workspace layout or the discarded mobile initial-view preference, and the
+compatibility shim remains to handle saved legacy sidebar leaves.
 
 ## Troubleshooting
 

@@ -24,7 +24,7 @@ const makeApp = () =>
 
 const settings = (): FullCalendarSettings => ({
     ...DEFAULT_SETTINGS,
-    initialView: { desktop: "dayGridMonth", mobile: "listWeek" },
+    initialView: "dayGridMonth",
     firstDay: 1,
     timeFormat24h: true,
 });
@@ -113,10 +113,7 @@ describe("native single-folder settings model", () => {
         expect(target.settings.calendarSources).toEqual([
             { type: "local", directory: "work", color: "#445566" },
         ]);
-        expect(target.settings.initialView).toEqual({
-            desktop: "dayGridMonth",
-            mobile: "listWeek",
-        });
+        expect(target.settings.initialView).toBe("dayGridMonth");
         expect(target.settings.firstDay).toBe(1);
         expect(target.settings.timeFormat24h).toBe(true);
 
@@ -172,10 +169,7 @@ describe("native single-folder settings model", () => {
         expect(firstLoad.settings.calendarSources).toEqual([
             { type: "local", directory: "events", color: "#123456" },
         ]);
-        expect(firstLoad.settings.initialView).toEqual({
-            desktop: "dayGridMonth",
-            mobile: "listWeek",
-        });
+        expect(firstLoad.settings.initialView).toBe("dayGridMonth");
         expect(restart.settings).toEqual(firstLoad.settings);
         expect(restart.saveRequested).toBe(false);
     });
