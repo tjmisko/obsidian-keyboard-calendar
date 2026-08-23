@@ -1,9 +1,10 @@
 import "./overrides.css";
 import { ItemView, Menu, Notice, WorkspaceLeaf } from "obsidian";
-import { Calendar, EventSourceInput } from "@fullcalendar/core";
+import { Calendar } from "@fullcalendar/core";
 import {
     formatDateLabel,
     getAdjacentCalendarView,
+    LocalMaterializedEventSource,
     renderCalendar,
 } from "./calendar";
 import FullCalendarPlugin from "../main";
@@ -133,7 +134,12 @@ export class CalendarView extends ItemView {
 
     translateSources() {
         return this.plugin.cache.getAllEvents().map(
-            ({ events, editable, color, id }): EventSourceInput => ({
+            ({
+                events,
+                editable,
+                color,
+                id,
+            }): LocalMaterializedEventSource => ({
                 id,
                 events: events.flatMap(
                     (e) => toEventInput(e.id, e.event) || []
@@ -163,7 +169,7 @@ export class CalendarView extends ItemView {
             return;
         }
 
-        const sources: EventSourceInput[] = this.translateSources();
+        const sources: LocalMaterializedEventSource[] = this.translateSources();
 
         if (this.fullCalendarView) {
             this.fullCalendarView.destroy();
@@ -336,34 +342,15 @@ export class CalendarView extends ItemView {
                 return;
             } else if (payload.type === "events") {
                 const { toRemove, toAdd } = payload;
-                console.debug("updating view from cache...", {
-                    toRemove,
-                    toAdd,
-                });
                 toRemove.forEach((id) => {
                     const event = this.fullCalendarView?.getEventById(id);
                     if (event) {
-                        console.debug("removing event", event.toPlainObject());
                         event.remove();
-                    } else {
-                        console.warn(
-                            `Event with id=${id} was slated to be removed but does not exist in the calendar.`
-                        );
                     }
                 });
                 toAdd.forEach(({ id, event, sourceId }) => {
                     const eventInput = toEventInput(id, event);
-                    console.debug("adding event", {
-                        id,
-                        event,
-                        eventInput,
-                        sourceId,
-                    });
-                    const addedEvent = this.fullCalendarView?.addEvent(
-                        eventInput!,
-                        sourceId
-                    );
-                    console.debug("event that was added", addedEvent);
+                    this.fullCalendarView?.addEvent(eventInput!, sourceId);
                 });
             }
         });

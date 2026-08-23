@@ -6,7 +6,7 @@ import {
     EventApi,
     EventClickArg,
     EventHoveringArg,
-    EventSourceInput,
+    EventInput,
 } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -52,6 +52,15 @@ interface ExtraRenderProps {
     ) => Promise<void>;
     dailyNotePath?: (date: Date) => string;
     openDailyNote?: (date: Date) => Promise<void>;
+}
+
+/** A local, already-materialized source. URL and callback sources are excluded. */
+export interface LocalMaterializedEventSource {
+    id: string;
+    events: EventInput[];
+    editable?: boolean;
+    color?: string;
+    textColor?: string;
 }
 
 const padTimePart = (value: number): string =>
@@ -129,7 +138,7 @@ const isTimeGridView = (viewType: string): boolean =>
 
 export function renderCalendar(
     containerEl: HTMLElement,
-    eventSources: EventSourceInput[],
+    eventSources: LocalMaterializedEventSource[],
     settings?: ExtraRenderProps
 ): Calendar {
     const {

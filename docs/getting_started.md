@@ -1,8 +1,10 @@
 # Getting started
 
-## Choose an event folder
+## Prepare the event folder
 
-Open Full Calendar from the command palette or ribbon for the first time and the native setup prompt asks you to choose one existing vault folder for [full-note events](calendars/local). If an `events` folder exists, it is selected by default. The folder choice is saved before the calendar opens. Events remain separate Markdown notes with frontmatter, and calendar operation is local to the vault.
+Create an `events` folder in the vault, or choose another existing folder you want to dedicate to event notes. Open Full Calendar from the command palette or ribbon. The native setup prompt asks for one [full-note event folder](calendars/local.md) and prefers `events` when it exists.
+
+Only direct-child Markdown files are indexed; the `.md` extension match is case-insensitive. For example, `events/Planning.md` and `events/Planning.MD` are eligible, while `events/archive/Planning.md` and `events/agenda.pdf` are ignored. Choosing a folder never moves or rewrites existing notes.
 
 Dates in week and day headers link to the corresponding daily note. The link opens an existing note or creates it through Obsidian's daily-note integration. Daily notes are navigation targets, not event stores.
 
@@ -10,15 +12,12 @@ Dates in week and day headers link to the corresponding daily note. The link ope
 
 Either click on the ribbon icon, or run the "Full Calendar: Open Calendar" command from the command palette.
 
-![Open calendar](assets/open-calendar.gif)
+Full Calendar opens as a desktop-only normal tab. The retained compatibility bridge redirects workspace leaves saved with the retired sidebar view into a normal calendar tab; the sidebar is not an active feature.
 
-Full Calendar is a desktop-only normal-tab view. Existing workspace layouts
-saved with the older sidebar view are redirected to a normal calendar tab by a
-retained compatibility bridge; the sidebar is no longer an active feature.
-Back up Obsidian before upgrading. Git rollback cannot restore a migrated
-workspace layout or the discarded mobile initial-view preference, and the
-compatibility shim remains to handle saved legacy sidebar leaves.
+Use Tab and Shift-Tab to cycle Month, Week, Day, and List. Press `T` for Today. Click an event to replace the calendar tab with its ordinary Markdown note; Obsidian Back returns to the calendar.
 
 ## Troubleshooting
 
-If something is not working as expected, you should first try to clear the cache with the command `Full Calendar: Reset Event Cache`. If that didn't fix your problem, then feel free to [submit an issue on GitHub](https://github.com/obsidian-community/obsidian-full-calendar/issues).
+If the view does not match the notes on disk, run `Full Calendar: Reset Event Cache`, then reopen the calendar. If the problem remains, report it at [tjmisko/obsidian-full-calendar](https://github.com/tjmisko/obsidian-full-calendar/issues).
+
+Before upgrading an older installation, read [Migration and rollback](migration.md) and confirm that plugin data and workspace layout are backed up.

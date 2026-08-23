@@ -1,25 +1,48 @@
-# Full Calendar Plugin
+# Full Calendar — Lean Local Fork
 
-![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=%23483699&label=downloads&query=%24%5B%22obsidian-full-calendar%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)
+Full Calendar is a desktop-only, note-first calendar for Obsidian. It renders events with [FullCalendar](https://fullcalendar.io/) while keeping every event in an ordinary Markdown note in the local vault.
 
-Keep your calendar in your vault! This plugin integrates the [FullCalendar](https://github.com/fullcalendar/fullcalendar) library into your Obsidian Vault so that you can keep your ever-changing daily schedule and special events and plans alongside your tasks and notes, and link freely between all of them. Each event is stored as a separate note with special frontmatter so you can take notes, form connections and add context to any event on your calendar.
+This fork deliberately supports one model:
 
-This lean fork reads events only from frontmatter on full event notes in the local Obsidian vault. Daily-note date headers remain navigation links, but daily notes are not event stores. The plugin performs no calendar network requests.
+- One writable local event folder. The setup flow prefers an existing `events` folder.
+- Only direct-child Markdown files (`.md`, case-insensitive) in that folder are indexed; nested notes and other file types are ignored.
+- Month, week, day, and list views in a normal desktop tab.
+- Click-to-open event notes, timed-event creation, supported drag/resize updates, and recurrence omission.
+- Date-header links to daily notes. Daily notes are navigation targets, not event stores.
+- Local-only calendar operation with no ICS, CalDAV, Google connector, remote refresh, or credential UI.
 
-Remote ICS, CalDAV, and daily-note event sources are no longer supported. Settings migration v5 reduces older multi-folder configurations to one writable local folder, preferring the previously selected default and otherwise the first valid folder. Migration v6 makes the active interface desktop-only, retains one desktop initial-view preference, and discards the old mobile preference. Saved legacy sidebar leaves are bridged into a normal main tab; the compatibility shim remains after its completion marker is persisted. No migration moves, writes, or deletes an event note; existing daily-note list items also remain untouched and stop appearing as events. Back up Obsidian before upgrading: Git rollback cannot restore a migrated workspace layout or the discarded mobile preference. Restoring older source settings also requires the pre-migration backup and a plugin version from before source removal.
+## Event notes
 
-You can find the full documentation [here](https://obsidian-community.github.io/obsidian-full-calendar/)!
+A minimal timed event looks like this:
 
-![Sample Calendar](https://raw.githubusercontent.com/obsidian-community/obsidian-full-calendar/main/docs/assets/sample-calendar.png)
+```yaml
+---
+date: 2026-08-23
+start: 09:00
+end: 10:00
+tags:
+  - event
+---
+```
 
-The FullCalendar library is released under the [MIT license](https://github.com/fullcalendar/fullcalendar/blob/master/LICENSE.txt) by [Adam Shaw](https://github.com/arshaw). It's an awesome piece of work, and it would not have been possible to make something like this plugin so easily without it.
+The filename supplies the title unless `title` is set. The rest of the note is yours; plugin-driven timing and omission changes preserve unrelated frontmatter and Markdown body content. See the [event format](docs/events/types.md) and [recurrence format](docs/events/recurring.md).
 
-[![Support me on Ko-Fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/M4M1GQ84A)
+## Install and upgrade
 
-## Installation
+Back up Obsidian's plugin data and workspace layout before installing this fork. Migration intentionally scrubs or narrows older remote, daily-note-event, multi-folder, mobile, and sidebar settings. It never moves, rewrites, or deletes event notes or daily-note contents, but Git rollback cannot restore settings or a workspace layout that Obsidian has already saved.
 
-Full Calendar is available from the Obsidian Community Plugins list -- just search for "Full Calendar" paste this link into your browser: `obsidian://show-plugin?id=obsidian-full-calendar`.
+Use a release from this fork's [releases page](https://github.com/tjmisko/obsidian-full-calendar/releases), or build the repository and copy `main.js`, `manifest.json`, and `styles.css` into the vault's `.obsidian/plugins/obsidian-full-calendar/` directory. See [migration and rollback](docs/migration.md) before upgrading an existing installation.
 
-### Manual Installation
+The retained plugin ID matches the historical project for workspace/settings compatibility. The Obsidian Community Plugins listing belongs to the upstream product and is not an install or update channel for this fork.
 
-You can also head over to the [releases page](https://github.com/obsidian-community/obsidian-full-calendar/releases) and unzip the latest release inside of the `.obsidian/plugins` directory inside your vault.
+The complete documentation starts at [docs/index.md](docs/index.md).
+
+## Development
+
+```sh
+npm install
+npm test -- --runInBand
+npm run build
+```
+
+The FullCalendar library is released under the [MIT license](https://github.com/fullcalendar/fullcalendar/blob/master/LICENSE.txt). This plugin is also MIT licensed; see [LICENSE](LICENSE).

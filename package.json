@@ -1,11 +1,12 @@
 {
     "name": "obsidian-full-calendar",
     "version": "0.10.7",
-    "description": "Obsidian integration with Full Calendar (fullcalendar.io)",
+    "description": "Desktop local-note calendar for Obsidian",
     "main": "main.js",
     "scripts": {
         "dev": "node esbuild.config.mjs",
         "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+        "build:metafile": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production --metafile",
         "version": "node version-bump.mjs && git add manifest.json versions.json",
         "lint": "prettier --check 'src/**/*.ts*'",
         "fix-lint": "prettier --write 'src/**/*.ts*'",
@@ -14,7 +15,6 @@
         "test": "jest --ci --silent=true",
         "test-dev": "jest --watch",
         "coverage": "jest --coverage",
-        "benchmark:phase0": "npm run build && OFC_PHASE0_BENCHMARK=1 jest --ci --runInBand --silent=false src/performance/phase0_benchmark.test.ts",
         "benchmark:phase8b": "npm run build && OFC_PHASE8B_BENCHMARK=1 jest --ci --runInBand --silent=false src/performance/phase8b_local_index_benchmark.test.ts"
     },
     "keywords": [],
@@ -28,8 +28,6 @@
         "@types/jest": "^29.2.3",
         "@types/luxon": "^2.0.9",
         "@types/node": "^16.11.6",
-        "@typescript-eslint/eslint-plugin": "^5.2.0",
-        "@typescript-eslint/parser": "^5.2.0",
         "builtin-modules": "^3.2.0",
         "esbuild": "0.13.12",
         "fast-check": "^3.8.0",
@@ -38,7 +36,6 @@
         "obsidian": "^0.16.3",
         "prettier": "^2.5.1",
         "ts-jest": "^29.0.3",
-        "tslib": "2.3.1",
         "typescript": "4.4.4",
         "zod-fast-check": "^0.9.0"
     },

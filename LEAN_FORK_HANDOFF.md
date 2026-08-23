@@ -1,6 +1,6 @@
 # Lean Full Calendar Fork: Execution Handoff
 
-Status: adversarially reviewed implementation plan
+Status: Phase 9 final-convergence candidate; automated gates complete, live Obsidian release matrix pending
 
 Planning baseline: `533d2ab` on `feat/frontmatter-note-editor`
 
@@ -144,7 +144,8 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 | Phase 7 desktop-only surface | Accepted and integrated at `11a407d`; exact-SHA adversarial `ACCEPT` | Complete; live-Obsidian workspace/navigation checks remain in the release matrix |
 | Phase 8A read-only local-index shadow | Accepted and integrated at `96ff7c1`; exact-SHA adversarial `ACCEPT` | Complete; Phase 8B acceptance is tracked separately below |
 | Phase 8B local-index runtime cutover | Accepted and integrated at exact `6133cd8`; exact-SHA adversarial `ACCEPT` | Complete; legacy-layer deletion remains separately gated in Phase 8C |
-| Phase 8C legacy index-layer cleanup | Candidate prepared; immutable SHA and adversarial decision pending | Exact-SHA review required before Phase 9 |
+| Phase 8C legacy index-layer cleanup | Accepted and integrated at exact `a59638c`; exact-SHA adversarial `ACCEPT` | Complete |
+| Phase 9 final convergence | Candidate prepared; immutable SHA and adversarial decision pending | Exact-SHA review plus live Obsidian release matrix |
 | D1 writable folders | Decided: one writable local event folder; target folder is `events` | Complete |
 | D2 folder traversal | Decided: direct-child event notes only; nested folders are excluded | Complete |
 | Sidebar bridge removal | Deferred compatibility work | Persisted migration marker, workspace backup, explicit acceptance or stated version boundary |
@@ -302,7 +303,7 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 - Automated gate: 24 suites passed; 282 tests passed; 41 snapshots passed. `npm run compile`, `npm run lint`, production `npm run build`, `git diff --check`, direct-source/static ownership searches, runtime-import searches, and repeated standalone Phase 8B benchmarks pass. `main.js` is 1,282,332 bytes; `styles.css` and generated `main.css` are 39,462 bytes each; `package-lock.json` remains 404,064 bytes. The only package-manifest change adds the reproducible `benchmark:phase8b` script; dependencies and the lockfile are unchanged.
 - Scope, rollback, and review: `EventStore`, generic `Calendar`/`EditableCalendar` compatibility surfaces, `deep-equal`, and their dependencies remained for separately reviewed Phase 8C cleanup. No live Obsidian GUI, real vault, user plugin data, settings migration, `.env`, or `.secrets` was opened or run; the manual acceptance matrix remains a release check. Code rollback is a single candidate-commit revert; because this phase changes active write/index ordering, use the confirmed user-controlled backup before live acceptance. Exact `6133cd8` received adversarial `ACCEPT`; later work must still be rejected for any event-set mismatch, duplicate, index-time note write, unhandled listener failure, cache/disk divergence, or performance-gate failure.
 
-### Phase 8C candidate record — 2026-08-23
+### Phase 8C accepted record — 2026-08-23
 
 - Candidate scope: deletes the retired `EventStore` and its unit suite plus the generic `Calendar` and `EditableCalendar` layers. `FullNoteCalendar` is now a standalone narrow local read/write adapter with its own path, location, and persisted-write types. `EventCache` owns one `FullNoteCalendar | null`, accepts one local initializer, exposes only source presence, path lookup, and local create/update/lifecycle operations, and no longer publishes calendar objects, generic initializer maps, generic source maps, line locations, or compatibility delete aliases.
 - Preserved behavior: the `LocalEventIndex`, direct-child case-insensitive Markdown ownership rule, stable source/path IDs, root-source compatibility, writer/persistence ordering, event schema, settings migration output, and non-destructive D1/D2 migration semantics are unchanged. The unreachable `FOR_TEST_ONLY` compile-time/runtime cache seam is removed without adding a migration adapter effect; a throwing factory fixture proves rejected legacy entries never reach the local initializer. No setting or note is moved, rewritten, or deleted by this cleanup.
@@ -310,7 +311,28 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 - Dependency and test closure: direct `deep-equal` and `@types/deep-equal` packages and their now-unreachable lock graph are removed. The suite count changes intentionally from 24/282 to 23/258 solely because the 24 retired `EventStore` implementation tests leave with that implementation; local index/cache, persistence, migration, UI, lifecycle, recurrence, root-source, and benchmark coverage remain.
 - Performance gate: the same sanitized 250-note fixture uses 5 warmups and 60 measured per-operation batch samples with the hard `1.20x` p95 limit. Startup and reparse use batches of 5 and 500; ID-to-path open uses 250,000 lookups per sample to stabilize sub-microsecond JIT/GC noise. The final isolated run reports legacy/candidate p95 of `5.691906/5.453321` ms for startup (`0.958x`), `0.051362/0.034489` ms for reparse (`0.671x`), and `0.00002761/0.00001663` ms for open (`0.602x`). These are deterministic Node/mock per-operation averages, not live GUI or filesystem-tail measurements.
 - Automated gate and artifacts: 23 suites, 258 tests, and 41 snapshots pass. `npm run compile`, `npm run lint`, production `npm run build`, `git diff --check`, lock-only production inventory (`npm ls --omit=dev --depth=0 --package-lock-only`, 11 direct runtime dependencies), and legacy-layer/runtime static searches pass. Production artifacts are `main.js` 1,162,058 bytes, `styles.css` and generated `main.css` 39,462 bytes each, and `package-lock.json` 364,163 bytes.
-- Scope, rollback, and review: no live Obsidian GUI, real vault, user plugin data, settings persistence, `.env`, or `.secrets` was opened or run. Manual restart/navigation/create/edit/rename/delete/data-preservation checks remain release gates. Code rollback is a single candidate-commit revert; the confirmed user-controlled backup remains required for live acceptance because Git cannot restore vault or workspace state. Candidate remains pending immutable exact-SHA adversarial review and must be rejected for any event-set mismatch, runtime legacy reference, note write during indexing, cache/disk divergence, migration change, or performance-gate failure.
+- Scope, rollback, and review: no live Obsidian GUI, real vault, user plugin data, settings persistence, `.env`, or `.secrets` was opened or run. Manual restart/navigation/create/edit/rename/delete/data-preservation checks remain release gates. Code rollback is a single candidate-commit revert; the confirmed user-controlled backup remains required for live acceptance because Git cannot restore vault or workspace state. Exact commit `a59638c78094331cdafed010cedeffe4667e917b` received adversarial `ACCEPT`; later work must still be rejected for any event-set mismatch, runtime legacy reference, note write during indexing, cache/disk divergence, migration change, or performance-gate failure.
+
+### Phase 9 candidate record — 2026-08-23
+
+- Product and documentation convergence: the root/source READMEs, public source/settings/event docs, migration/rollback guide, contribution guidance, repository links, manifest/package descriptions, and privacy-safe issue templates now describe only the lean desktop contract. The public contract is one configured local folder (target `events`), case-insensitive direct-child Markdown ownership, normal-tab desktop views, event-note navigation, and daily-note date-header navigation. The retained empty-directory vault-root source, sidebar workspace bridge, redacted quarantine, inactive saved month-click key, and backup requirement are explicitly documented as compatibility boundaries rather than active features.
+- Dead public surfaces and assets: the Dataview renderer/process hooks, arbitrary `EventSourceInput` URL/callback boundary, Phase 0 benchmark, production `serializeEvent`, `FCError`, retired month-click runtime setting, obsolete schema helpers, nine stale screenshots/GIFs, and their docs/nav/scripts leave together. The internal renderer accepts only materialized local `EventInput[]` sources. Normal-operation path/title/event debug logs are removed, invalid-event diagnostics report only a fixed label plus issue count, and a synthetic private-field test proves the raw object cannot reach logging. FullCalendar's bundled dormant JSON-feed symbols remain attributed in the generated metafile; no first-party source can select them.
+- Dependency and lock closure: unused direct `tslib`, the unwired TypeScript ESLint parser/plugin, `.eslintrc`, and `.eslintignore` are removed. The canonical lock refresh changes 378 package entries to 339: 39 removals, zero additions, and zero version changes, consisting of the TypeScript ESLint/ESLint/glob/tsutils-only closure. The lock-only production inventory passes with the same 11 direct runtime dependencies. Transitive `tslib`, dev-only Jest `react-is`, and FullCalendar's internal Preact are explicitly allowlisted.
+- Build evidence: `npm run build:metafile` uses normal module resolution, collision-checks normalized input/output maps, and writes deterministic repository/package-relative paths. Two consecutive generations are byte-identical; the SHA-256 is `9259cd54f2364be08ee729c8013412e3ffde285598c099e58738be90844c1a42`, with 100 inputs and two outputs and no `/home`, `/tmp`, username, or parent-traversal path. Artifacts are `main.js` 1,155,694 bytes, `styles.css`/`main.css` 39,258 bytes each, `package-lock.json` 325,044 bytes, and the metafile 50,884 bytes. The JavaScript bundle remains below 1.30 MB.
+- Performance characterization: the retained sanitized 250-note test-local oracle passes the hard `1.20x` p95 gate after 5 warmups and 60 measured per-operation batch samples. Final legacy/candidate p95 values are `8.565496/8.817173` ms for startup (`1.029x`), `0.088236/0.052461` ms for reparse (`0.595x`), and `0.00006620/0.00001787` ms for stable ID-to-path lookup (`0.270x`). The last number is not WorkspaceLeaf or note-open latency; GUI/filesystem navigation performance remains manual.
+- Automated/static gate: two complete runs of 22 suites, 259 tests, and 41 snapshots; TypeScript compile; Prettier lint; production build; and `git diff --check` pass. The 23-to-22 suite change removes only the obsolete one-test Phase 0 benchmark; the 258-to-259 test change is exactly `-1` obsolete benchmark, `+1` retired month-click persistence assertion, and `+1` sanitized-schema diagnostic. The property-based schema idempotence coverage remains. The standalone Phase 8B benchmark, two deterministic metafile generations, lock-only production inventory, artifact checks, and source/metafile searches pass. Explicit allowlists are limited to versioned remote-source quarantine, the decoder-only sidebar bridge, daily-note navigation, parser-compatible `completed` metadata, test-local legacy-index vocabulary, inactive persisted month-click/default-calendar migration vocabulary, and FullCalendar internals documented in `docs/lean-build-inventory.md`.
+- Scope and rollback: no live Obsidian GUI, real vault, plugin data, settings migration, `.env`, or `.secrets` was opened. This candidate does not remove the sidebar compatibility shim/quarantine, change the event schema, move or rewrite a note, or broaden D1/D2. Code rollback is one commit revert, but it cannot restore settings/layout state already narrowed by an earlier run; use the confirmed backup. Exact-SHA adversarial review and every live row below remain release gates.
+
+| Final acceptance item | Candidate status |
+| --- | --- |
+| Two automated test/compile/lint/build/diff gates | PASS |
+| Sanitized benchmark, artifact, dependency, path/privacy, and static gates | PASS |
+| Month/Week/Day/List, Today/title, selection/command creation | PENDING live Obsidian |
+| Normal note open, Escape/palette, Back/Forward, Grappling Hook | PENDING live Obsidian |
+| Drag/resize/omit, recurrence, unrelated YAML/body preservation | PENDING live Obsidian |
+| Daily-note header open/create and direct-child/root compatibility | PENDING live Obsidian |
+| Two restarts, workspace bridge, settings persistence/rollback | PENDING live Obsidian |
+| Observed zero network activity and live note-open/navigation performance | PENDING live Obsidian |
 
 ## Phase 0 — Safety harness and non-destructive migration framework
 
@@ -662,10 +684,10 @@ Owner: cleanup/documentation agent
 Final targets:
 
 - Rebaselined `main.js` target at or below approximately 1.30 MB after the planned React removal; record decimal bytes and the esbuild metafile rather than treating the planning estimate as a correctness assertion.
-- Zero network activity and zero remote logs for local-only configuration.
+- No first-party configured runtime network source or normal-operation remote log for local-only configuration. Dormant FullCalendar-core JSON-feed/XHR code remains bundled and is explicitly allowlisted; observed live network activity remains a manual gate.
 - No stored CalDAV credentials or legacy ICS URLs after accepted migrations.
-- No React runtime, CalDAV stack, dead FullCalendar connector, daily-note event parser, task UI, sidebar view, or synthetic editor code.
-- Full test/build/lint gate and manual acceptance matrix pass twice across Obsidian restarts.
+- No React runtime, CalDAV stack, first-party remote connector, daily-note event parser, task UI, active sidebar feature, or synthetic editor code. The decoder-only persisted-workspace sidebar bridge remains until its separate gate.
+- Full test/build/lint gate passes twice. The live acceptance matrix, including two Obsidian restarts, remains a release gate.
 
 ## Mandatory automated gate for every phase
 
@@ -718,19 +740,13 @@ Reject and revert the current phase immediately if any of these occurs:
 - A secret or full remote URL reaches logs, fixtures, Notices, or commits.
 - The console shows an unhandled error.
 - Local-only mode performs a network request.
-- p95 startup/index/event-open time regresses by more than 20%.
+- Automated p95 startup/index/ID-to-path lookup time regresses by more than 20%, or separately measured live note-open/navigation performance regresses materially.
 - The bundle fails to shrink commensurately with a dependency-removal phase.
 
 Code rollback is by reverting the single accepted phase commit. For any phase that mutates persisted settings or workspace layout, also restore the relevant user-controlled pre-migration backup; Git alone cannot reverse those writes. Retain backups and redacted quarantine until the user explicitly accepts/removes them.
 
-## Handoff start point
+## Release handoff point
 
-The next implementation turn starts with Phase 0 and Phase 1 only:
+Phases 0 through 8C are accepted. Phase 9 has a fully automated candidate and remains blocked only on immutable exact-SHA adversarial review plus the live Obsidian rows above. Do not represent headless ID-to-path timing as note-open latency or mark the two-restart/navigation/network rows complete without running them in Obsidian.
 
-- Spawn a migration/test agent for Phase 0 fixtures, pure migration behavior, settings-root validation, decisions, and performance baselines. The production path remains non-destructive.
-- Spawn a connector implementation agent for Phase 1 in a separate worktree.
-- Spawn an adversarial reviewer after both commits are ready.
-- Integrate Phase 0 first, then Phase 1.
-- Stop and report metrics before beginning CalDAV removal.
-
-Do not begin or deploy Phase 2 merely because Phase 1 compiles. Phase 2 requires explicit acknowledgement that the settings backup exists and the migration gate is accepted; credential scrubbing is activated only then.
+The user-controlled backup is confirmed. Retain it, the redacted source quarantine, and the legacy sidebar workspace bridge until their separate removal gates are explicitly accepted. If live validation fails, revert the Phase 9 candidate for code/docs issues; restore the backup as well for any settings or workspace state already rewritten by earlier phases.

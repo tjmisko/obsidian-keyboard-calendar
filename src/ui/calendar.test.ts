@@ -3,11 +3,7 @@ jest.mock("@fullcalendar/core", () => ({
     Calendar: jest.fn().mockImplementation(() => ({ render: jest.fn() })),
 }));
 
-import {
-    Calendar,
-    CalendarOptions,
-    EventSourceInput,
-} from "@fullcalendar/core";
+import { Calendar, CalendarOptions } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
@@ -19,6 +15,7 @@ import {
     formatTimeLabel,
     getAdjacentCalendarView,
     getRenderedEventTitle,
+    LocalMaterializedEventSource,
     renderCalendar,
 } from "./calendar";
 
@@ -28,7 +25,7 @@ describe("calendar renderer", () => {
             configurable: true,
             value: { innerWidth: 1024 },
         });
-        const eventSources: EventSourceInput[] = [
+        const eventSources: LocalMaterializedEventSource[] = [
             {
                 id: "local",
                 events: [

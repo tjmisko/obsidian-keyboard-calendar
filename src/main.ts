@@ -1,7 +1,6 @@
 import { Command, Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import { CalendarView, FULL_CALENDAR_VIEW_TYPE } from "./ui/view";
-import { renderCalendar } from "./ui/calendar";
-import { dateEndpointsToFrontmatter, toEventInput } from "./ui/interop";
+import { dateEndpointsToFrontmatter } from "./ui/interop";
 import {
     DEFAULT_SETTINGS,
     FullCalendarSettings,
@@ -47,8 +46,6 @@ export default class FullCalendarPlugin extends Plugin {
             )
     );
 
-    renderCalendar = renderCalendar;
-    processFrontmatter = toEventInput;
     eventNoteEditor: EventNoteEditor | null = null;
 
     async createTimedEventNote(
@@ -194,7 +191,6 @@ export default class FullCalendarPlugin extends Plugin {
         this.registerEvent(
             this.app.vault.on("rename", (file, oldPath) => {
                 if (file instanceof TFile) {
-                    console.debug("FILE RENAMED", file.path);
                     void this.cache
                         .fileRenamed(file, oldPath)
                         .catch((error) =>
@@ -210,7 +206,6 @@ export default class FullCalendarPlugin extends Plugin {
         this.registerEvent(
             this.app.vault.on("delete", (file) => {
                 if (file instanceof TFile) {
-                    console.debug("FILE DELETED", file.path);
                     this.cache.fileDeleted(file.path);
                 }
             })

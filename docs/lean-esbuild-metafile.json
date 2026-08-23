@@ -1,0 +1,1870 @@
+{
+  "inputs": {
+    "src/ui/overrides.css": {
+      "bytes": 8579,
+      "imports": []
+    },
+    "node_modules/tslib/tslib.js": {
+      "bytes": 14860,
+      "imports": []
+    },
+    "node_modules/tslib/modules/index.js": {
+      "bytes": 983,
+      "imports": [
+        {
+          "path": "node_modules/tslib/tslib.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/preact/dist/preact.module.js": {
+      "bytes": 10647,
+      "imports": []
+    },
+    "node_modules/preact/hooks/dist/hooks.module.js": {
+      "bytes": 3562,
+      "imports": [
+        {
+          "path": "node_modules/preact/dist/preact.module.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/preact/compat/dist/compat.module.js": {
+      "bytes": 9515,
+      "imports": [
+        {
+          "path": "node_modules/preact/dist/preact.module.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/preact/dist/preact.module.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/preact/hooks/dist/hooks.module.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/preact/hooks/dist/hooks.module.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/@fullcalendar/core/vdom.js": {
+      "bytes": 2908,
+      "imports": [
+        {
+          "path": "node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/preact/dist/preact.module.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/preact/compat/dist/compat.module.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/@fullcalendar/common/main.css": {
+      "bytes": 21773,
+      "imports": []
+    },
+    "node_modules/@fullcalendar/common/vdom.js": {
+      "bytes": 795,
+      "imports": []
+    },
+    "node_modules/@fullcalendar/common/main.js": {
+      "bytes": 393232,
+      "imports": [
+        {
+          "path": "node_modules/@fullcalendar/common/main.css",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/@fullcalendar/common/vdom.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/@fullcalendar/common/vdom.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/@fullcalendar/core/main.js": {
+      "bytes": 5080,
+      "imports": [
+        {
+          "path": "node_modules/@fullcalendar/core/vdom.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/@fullcalendar/common/main.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/@fullcalendar/common/main.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/@fullcalendar/daygrid/main.css": {
+      "bytes": 5747,
+      "imports": []
+    },
+    "node_modules/@fullcalendar/daygrid/main.js": {
+      "bytes": 50485,
+      "imports": [
+        {
+          "path": "node_modules/@fullcalendar/daygrid/main.css",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/@fullcalendar/common/main.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/@fullcalendar/timegrid/main.css": {
+      "bytes": 9890,
+      "imports": []
+    },
+    "node_modules/@fullcalendar/timegrid/main.js": {
+      "bytes": 65089,
+      "imports": [
+        {
+          "path": "node_modules/@fullcalendar/timegrid/main.css",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/@fullcalendar/common/main.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/@fullcalendar/daygrid/main.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/weekday.js": {
+      "bytes": 1368,
+      "imports": []
+    },
+    "node_modules/rrule/dist/esm/helpers.js": {
+      "bytes": 3631,
+      "imports": [
+        {
+          "path": "node_modules/rrule/dist/esm/weekday.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/dateutil.js": {
+      "bytes": 5622,
+      "imports": [
+        {
+          "path": "node_modules/rrule/dist/esm/helpers.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/iterresult.js": {
+      "bytes": 2747,
+      "imports": []
+    },
+    "node_modules/rrule/node_modules/tslib/tslib.js": {
+      "bytes": 18367,
+      "imports": []
+    },
+    "node_modules/rrule/node_modules/tslib/modules/index.js": {
+      "bytes": 1205,
+      "imports": [
+        {
+          "path": "node_modules/rrule/node_modules/tslib/tslib.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/callbackiterresult.js": {
+      "bytes": 832,
+      "imports": [
+        {
+          "path": "node_modules/rrule/node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/iterresult.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/nlp/i18n.js": {
+      "bytes": 2006,
+      "imports": []
+    },
+    "node_modules/rrule/dist/esm/nlp/totext.js": {
+      "bytes": 14609,
+      "imports": [
+        {
+          "path": "node_modules/rrule/dist/esm/nlp/i18n.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/rrule.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/helpers.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/nlp/parsetext.js": {
+      "bytes": 12546,
+      "imports": [
+        {
+          "path": "node_modules/rrule/dist/esm/nlp/i18n.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/rrule.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/types.js": {
+      "bytes": 562,
+      "imports": []
+    },
+    "node_modules/rrule/dist/esm/nlp/index.js": {
+      "bytes": 3451,
+      "imports": [
+        {
+          "path": "node_modules/rrule/dist/esm/nlp/totext.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/nlp/parsetext.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/rrule.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/types.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/nlp/i18n.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/datetime.js": {
+      "bytes": 6893,
+      "imports": [
+        {
+          "path": "node_modules/rrule/node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/types.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/helpers.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/dateutil.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/parseoptions.js": {
+      "bytes": 6757,
+      "imports": [
+        {
+          "path": "node_modules/rrule/node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/types.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/helpers.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/rrule.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/dateutil.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/weekday.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/datetime.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/parsestring.js": {
+      "bytes": 4234,
+      "imports": [
+        {
+          "path": "node_modules/rrule/node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/types.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/weekday.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/dateutil.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/rrule.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/datewithzone.js": {
+      "bytes": 1204,
+      "imports": [
+        {
+          "path": "node_modules/rrule/dist/esm/dateutil.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/optionstostring.js": {
+      "bytes": 3476,
+      "imports": [
+        {
+          "path": "node_modules/rrule/dist/esm/rrule.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/helpers.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/weekday.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/dateutil.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/datewithzone.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/cache.js": {
+      "bytes": 3262,
+      "imports": [
+        {
+          "path": "node_modules/rrule/dist/esm/iterresult.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/dateutil.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/helpers.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/masks.js": {
+      "bytes": 3486,
+      "imports": [
+        {
+          "path": "node_modules/rrule/node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/helpers.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/iterinfo/yearinfo.js": {
+      "bytes": 4442,
+      "imports": [
+        {
+          "path": "node_modules/rrule/node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/dateutil.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/helpers.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/masks.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/iterinfo/monthinfo.js": {
+      "bytes": 1643,
+      "imports": [
+        {
+          "path": "node_modules/rrule/dist/esm/rrule.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/helpers.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/iterinfo/easter.js": {
+      "bytes": 795,
+      "imports": []
+    },
+    "node_modules/rrule/dist/esm/iterinfo/index.js": {
+      "bytes": 6559,
+      "imports": [
+        {
+          "path": "node_modules/rrule/dist/esm/helpers.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/types.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/iterinfo/yearinfo.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/iterinfo/monthinfo.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/iterinfo/easter.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/datetime.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/dateutil.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/iter/poslist.js": {
+      "bytes": 1345,
+      "imports": [
+        {
+          "path": "node_modules/rrule/dist/esm/dateutil.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/helpers.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/iter/index.js": {
+      "bytes": 6082,
+      "imports": [
+        {
+          "path": "node_modules/rrule/dist/esm/types.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/dateutil.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/iterinfo/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/rrule.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/parseoptions.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/helpers.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/datewithzone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/iter/poslist.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/datetime.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/rrule.js": {
+      "bytes": 7771,
+      "imports": [
+        {
+          "path": "node_modules/rrule/dist/esm/dateutil.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/iterresult.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/callbackiterresult.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/nlp/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/types.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/parseoptions.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/parsestring.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/optionstostring.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/cache.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/weekday.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/iter/index.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/iterset.js": {
+      "bytes": 2106,
+      "imports": [
+        {
+          "path": "node_modules/rrule/dist/esm/datewithzone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/iter/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/dateutil.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/rrulestr.js": {
+      "bytes": 6087,
+      "imports": [
+        {
+          "path": "node_modules/rrule/node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/rrule.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/rruleset.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/dateutil.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/helpers.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/parsestring.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/rruleset.js": {
+      "bytes": 6061,
+      "imports": [
+        {
+          "path": "node_modules/rrule/node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/rrule.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/dateutil.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/helpers.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/iterset.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/rrulestr.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/optionstostring.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/rrule/dist/esm/index.js": {
+      "bytes": 826,
+      "imports": [
+        {
+          "path": "node_modules/rrule/dist/esm/rrule.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/rruleset.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/rrulestr.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/types.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/weekday.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/dateutil.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/@fullcalendar/rrule/main.js": {
+      "bytes": 6116,
+      "imports": [
+        {
+          "path": "node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/@fullcalendar/common/main.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/@fullcalendar/list/main.css": {
+      "bytes": 3442,
+      "imports": []
+    },
+    "node_modules/@fullcalendar/list/main.js": {
+      "bytes": 16783,
+      "imports": [
+        {
+          "path": "node_modules/@fullcalendar/list/main.css",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/@fullcalendar/common/main.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/@fullcalendar/interaction/main.js": {
+      "bytes": 96835,
+      "imports": [
+        {
+          "path": "node_modules/@fullcalendar/common/main.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/tslib/modules/index.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/ui/calendar.ts": {
+      "bytes": 10250,
+      "imports": [
+        {
+          "path": "node_modules/@fullcalendar/core/main.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/@fullcalendar/daygrid/main.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/@fullcalendar/timegrid/main.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/@fullcalendar/rrule/main.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/@fullcalendar/list/main.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/@fullcalendar/interaction/main.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/zod/lib/index.mjs": {
+      "bytes": 136925,
+      "imports": []
+    },
+    "src/types/schema.ts": {
+      "bytes": 2207,
+      "imports": [
+        {
+          "path": "node_modules/zod/lib/index.mjs",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/types/calendar_settings.ts": {
+      "bytes": 2296,
+      "imports": [
+        {
+          "path": "node_modules/zod/lib/index.mjs",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/types/index.ts": {
+      "bytes": 303,
+      "imports": [
+        {
+          "path": "src/types/schema.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/types/calendar_settings.ts",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/errors.js": {
+      "bytes": 1047,
+      "imports": []
+    },
+    "node_modules/luxon/src/impl/formats.js": {
+      "bytes": 2249,
+      "imports": []
+    },
+    "node_modules/luxon/src/impl/util.js": {
+      "bytes": 6702,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/errors.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/impl/english.js": {
+      "bytes": 5820,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/impl/formats.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/util.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/impl/formatter.js": {
+      "bytes": 12054,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/impl/english.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/formats.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/util.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/impl/invalid.js": {
+      "bytes": 282,
+      "imports": []
+    },
+    "node_modules/luxon/src/zone.js": {
+      "bytes": 2132,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/errors.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/zones/systemZone.js": {
+      "bytes": 1147,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/impl/util.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zone.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/zones/IANAZone.js": {
+      "bytes": 4565,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/impl/util.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zone.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/zones/fixedOffsetZone.js": {
+      "bytes": 2175,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/impl/util.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zone.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/zones/invalidZone.js": {
+      "bytes": 763,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/zone.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/impl/zoneUtil.js": {
+      "bytes": 1133,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/zone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zones/IANAZone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zones/fixedOffsetZone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zones/invalidZone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/util.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/settings.js": {
+      "bytes": 3552,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/zones/systemZone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zones/IANAZone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/locale.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/zoneUtil.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/impl/locale.js": {
+      "bytes": 13280,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/impl/util.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/english.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/settings.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/datetime.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zones/IANAZone.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/impl/regexParser.js": {
+      "bytes": 10433,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/impl/util.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/english.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zones/fixedOffsetZone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zones/IANAZone.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/duration.js": {
+      "bytes": 29574,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/errors.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/formatter.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/invalid.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/locale.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/regexParser.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/util.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/settings.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/interval.js": {
+      "bytes": 19524,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/datetime.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/duration.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/settings.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/errors.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/invalid.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/info.js": {
+      "bytes": 7581,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/datetime.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/settings.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/locale.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zones/IANAZone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/zoneUtil.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/util.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/impl/diff.js": {
+      "bytes": 1993,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/duration.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/impl/digits.js": {
+      "bytes": 1917,
+      "imports": []
+    },
+    "node_modules/luxon/src/impl/tokenParser.js": {
+      "bytes": 10981,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/impl/util.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/formatter.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zones/fixedOffsetZone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zones/IANAZone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/datetime.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/digits.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/errors.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/impl/conversions.js": {
+      "bytes": 4633,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/impl/util.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/invalid.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/datetime.js": {
+      "bytes": 83095,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/duration.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/interval.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/settings.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/info.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/formatter.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zones/fixedOffsetZone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/locale.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/util.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/zoneUtil.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/diff.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/regexParser.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/tokenParser.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/conversions.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/formats.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/errors.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/impl/invalid.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "node_modules/luxon/src/luxon.js": {
+      "bytes": 586,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/datetime.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/duration.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/interval.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/info.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zones/fixedOffsetZone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zones/IANAZone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zones/invalidZone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/zones/systemZone.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/luxon/src/settings.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/ui/interop.ts": {
+      "bytes": 12543,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/luxon.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/index.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/ui/source_settings.ts": {
+      "bytes": 2539,
+      "imports": []
+    },
+    "src/settings/migration.ts": {
+      "bytes": 15389,
+      "imports": [
+        {
+          "path": "src/types/calendar_settings.ts",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/ui/settings.ts": {
+      "bytes": 8912,
+      "imports": [
+        {
+          "path": "src/ui/source_settings.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/settings/migration.ts",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/ui/onboard.ts": {
+      "bytes": 2500,
+      "imports": [
+        {
+          "path": "src/ui/settings.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/source_settings.ts",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/ui/actions.ts": {
+      "bytes": 879,
+      "imports": []
+    },
+    "src/plugin_registration.ts": {
+      "bytes": 1299,
+      "imports": []
+    },
+    "src/ui/event_navigation.ts": {
+      "bytes": 731,
+      "imports": []
+    },
+    "node_modules/moment/moment.js": {
+      "bytes": 174604,
+      "imports": []
+    },
+    "node_modules/obsidian-daily-notes-interface/dist/main.js": {
+      "bytes": 28459,
+      "imports": []
+    },
+    "src/ui/daily_note_navigation.ts": {
+      "bytes": 2132,
+      "imports": [
+        {
+          "path": "node_modules/moment/moment.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/obsidian-daily-notes-interface/dist/main.js",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/ui/event_context.ts": {
+      "bytes": 960,
+      "imports": []
+    },
+    "src/ui/event_creation.ts": {
+      "bytes": 704,
+      "imports": [
+        {
+          "path": "src/ui/interop.ts",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/ui/view.ts": {
+      "bytes": 13285,
+      "imports": [
+        {
+          "path": "src/ui/overrides.css",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/calendar.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/types/index.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/interop.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/onboard.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/actions.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/plugin_registration.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/event_navigation.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/daily_note_navigation.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/event_context.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/event_creation.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/plugin_registration.ts",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/core/LocalEventIndex.ts": {
+      "bytes": 15841,
+      "imports": []
+    },
+    "src/core/EventCache.ts": {
+      "bytes": 19685,
+      "imports": [
+        {
+          "path": "src/core/LocalEventIndex.ts",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/ObsidianAdapter.ts": {
+      "bytes": 4488,
+      "imports": []
+    },
+    "src/calendars/FullNoteCalendar.ts": {
+      "bytes": 21079,
+      "imports": [
+        {
+          "path": "node_modules/luxon/src/luxon.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "node_modules/rrule/dist/esm/index.js",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/types/index.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/core/LocalEventIndex.ts",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/ui/EventNoteEditor.ts": {
+      "bytes": 618,
+      "imports": []
+    },
+    "src/legacy_sidebar_bridge.ts": {
+      "bytes": 3817,
+      "imports": []
+    },
+    "src/ui/LegacySidebarCompatibilityView.ts": {
+      "bytes": 952,
+      "imports": [
+        {
+          "path": "src/legacy_sidebar_bridge.ts",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/main.ts": {
+      "bytes": 11886,
+      "imports": [
+        {
+          "path": "src/ui/view.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/interop.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/settings.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/types/index.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/core/EventCache.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ObsidianAdapter.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/calendars/FullNoteCalendar.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/EventNoteEditor.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/settings/migration.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/plugin_registration.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/legacy_sidebar_bridge.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/LegacySidebarCompatibilityView.ts",
+          "kind": "import-statement"
+        }
+      ]
+    }
+  },
+  "outputs": {
+    "main.js": {
+      "imports": [],
+      "exports": [],
+      "entryPoint": "src/main.ts",
+      "inputs": {
+        "node_modules/tslib/tslib.js": {
+          "bytesInOutput": 16261
+        },
+        "node_modules/rrule/node_modules/tslib/tslib.js": {
+          "bytesInOutput": 20005
+        },
+        "node_modules/moment/moment.js": {
+          "bytesInOutput": 142698
+        },
+        "node_modules/obsidian-daily-notes-interface/dist/main.js": {
+          "bytesInOutput": 27179
+        },
+        "src/main.ts": {
+          "bytesInOutput": 8400
+        },
+        "src/ui/overrides.css": {
+          "bytesInOutput": 0
+        },
+        "src/ui/view.ts": {
+          "bytesInOutput": 10020
+        },
+        "node_modules/tslib/modules/index.js": {
+          "bytesInOutput": 464
+        },
+        "node_modules/preact/dist/preact.module.js": {
+          "bytesInOutput": 15281
+        },
+        "node_modules/preact/compat/dist/compat.module.js": {
+          "bytesInOutput": 8044
+        },
+        "node_modules/preact/hooks/dist/hooks.module.js": {
+          "bytesInOutput": 2060
+        },
+        "node_modules/@fullcalendar/core/vdom.js": {
+          "bytesInOutput": 2088
+        },
+        "node_modules/@fullcalendar/common/main.css": {
+          "bytesInOutput": 0
+        },
+        "node_modules/@fullcalendar/common/vdom.js": {
+          "bytesInOutput": 593
+        },
+        "node_modules/@fullcalendar/common/main.js": {
+          "bytesInOutput": 305981
+        },
+        "node_modules/@fullcalendar/core/main.js": {
+          "bytesInOutput": 3848
+        },
+        "node_modules/@fullcalendar/daygrid/main.css": {
+          "bytesInOutput": 0
+        },
+        "node_modules/@fullcalendar/daygrid/main.js": {
+          "bytesInOutput": 41064
+        },
+        "node_modules/@fullcalendar/timegrid/main.css": {
+          "bytesInOutput": 0
+        },
+        "node_modules/@fullcalendar/timegrid/main.js": {
+          "bytesInOutput": 52116
+        },
+        "node_modules/rrule/dist/esm/weekday.js": {
+          "bytesInOutput": 904
+        },
+        "node_modules/rrule/dist/esm/helpers.js": {
+          "bytesInOutput": 1887
+        },
+        "node_modules/rrule/dist/esm/dateutil.js": {
+          "bytesInOutput": 3578
+        },
+        "node_modules/rrule/dist/esm/iterresult.js": {
+          "bytesInOutput": 1736
+        },
+        "node_modules/rrule/node_modules/tslib/modules/index.js": {
+          "bytesInOutput": 924
+        },
+        "node_modules/rrule/dist/esm/callbackiterresult.js": {
+          "bytesInOutput": 546
+        },
+        "node_modules/rrule/dist/esm/nlp/i18n.js": {
+          "bytesInOutput": 1548
+        },
+        "node_modules/rrule/dist/esm/nlp/totext.js": {
+          "bytesInOutput": 11226
+        },
+        "node_modules/rrule/dist/esm/nlp/parsetext.js": {
+          "bytesInOutput": 9422
+        },
+        "node_modules/rrule/dist/esm/types.js": {
+          "bytesInOutput": 513
+        },
+        "node_modules/rrule/dist/esm/nlp/index.js": {
+          "bytesInOutput": 888
+        },
+        "node_modules/rrule/dist/esm/datetime.js": {
+          "bytesInOutput": 5582
+        },
+        "node_modules/rrule/dist/esm/parseoptions.js": {
+          "bytesInOutput": 5286
+        },
+        "node_modules/rrule/dist/esm/parsestring.js": {
+          "bytesInOutput": 3274
+        },
+        "node_modules/rrule/dist/esm/datewithzone.js": {
+          "bytesInOutput": 950
+        },
+        "node_modules/rrule/dist/esm/optionstostring.js": {
+          "bytesInOutput": 2152
+        },
+        "node_modules/rrule/dist/esm/cache.js": {
+          "bytesInOutput": 1987
+        },
+        "node_modules/rrule/dist/esm/masks.js": {
+          "bytesInOutput": 3077
+        },
+        "node_modules/rrule/dist/esm/iterinfo/yearinfo.js": {
+          "bytesInOutput": 2970
+        },
+        "node_modules/rrule/dist/esm/iterinfo/monthinfo.js": {
+          "bytesInOutput": 1230
+        },
+        "node_modules/rrule/dist/esm/iterinfo/easter.js": {
+          "bytesInOutput": 767
+        },
+        "node_modules/rrule/dist/esm/iterinfo/index.js": {
+          "bytesInOutput": 5261
+        },
+        "node_modules/rrule/dist/esm/iter/poslist.js": {
+          "bytesInOutput": 945
+        },
+        "node_modules/rrule/dist/esm/iter/index.js": {
+          "bytesInOutput": 4711
+        },
+        "node_modules/rrule/dist/esm/rrule.js": {
+          "bytesInOutput": 4669
+        },
+        "node_modules/rrule/dist/esm/index.js": {
+          "bytesInOutput": 0
+        },
+        "node_modules/rrule/dist/esm/iterset.js": {
+          "bytesInOutput": 1703
+        },
+        "node_modules/rrule/dist/esm/rrulestr.js": {
+          "bytesInOutput": 4923
+        },
+        "node_modules/rrule/dist/esm/rruleset.js": {
+          "bytesInOutput": 4221
+        },
+        "node_modules/@fullcalendar/rrule/main.js": {
+          "bytesInOutput": 4741
+        },
+        "node_modules/@fullcalendar/list/main.css": {
+          "bytesInOutput": 0
+        },
+        "node_modules/@fullcalendar/list/main.js": {
+          "bytesInOutput": 13647
+        },
+        "node_modules/@fullcalendar/interaction/main.js": {
+          "bytesInOutput": 70086
+        },
+        "src/ui/calendar.ts": {
+          "bytesInOutput": 6459
+        },
+        "node_modules/zod/lib/index.mjs": {
+          "bytesInOutput": 107688
+        },
+        "src/types/schema.ts": {
+          "bytesInOutput": 1737
+        },
+        "src/types/index.ts": {
+          "bytesInOutput": 42
+        },
+        "src/types/calendar_settings.ts": {
+          "bytesInOutput": 1252
+        },
+        "node_modules/luxon/src/errors.js": {
+          "bytesInOutput": 814
+        },
+        "node_modules/luxon/src/impl/formats.js": {
+          "bytesInOutput": 2090
+        },
+        "node_modules/luxon/src/impl/util.js": {
+          "bytesInOutput": 5545
+        },
+        "node_modules/luxon/src/impl/english.js": {
+          "bytesInOutput": 3152
+        },
+        "node_modules/luxon/src/impl/formatter.js": {
+          "bytesInOutput": 9670
+        },
+        "node_modules/luxon/src/impl/invalid.js": {
+          "bytesInOutput": 273
+        },
+        "node_modules/luxon/src/zone.js": {
+          "bytesInOutput": 556
+        },
+        "node_modules/luxon/src/zones/systemZone.js": {
+          "bytesInOutput": 697
+        },
+        "node_modules/luxon/src/zones/IANAZone.js": {
+          "bytesInOutput": 2944
+        },
+        "node_modules/luxon/src/zones/fixedOffsetZone.js": {
+          "bytesInOutput": 1258
+        },
+        "node_modules/luxon/src/zones/invalidZone.js": {
+          "bytesInOutput": 429
+        },
+        "node_modules/luxon/src/impl/zoneUtil.js": {
+          "bytesInOutput": 766
+        },
+        "node_modules/luxon/src/settings.js": {
+          "bytesInOutput": 1132
+        },
+        "node_modules/luxon/src/impl/locale.js": {
+          "bytesInOutput": 10737
+        },
+        "node_modules/luxon/src/impl/regexParser.js": {
+          "bytesInOutput": 8597
+        },
+        "node_modules/luxon/src/duration.js": {
+          "bytesInOutput": 13544
+        },
+        "node_modules/luxon/src/interval.js": {
+          "bytesInOutput": 8446
+        },
+        "node_modules/luxon/src/info.js": {
+          "bytesInOutput": 1528
+        },
+        "node_modules/luxon/src/impl/diff.js": {
+          "bytesInOutput": 1926
+        },
+        "node_modules/luxon/src/impl/digits.js": {
+          "bytesInOutput": 1926
+        },
+        "node_modules/luxon/src/impl/tokenParser.js": {
+          "bytesInOutput": 9629
+        },
+        "node_modules/luxon/src/impl/conversions.js": {
+          "bytesInOutput": 4344
+        },
+        "node_modules/luxon/src/datetime.js": {
+          "bytesInOutput": 30363
+        },
+        "src/ui/interop.ts": {
+          "bytesInOutput": 8708
+        },
+        "src/ui/onboard.ts": {
+          "bytesInOutput": 1710
+        },
+        "src/ui/settings.ts": {
+          "bytesInOutput": 6458
+        },
+        "src/ui/source_settings.ts": {
+          "bytesInOutput": 1820
+        },
+        "src/settings/migration.ts": {
+          "bytesInOutput": 9485
+        },
+        "src/ui/actions.ts": {
+          "bytesInOutput": 680
+        },
+        "src/plugin_registration.ts": {
+          "bytesInOutput": 888
+        },
+        "src/ui/event_navigation.ts": {
+          "bytesInOutput": 317
+        },
+        "src/ui/daily_note_navigation.ts": {
+          "bytesInOutput": 1961
+        },
+        "src/ui/event_context.ts": {
+          "bytesInOutput": 402
+        },
+        "src/ui/event_creation.ts": {
+          "bytesInOutput": 350
+        },
+        "src/core/LocalEventIndex.ts": {
+          "bytesInOutput": 11094
+        },
+        "src/core/EventCache.ts": {
+          "bytesInOutput": 14522
+        },
+        "src/ObsidianAdapter.ts": {
+          "bytesInOutput": 1314
+        },
+        "src/calendars/FullNoteCalendar.ts": {
+          "bytesInOutput": 15427
+        },
+        "src/ui/EventNoteEditor.ts": {
+          "bytesInOutput": 297
+        },
+        "src/legacy_sidebar_bridge.ts": {
+          "bytesInOutput": 2348
+        },
+        "src/ui/LegacySidebarCompatibilityView.ts": {
+          "bytesInOutput": 686
+        }
+      },
+      "bytes": 1155694
+    },
+    "main.css": {
+      "imports": [],
+      "inputs": {
+        "src/ui/overrides.css": {
+          "bytesInOutput": 8699
+        },
+        "node_modules/@fullcalendar/common/main.css": {
+          "bytesInOutput": 16811
+        },
+        "node_modules/@fullcalendar/daygrid/main.css": {
+          "bytesInOutput": 4189
+        },
+        "node_modules/@fullcalendar/timegrid/main.css": {
+          "bytesInOutput": 6924
+        },
+        "node_modules/@fullcalendar/list/main.css": {
+          "bytesInOutput": 2407
+        }
+      },
+      "bytes": 39258
+    }
+  }
+}

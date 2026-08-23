@@ -1090,6 +1090,26 @@ describe("production persistence after migration", () => {
         expectNoSentinels(prepared.persisted);
     });
 
+    it("omits retired month-click behavior while preserving untouched saved data", () => {
+        const persisted = {
+            calendarSources: [local("Events")],
+            clickToCreateEventFromMonthView: false,
+        };
+        const current = decodeSettings(
+            persisted,
+            undefined,
+            jest.fn()
+        ).settings;
+        const baseline = captureRuntimeSettingsBaseline(current);
+
+        expect(current).not.toHaveProperty("clickToCreateEventFromMonthView");
+        current.firstDay = 1;
+        const prepared = prepareSettingsSave(persisted, baseline, current);
+
+        expect(prepared.persisted.clickToCreateEventFromMonthView).toBe(false);
+        expect(prepared.persisted.firstDay).toBe(1);
+    });
+
     it("requests no write when runtime settings are untouched", () => {
         const migrated = migrateSettings(
             { calendarSources: [legacyCalDav, local("Events")] },

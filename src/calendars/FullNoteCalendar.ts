@@ -319,7 +319,7 @@ function modifyFrontmatterString(
     let newFrontmatter: string[] = [];
     if (!frontmatter) {
         newFrontmatter = Object.entries(modifications)
-            .filter(([k, v]) => v !== undefined)
+            .filter(([, v]) => v !== undefined)
             .flatMap(([k, v]) => stringifyYamlLines(k, v as PrintableAtom));
         page = "\n" + page;
     } else {

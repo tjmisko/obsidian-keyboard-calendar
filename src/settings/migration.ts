@@ -28,7 +28,6 @@ export interface FullCalendarSettings {
     firstDay: number;
     initialView: string;
     timeFormat24h: boolean;
-    clickToCreateEventFromMonthView: boolean;
     legacySidebarMigrationVersion?: number;
 }
 
@@ -37,7 +36,6 @@ export const DEFAULT_SETTINGS: FullCalendarSettings = {
     firstDay: 0,
     initialView: "timeGridWeek",
     timeFormat24h: false,
-    clickToCreateEventFromMonthView: true,
 };
 
 export type SourceCounts = Record<
@@ -232,10 +230,6 @@ export function decodeSettings(
             typeof root.timeFormat24h === "boolean"
                 ? root.timeFormat24h
                 : DEFAULT_SETTINGS.timeFormat24h,
-        clickToCreateEventFromMonthView:
-            typeof root.clickToCreateEventFromMonthView === "boolean"
-                ? root.clickToCreateEventFromMonthView
-                : DEFAULT_SETTINGS.clickToCreateEventFromMonthView,
         ...(legacySidebarMigrationVersion !== undefined && {
             legacySidebarMigrationVersion,
         }),
@@ -260,7 +254,6 @@ const RUNTIME_SETTING_KEYS = [
     "firstDay",
     "initialView",
     "timeFormat24h",
-    "clickToCreateEventFromMonthView",
     "legacySidebarMigrationVersion",
 ] as const;
 

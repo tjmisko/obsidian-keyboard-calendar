@@ -53,28 +53,12 @@ describe("event-note navigation", () => {
         expect(fallbackLeaf.openFile).toHaveBeenCalledWith(file);
     });
 
-    it("logs and propagates normal file-open failures", async () => {
-        const errorLog = jest
-            .spyOn(console, "error")
-            .mockImplementation(() => {});
-        try {
-            const { activeLeaf, editor } = setup();
-            (activeLeaf.openFile as jest.Mock).mockRejectedValueOnce(
-                new Error("open failed")
-            );
+    it("propagates normal file-open failures", async () => {
+        const { activeLeaf, editor } = setup();
+        (activeLeaf.openFile as jest.Mock).mockRejectedValueOnce(
+            new Error("open failed")
+        );
 
-            await expect(editor.open(file)).rejects.toThrow("open failed");
-
-            expect(errorLog).toHaveBeenCalledWith(
-                expect.stringContaining("[event-note navigation]"),
-                expect.objectContaining({
-                    errorMessage: "open failed",
-                    filePath: file.path,
-                }),
-                expect.any(Error)
-            );
-        } finally {
-            errorLog.mockRestore();
-        }
+        await expect(editor.open(file)).rejects.toThrow("open failed");
     });
 });

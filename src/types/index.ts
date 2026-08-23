@@ -8,10 +8,3 @@ export {
 export type { CalendarInfo } from "./calendar_settings";
 
 export const PLUGIN_SLUG = "full-calendar-plugin";
-
-export class FCError {
-    message: string;
-    constructor(message: string) {
-        this.message = message;
-    }
-}
