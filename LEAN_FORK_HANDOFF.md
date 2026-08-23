@@ -139,7 +139,7 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 | Phase 2 CalDAV removal | Accepted and integrated at `63c7b5f`; backup confirmed; adversarial `ACCEPT` | Complete |
 | Phase 3 remote boundary | `REMOVE_ICS` accepted and integrated at `298c19a`; adversarial `ACCEPT` | Complete |
 | Phase 4 daily-note event source | Accepted and integrated at `6f54800`; adversarial `ACCEPT` | Complete |
-| Phase 5 task/editor cut | Candidate complete; automated gates `ACCEPT`, adversarial review pending | Coordinator integration and live-Obsidian checks |
+| Phase 5 task/editor cut | Accepted and integrated at `625f662`; adversarial `ACCEPT` | Complete; live-Obsidian checks remain in the release matrix |
 | D1 writable folders | Undecided; recommendation: one | Explicit user decision before Phase 6 design |
 | D2 folder traversal | Undecided; recommendation: direct child | Explicit user decision before Phase 6 design |
 | Sidebar bridge removal | Deferred compatibility work | Persisted migration marker, workspace backup, explicit acceptance or stated version boundary |
@@ -221,7 +221,7 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 - Integrated result: commit `6f54800`; 15 suites passed, 192 tests passed, 2 todo, and 42 snapshots passed. Compile, lint, production build, `git diff --check`, removed-source searches, and retained-navigation checks passed. Integrated artifacts are `main.js` 2,141,805 bytes, `styles.css`/`main.css` 39,844 bytes, and `package-lock.json` 726,501 bytes, a 14,447-byte integrated bundle reduction from accepted Phase 3.
 - Adversarial result: `ACCEPT`, with no correctness finding. Residual acceptance is limited to the documented live-Obsidian date-header create/open, two restarts, full-note editing/navigation, history, and real-vault daily-note preservation checks. D1/D2 remain explicitly undecided and no local-folder semantics changed.
 
-### Phase 5 candidate record — 2026-08-22
+### Phase 5 accepted record — 2026-08-22
 
 - Candidate scope: removes task rendering/actions/CSS/FullCalendar properties, the React event editor and modal route, all remaining stories/Ladle configuration, calendar-driven delete, and the now-unreachable generic add, cross-calendar move, and note-delete adapter chains. React/ReactDOM and the settings TSX surface remain for Phase 6.
 - Interaction contract: local full-note event clicks open ordinary Markdown buffers; rejected/non-local events never enter note-opening actions. Timed selection and the create command create an `Untitled event` full-note buffer. The context menu contains only **Omit this occurrence** for recurring local events; single and non-local events have no action, and nth-weekday events remain non-draggable while retaining omission through YAML.
@@ -231,7 +231,10 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 - Production artifacts: `main.js` 2,135,925 bytes; `styles.css` and generated `main.css` 39,509 bytes each; `package-lock.json` 412,018 bytes. Against accepted integrated Phase 4, this removes 5,880 bundle bytes, 335 CSS bytes, and 314,483 lockfile bytes.
 - Documentation: the event guide now describes note-first YAML, ordinary-buffer creation/opening, supported drag/resize, and recurrence omission. Obsolete modal/task/delete claims and seven dead GIFs are removed. Phase 8 no longer lists the already-removed add/move capabilities as future candidates.
 - Manual matrix: not run in this headless worktree. No Obsidian application, real vault, user plugin data, `.env`, or `.secrets` was opened. Live note-buffer routing, selection/command creation, drag/resize/omit, history, Grappling Hook, daily-note headers, two restarts, and real-vault byte preservation remain coordinator/release checks.
-- D1/D2 and source-folder semantics are unchanged. Recommendation: `ACCEPT` the candidate subject to exact-commit adversarial review and the documented live checks. Rollback is a single candidate revert; Phase 5 activates no settings, workspace-layout, or note migration.
+- D1/D2 and source-folder semantics are unchanged. Rollback is a single revert of `625f662`; Phase 5 activates no settings, workspace-layout, or note migration.
+- Integrated result: commit `625f662`; 18 suites passed, 205 tests passed, 2 todo, and 41 snapshots passed. Compile, lint, production build, `git diff --check`, lock-based production inventory, removal searches, and lockfile reproducibility passed on the integrated root.
+- Integrated artifacts: `main.js` 2,125,368 bytes; `styles.css`/`main.css` 39,305 bytes; `package-lock.json` 412,018 bytes. Against accepted Phase 4 this removes 16,437 bundle bytes, 539 CSS bytes, and 314,483 lockfile bytes. The root build is smaller than the candidate-worktree measurement because its generated module-path comments do not include the shared-worktree path prefix.
+- Adversarial result: exact-SHA `ACCEPT` for `625f662ff4358af9ba6d0630fccddb11bcd345d3`, with no correctness finding. Intentional residuals are limited to `completed` schema/preservation compatibility, negative tests containing the removed task-property names, React-backed settings deferred to Phase 6, and the documented live-Obsidian release matrix.
 
 ## Phase 0 — Safety harness and non-destructive migration framework
 
