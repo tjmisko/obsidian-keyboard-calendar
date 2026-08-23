@@ -140,10 +140,18 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 | Phase 3 remote boundary | `REMOVE_ICS` accepted and integrated at `298c19a`; adversarial `ACCEPT` | Complete |
 | Phase 4 daily-note event source | Accepted and integrated at `6f54800`; adversarial `ACCEPT` | Complete |
 | Phase 5 task/editor cut | Accepted and integrated at `625f662`; adversarial `ACCEPT` | Complete; live-Obsidian checks remain in the release matrix |
-| D1 writable folders | Undecided; recommendation: one | Explicit user decision before Phase 6 design |
-| D2 folder traversal | Undecided; recommendation: direct child | Explicit user decision before Phase 6 design |
+| D1 writable folders | Decided: one writable local event folder; target folder is `events` | Complete |
+| D2 folder traversal | Decided: direct-child event notes only; nested folders are excluded | Complete |
 | Sidebar bridge removal | Deferred compatibility work | Persisted migration marker, workspace backup, explicit acceptance or stated version boundary |
 | Redacted quarantine removal | Deferred | Explicit user acceptance; never age by restart count |
+
+### D1/D2 source-model decision — 2026-08-22
+
+- User decision: keep all calendar event notes in one reliable `events` folder for now.
+- D1 contract: the lean runtime and settings surface expose one writable local full-note source. There is no default-calendar selector or cross-calendar move capability.
+- D2 contract: only Markdown notes directly inside the configured event folder are indexed. Nested descendants are excluded consistently from initial indexing and later vault-update matching.
+- Data rule: this decision never moves, renames, rewrites, or deletes an event note. When decoding older multi-local-source settings, retain the previously selected/default local source (or the first valid local source) as the single active source; do not pretend notes from removed source configurations were migrated. The native settings surface lets the user point the one source at `events`.
+- Phase 6 may now replace the source settings UI and remove React. Phase 8 must prove direct-child equivalence with a read-only shadow index before replacing the cache.
 
 ### Phase 0 accepted record — 2026-08-22
 
