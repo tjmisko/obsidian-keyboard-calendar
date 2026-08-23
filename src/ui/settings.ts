@@ -9,6 +9,7 @@ import {
     removeLocalSource,
     saveLocalSourceSelection,
 } from "./source_settings";
+import { parseGhostEventTagsInput } from "../settings/tag_settings";
 
 export { DEFAULT_SETTINGS } from "../settings/migration";
 export type { FullCalendarSettings } from "../settings/migration";
@@ -208,6 +209,22 @@ export class FullCalendarSettingTab extends PluginSettingTab {
                     await this.commitSettings({
                         ...this.plugin.settings,
                         timeFormat24h: value,
+                    });
+                });
+            });
+
+        new Setting(containerEl)
+            .setName("Ghost event tags")
+            .setDesc(
+                "Comma-separated tags for events that should stay visible but appear subdued. Tag matching is case-insensitive."
+            )
+            .addText((text) => {
+                text.setPlaceholder("ghost");
+                text.setValue(this.plugin.settings.ghostEventTags.join(", "));
+                text.onChange(async (value) => {
+                    await this.commitSettings({
+                        ...this.plugin.settings,
+                        ghostEventTags: parseGhostEventTagsInput(value),
                     });
                 });
             });

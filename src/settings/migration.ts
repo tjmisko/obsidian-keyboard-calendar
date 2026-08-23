@@ -4,6 +4,7 @@ import {
     parseCalendarInfo,
     resolveDefaultFullNoteCalendar,
 } from "../types/calendar_settings";
+import { decodeGhostEventTags, DEFAULT_GHOST_EVENT_TAGS } from "./tag_settings";
 
 export type PersistedSourceType = "local" | "ical" | "caldav" | "dailynote";
 export type SourceTypeBucket = PersistedSourceType | "unknown";
@@ -13,7 +14,8 @@ export const ICS_REMOVAL_VERSION = 3;
 export const DAILY_NOTE_REMOVAL_VERSION = 4;
 export const SINGLE_LOCAL_SOURCE_VERSION = 5;
 export const DESKTOP_ONLY_SETTINGS_VERSION = 6;
-export const SETTINGS_VERSION = DESKTOP_ONLY_SETTINGS_VERSION;
+export const GHOST_EVENT_TAGS_SETTINGS_VERSION = 7;
+export const SETTINGS_VERSION = GHOST_EVENT_TAGS_SETTINGS_VERSION;
 
 export const REMOVED_SOURCE_VERSIONS: Readonly<
     Partial<Record<PersistedSourceType, number>>
@@ -28,6 +30,7 @@ export interface FullCalendarSettings {
     firstDay: number;
     initialView: string;
     timeFormat24h: boolean;
+    ghostEventTags: string[];
     legacySidebarMigrationVersion?: number;
 }
 
@@ -36,6 +39,7 @@ export const DEFAULT_SETTINGS: FullCalendarSettings = {
     firstDay: 0,
     initialView: "timeGridWeek",
     timeFormat24h: false,
+    ghostEventTags: [...DEFAULT_GHOST_EVENT_TAGS],
 };
 
 export type SourceCounts = Record<
@@ -230,6 +234,7 @@ export function decodeSettings(
             typeof root.timeFormat24h === "boolean"
                 ? root.timeFormat24h
                 : DEFAULT_SETTINGS.timeFormat24h,
+        ghostEventTags: decodeGhostEventTags(root.ghostEventTags),
         ...(legacySidebarMigrationVersion !== undefined && {
             legacySidebarMigrationVersion,
         }),
@@ -254,6 +259,7 @@ const RUNTIME_SETTING_KEYS = [
     "firstDay",
     "initialView",
     "timeFormat24h",
+    "ghostEventTags",
     "legacySidebarMigrationVersion",
 ] as const;
 

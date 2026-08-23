@@ -11,6 +11,7 @@ import {
     commitSettingsBeforeRuntime,
     DAILY_NOTE_REMOVAL_VERSION,
     decodeSettings,
+    DESKTOP_ONLY_SETTINGS_VERSION,
     ICS_REMOVAL_VERSION,
     loadMigratedSettings,
     loadMigratedSettingsBeforeRuntime,
@@ -205,6 +206,23 @@ describe("settings decoder", () => {
         ).toBe("listWeek");
     });
 
+    it("defaults and normalizes the ghost-event tag list", () => {
+        expect(
+            decodeSettings({}, undefined, jest.fn()).settings.ghostEventTags
+        ).toEqual(["ghost"]);
+        expect(
+            decodeSettings(
+                { ghostEventTags: [" Jen ", "#SKIP", "jen", 42] },
+                undefined,
+                jest.fn()
+            ).settings.ghostEventTags
+        ).toEqual(["jen", "skip"]);
+        expect(
+            decodeSettings({ ghostEventTags: [] }, undefined, jest.fn())
+                .settings.ghostEventTags
+        ).toEqual([]);
+    });
+
     it("resolves old string and numeric local defaults", () => {
         const calendarSources = [legacyIcs, local("Work"), local("Home")];
         expect(
@@ -266,6 +284,24 @@ describe("settings decoder", () => {
 });
 
 describe("active removed-source migration", () => {
+    it("adds the neutral ghost tag at v7 and remains idempotent", () => {
+        const input = {
+            settingsVersion: DESKTOP_ONLY_SETTINGS_VERSION,
+            calendarSources: [local("Events")],
+            initialView: "timeGridWeek",
+        };
+
+        const first = migrateSettings(input, jest.fn());
+
+        expect(first.settings.settingsVersion).toBe(SETTINGS_VERSION);
+        expect(first.settings.ghostEventTags).toEqual(["ghost"]);
+        expect(first.saveRequested).toBe(true);
+
+        const second = migrateSettings(first.settings, jest.fn());
+        expect(second.settings).toEqual(first.settings);
+        expect(second.saveRequested).toBe(false);
+    });
+
     it("upgrades v5 nested views to one desktop-only value and is idempotent", () => {
         const input = {
             settingsVersion: SINGLE_LOCAL_SOURCE_VERSION,
@@ -289,7 +325,7 @@ describe("active removed-source migration", () => {
         expect(second.saveRequested).toBe(false);
     });
 
-    it("scrubs stale nested views at v6 and future versions without downgrading", () => {
+    it("scrubs stale nested views at current and future versions without downgrading", () => {
         for (const settingsVersion of [SETTINGS_VERSION, 17]) {
             const migrated = migrateSettings(
                 {

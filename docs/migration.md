@@ -9,6 +9,7 @@ Back up Obsidian's plugin data and workspace layout before installing this fork 
 - Settings v4 removes daily-note event sources. Existing daily-note list items stay on disk and stop appearing as calendar events; date-header daily-note navigation remains.
 - Settings v5 retains one writable local folder. It prefers the previously selected local source and otherwise the first valid local source. Notes belonging to discarded folder configurations are not moved.
 - Settings v6 retains one desktop initial view and discards the retired mobile/three-day preference.
+- Settings v7 adds a configurable ghost-event tag list, initially containing the neutral `ghost` tag.
 - A saved legacy sidebar leaf is redirected into the normal main-tab calendar view. The decoder-only compatibility view and its completion marker remain until a separately approved removal gate.
 - The old public Dataview `renderCalendar`/`processFrontmatter` hooks are removed. Arbitrary URL and callback event sources are no longer accepted; the internal renderer receives materialized local events only.
 

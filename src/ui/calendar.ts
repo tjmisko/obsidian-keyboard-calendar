@@ -13,6 +13,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import rrulePlugin from "@fullcalendar/rrule";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
+import { eventHasGhostTag } from "../settings/tag_settings";
 
 // There is an issue with FullCalendar RRule support around DST boundaries which is fixed by this monkeypatch:
 // https://github.com/fullcalendar/fullcalendar/issues/5273#issuecomment-1360459342
@@ -46,6 +47,7 @@ interface ExtraRenderProps {
     firstDay?: number;
     initialView?: string;
     timeFormat24h?: boolean;
+    ghostEventTags?: () => readonly string[];
     openContextMenuForEvent?: (
         event: EventApi,
         mouseEvent: MouseEvent
@@ -167,6 +169,7 @@ export function renderCalendar(
         openContextMenuForEvent,
         dailyNotePath,
         openDailyNote,
+        ghostEventTags,
     } = settings || {};
     const modifyEventCallback =
         modifyEvent &&
@@ -338,6 +341,14 @@ export function renderCalendar(
             }
             if (textColor !== "black") {
                 el.addClass("ofc-event-muted-light-text");
+            }
+            if (
+                eventHasGhostTag(
+                    event.extendedProps.categories,
+                    ghostEventTags?.() || []
+                )
+            ) {
+                el.addClass("ofc-event-ghost");
             }
             el.addEventListener("contextmenu", (e) => {
                 e.preventDefault();
