@@ -138,7 +138,7 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 | Phase 1 dead connectors | Accepted and integrated at `f4bff77`; adversarial `ACCEPT` | Complete |
 | Phase 2 CalDAV removal | Accepted and integrated at `63c7b5f`; backup confirmed; adversarial `ACCEPT` | Complete |
 | Phase 3 remote boundary | `REMOVE_ICS` accepted and integrated at `298c19a`; adversarial `ACCEPT` | Complete |
-| Phase 4 daily-note event source | Candidate complete on `codex/phase4-dailynote`; automated and migration-review `ACCEPT` | Coordinator integration and adversarial acceptance |
+| Phase 4 daily-note event source | Accepted and integrated at `6f54800`; adversarial `ACCEPT` | Complete |
 | D1 writable folders | Undecided; recommendation: one | Explicit user decision before Phase 6 design |
 | D2 folder traversal | Undecided; recommendation: direct child | Explicit user decision before Phase 6 design |
 | Sidebar bridge removal | Deferred compatibility work | Persisted migration marker, workspace backup, explicit acceptance or stated version boundary |
@@ -205,7 +205,7 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 - Integrated result: commits `e5920ad` and `298c19a`; 15 suites passed, 186 tests passed, 2 todo, and 42 snapshots passed. Compile, lint, production build, `git diff --check`, lock inventory, and removed-runtime searches passed. Integrated artifacts are `main.js` 2,156,252 bytes, `styles.css`/`main.css` 39,844 bytes, and `package-lock.json` 726,501 bytes, a 194,082-byte integrated bundle reduction from accepted Phase 2.
 - Adversarial result: `ACCEPT`, with no correctness finding. FullCalendar core still contains dormant internal JSON-feed/XHR code, but the fork exposes no URL-bearing source, setting, initializer, or runtime route into it. Removing those unreachable renderer internals would require a separate FullCalendar fork. Residual acceptance is limited to the documented live-Obsidian restart, navigation/history, daily-note-header, observed-zero-network, and real-vault preservation checks.
 
-### Phase 4 candidate record — 2026-08-22
+### Phase 4 accepted record — 2026-08-22
 
 - Candidate scope: removes `DailyNoteCalendar`, its parser test, inline-list parsing/serialization/modification/task-line behavior, its runtime initializer/schema branch, settings and React source controls, obsolete documentation, and the daily-note source walkthrough asset. Full-note task/editor behavior remains for Phase 5.
 - Migration behavior: settings version 4 is active. Raw daily-note source objects become only `{ legacyType: "dailynote", removedAtVersion: 4 }`; existing CalDAV-v2 and ICS-v3 envelopes retain their canonical versions. Original raw slots still determine numeric local defaults, unrelated top-level settings and safe future envelopes are preserved, future versions are not downgraded, and a second pass is byte-equivalent with no save.
@@ -217,7 +217,8 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 - Production artifacts: `main.js` 2,152,362 bytes; generated `main.css` 40,048 bytes; `package-lock.json` 726,501 bytes. This is 3,890 bytes below the accepted integrated Phase 3 `main.js` of 2,156,252 bytes. The worktree uses the shared dependency installation, whose inventory reports unrelated already-installed packages as extraneous; the manifest/lock production graph is unchanged.
 - Manual matrix: not run in this headless worktree. No Obsidian application, real vault, user plugin data, `.env`, or `.secrets` was opened. Live date-header navigation/create, two-restart migration behavior, full-note create/open/drag/resize/omit, history, and real-vault daily-note byte preservation remain coordinator/release checks.
 - Rollback: reject/revert the single Phase 4 candidate and restore the user-controlled pre-migration plugin-data backup if the removed source configuration is needed. Daily-note contents are never migrated or edited, but Git alone cannot restore a scrubbed source configuration.
-- Candidate recommendation: `ACCEPT` for coordinator integration and final adversarial review. D1/D2 remain explicitly undecided and no local-folder semantics changed.
+- Integrated result: commit `6f54800`; 15 suites passed, 192 tests passed, 2 todo, and 42 snapshots passed. Compile, lint, production build, `git diff --check`, removed-source searches, and retained-navigation checks passed. Integrated artifacts are `main.js` 2,141,805 bytes, `styles.css`/`main.css` 39,844 bytes, and `package-lock.json` 726,501 bytes, a 14,447-byte integrated bundle reduction from accepted Phase 3.
+- Adversarial result: `ACCEPT`, with no correctness finding. Residual acceptance is limited to the documented live-Obsidian date-header create/open, two restarts, full-note editing/navigation, history, and real-vault daily-note preservation checks. D1/D2 remain explicitly undecided and no local-folder semantics changed.
 
 ## Phase 0 — Safety harness and non-destructive migration framework
 
