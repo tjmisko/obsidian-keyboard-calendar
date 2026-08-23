@@ -4,7 +4,7 @@ interface CalendarEventNavigation {
     eventId: string;
     originatingLeaf: WorkspaceLeaf;
     modified: boolean;
-    openModified: (eventId: string) => Promise<void>;
+    openModified: (eventId: string) => Promise<boolean>;
     openInOriginatingLeaf: (
         eventId: string,
         leaf: WorkspaceLeaf
@@ -20,8 +20,7 @@ export async function navigateFromCalendarEvent({
     openInOriginatingLeaf,
 }: CalendarEventNavigation): Promise<boolean> {
     if (modified) {
-        await openModified(eventId);
-        return true;
+        return openModified(eventId);
     }
     return openInOriginatingLeaf(eventId, originatingLeaf);
 }

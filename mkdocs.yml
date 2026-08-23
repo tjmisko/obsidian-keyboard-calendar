@@ -41,7 +41,6 @@ nav:
           - events/recurring.md
           - events/hover.md
           - events/context-menu.md
-          - events/tasks.md
     - Settings:
           - settings/sources.md
           - settings/fc_config.md

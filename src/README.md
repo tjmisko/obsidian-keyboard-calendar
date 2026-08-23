@@ -74,6 +74,6 @@ The plugin has exactly one `EventCache` instance at any given time. It is initia
 
 ### `ui`
 
-While `core` and `calendars` make up the Model in the `MVC` pattern, the Views and Controllers are currently both living in the `ui` directory. The view connector to the FullCalendar library lives in `calendar.ts`. Most of the controller logic that interfaces with the `EventCache` lives, somewhat confusingly, in `view.ts`, which also instantiates the Obsidian plugin View. Auxilliary views, like the edit/create modal and settings selectors, are React components that live in their own `.tsx` files and are mounted into the DOM when needed.
+While `core` and `calendars` make up the Model in the `MVC` pattern, the Views and Controllers are currently both living in the `ui` directory. The view connector to the FullCalendar library lives in `calendar.ts`. Most of the controller logic that interfaces with the `EventCache` lives, somewhat confusingly, in `view.ts`, which also instantiates the Obsidian plugin View. Event interactions route to ordinary Markdown notes; React remains limited to settings selectors mounted into the DOM when needed.
 
 **Architecture Invariant**: All interactions with event data should be mediated by the `EventCache`. Code in the `ui` directory should not reference or call out to the `EventStore`, Obsidian Vault APIs, or `Calendar` subclasses.

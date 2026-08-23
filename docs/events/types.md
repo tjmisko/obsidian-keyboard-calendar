@@ -1,19 +1,25 @@
-# Event Basics
+# Event basics
 
-An event can have a time in the calendar or last all day, and can also either happen at a single time or recur on a simple schedule.
+Each calendar event is a Markdown note in a configured local calendar folder. The note opts into the calendar with frontmatter like this:
 
-## Create via event modal
+```yaml
+---
+date: 2026-08-22
+start: 09:00
+end: 10:00
+tags:
+  - event
+---
+```
 
-Use the "Create event" command to bring up the event modal to add a new event of any type. You can also edit existing events through the modal by clicking on them!
+The filename is the event title by default, and the rest of the note is yours for descriptions, links, or meeting notes. Extra frontmatter and note content are preserved when the plugin changes an event's timing.
 
-![](../assets/create-event-modal.gif)
+## Create a timed event
 
-## Create a timed, single-occurrance event via click-and-drag
+Run **Full Calendar: Create new event**, or select a time range in a week or day view. Full Calendar creates an `Untitled event` note and opens it as a normal Markdown buffer. Rename the note and edit its frontmatter normally.
 
-Just click-and-drag on the calendar to create an event. The modal will pop up where you can fill in the details and tweak the timing.
+Selecting a date in a month view, or an all-day slot, opens that date in the day view so you can choose an exact time.
 
-![](../assets/create-event.gif)
+## Open an event
 
-## Create a full-day, single-occurance event via click-and-drag
-
-![](../assets/create-event-fullday.gif)
+Click an event to open its backing Markdown note. There is no separate calendar event editor.

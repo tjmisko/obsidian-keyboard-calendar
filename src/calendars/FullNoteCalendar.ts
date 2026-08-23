@@ -424,6 +424,21 @@ const friendlyModifications = (
     };
 };
 
+const legacyModifications = (
+    event: OFCEvent
+): Record<string, PrintableAtom | undefined> => {
+    const modifications = {
+        ...event,
+    } as Record<string, PrintableAtom | undefined>;
+    // Categories travel through FullCalendar so cache state survives a
+    // drag/resize. Both values are unrelated to timing edits and must retain
+    // their original YAML representation; `completed` remains parse-compatible
+    // only.
+    delete modifications.categories;
+    delete modifications.completed;
+    return modifications;
+};
+
 export default class FullNoteCalendar extends EditableCalendar {
     app: ObsidianInterface;
     private _directory: string;
@@ -576,52 +591,12 @@ export default class FullNoteCalendar extends EditableCalendar {
         await this.app.rewrite(file, (page) =>
             modifyFrontmatterString(
                 page,
-                friendly ? friendlyModifications(event) : event
+                friendly
+                    ? friendlyModifications(event)
+                    : legacyModifications(event)
             )
         );
 
         return;
-    }
-
-    async move(
-        fromLocation: EventPathLocation,
-        toCalendar: EditableCalendar,
-        updateCacheWithLocation: (loc: EventLocation) => void
-    ): Promise<void> {
-        const { path, lineNumber } = fromLocation;
-        if (lineNumber !== undefined) {
-            throw new Error("Note calendar cannot handle inline events.");
-        }
-        if (!(toCalendar instanceof FullNoteCalendar)) {
-            throw new Error(
-                `Event cannot be moved to a note calendar from a calendar of type ${toCalendar.type}.`
-            );
-        }
-        const file = this.app.getFileByPath(path);
-        if (!file) {
-            throw new Error(`File ${path} not found.`);
-        }
-        const destDir = toCalendar.directory;
-        const newPath = `${destDir}/${file.name}`;
-        updateCacheWithLocation({
-            file: { path: newPath },
-            lineNumber: undefined,
-        });
-        await this.app.rename(file, newPath);
-        if (this.friendlyPaths.delete(path)) {
-            toCalendar.friendlyPaths.add(newPath);
-        }
-    }
-
-    deleteEvent({ path, lineNumber }: EventPathLocation): Promise<void> {
-        if (lineNumber !== undefined) {
-            throw new Error("Note calendar cannot handle inline events.");
-        }
-        const file = this.app.getFileByPath(path);
-        if (!file) {
-            throw new Error(`File ${path} not found.`);
-        }
-        this.friendlyPaths.delete(path);
-        return this.app.delete(file);
     }
 }

@@ -214,7 +214,6 @@ export function toEventInput(
                     recurrenceStart
                 ),
                 extendedProps: {
-                    isTask: false,
                     categories: frontmatter.categories || [],
                     ofcRecurrence: recurrenceMetadata,
                 },
@@ -226,7 +225,6 @@ export function toEventInput(
                 startRecur: frontmatter.startRecur,
                 endRecur: frontmatter.endRecur,
                 extendedProps: {
-                    isTask: false,
                     categories: frontmatter.categories || [],
                     ofcRecurrence: recurrenceMetadata,
                 },
@@ -325,10 +323,6 @@ export function toEventInput(
                 start,
                 end,
                 extendedProps: {
-                    isTask:
-                        frontmatter.completed !== undefined &&
-                        frontmatter.completed !== null,
-                    taskCompleted: frontmatter.completed,
                     categories: frontmatter.categories || [],
                 },
             };
@@ -338,10 +332,6 @@ export function toEventInput(
                 start: frontmatter.date,
                 end: frontmatter.endDate || undefined,
                 extendedProps: {
-                    isTask:
-                        frontmatter.completed !== undefined &&
-                        frontmatter.completed !== null,
-                    taskCompleted: frontmatter.completed,
                     categories: frontmatter.categories || [],
                 },
             };
@@ -378,6 +368,7 @@ export function fromEventApi(event: EventApi): OFCEvent {
     const endDate = getDate(event.end as Date);
     return {
         title: event.title,
+        categories: event.extendedProps.categories || [],
         ...(event.allDay
             ? { allDay: true }
             : {
@@ -408,7 +399,6 @@ export function fromEventApi(event: EventApi): OFCEvent {
                   type: "single",
                   date: startDate,
                   ...(startDate !== endDate ? { endDate } : { endDate: null }),
-                  completed: event.extendedProps.taskCompleted,
               }),
     };
 }

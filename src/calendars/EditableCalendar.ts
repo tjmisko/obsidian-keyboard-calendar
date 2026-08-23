@@ -47,12 +47,6 @@ export abstract class EditableCalendar extends Calendar {
     abstract createEvent(event: OFCEvent): Promise<EventLocation>;
 
     /**
-     * Delete an event from the calendar.
-     * @param location Location of event to delete.
-     */
-    abstract deleteEvent(location: EventPathLocation): Promise<void>;
-
-    /**
      * Modify an event on disk.
      *
      * @param location Location of event

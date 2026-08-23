@@ -114,6 +114,64 @@ describe("calendar renderer", () => {
         expect(event.stopPropagation).toHaveBeenCalled();
         expect(openDailyNote).toHaveBeenCalledWith(date);
     });
+
+    it("delegates drag and resize while reverting only rejected edits", async () => {
+        Object.defineProperty(global, "window", {
+            configurable: true,
+            value: { innerWidth: 1024 },
+        });
+        const modifyEvent = jest
+            .fn()
+            .mockResolvedValueOnce(true)
+            .mockResolvedValueOnce(false);
+        renderCalendar({} as HTMLElement, [], { modifyEvent });
+        const calls = (Calendar as unknown as jest.Mock).mock.calls;
+        const options = calls[calls.length - 1][1] as any;
+        const acceptedRevert = jest.fn();
+        const rejectedRevert = jest.fn();
+        const event = { id: "event" };
+        const oldEvent = { id: "old-event" };
+
+        await options.eventDrop({ event, oldEvent, revert: acceptedRevert });
+        await options.eventResize({ event, oldEvent, revert: rejectedRevert });
+
+        expect(modifyEvent).toHaveBeenNthCalledWith(1, event, oldEvent);
+        expect(modifyEvent).toHaveBeenNthCalledWith(2, event, oldEvent);
+        expect(acceptedRevert).not.toHaveBeenCalled();
+        expect(rejectedRevert).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not render task checkboxes or completion classes", () => {
+        Object.defineProperty(global, "window", {
+            configurable: true,
+            value: { innerWidth: 1024 },
+        });
+        const createElement = jest.fn();
+        Object.defineProperty(global, "document", {
+            configurable: true,
+            value: { createElement },
+        });
+        renderCalendar({} as HTMLElement, []);
+        const calls = (Calendar as unknown as jest.Mock).mock.calls;
+        const options = calls[calls.length - 1][1] as any;
+        const addClass = jest.fn();
+        options.eventDidMount({
+            event: {
+                extendedProps: { isTask: true, taskCompleted: true },
+            },
+            el: {
+                style: { setProperty: jest.fn() },
+                addClass,
+                addEventListener: jest.fn(),
+            },
+            backgroundColor: "",
+            textColor: "black",
+        });
+
+        expect(createElement).not.toHaveBeenCalled();
+        expect(addClass).not.toHaveBeenCalledWith("ofc-task-completed");
+        delete (global as any).document;
+    });
 });
 
 describe("calendar labels", () => {

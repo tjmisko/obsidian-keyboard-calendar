@@ -50,7 +50,6 @@ interface ExtraRenderProps {
         event: EventApi,
         mouseEvent: MouseEvent
     ) => Promise<void>;
-    toggleTask?: (event: EventApi, isComplete: boolean) => Promise<boolean>;
     dailyNotePath?: (date: Date) => string;
     openDailyNote?: (date: Date) => Promise<void>;
     forceNarrow?: boolean;
@@ -142,7 +141,6 @@ export function renderCalendar(
         modifyEvent,
         eventMouseEnter,
         openContextMenuForEvent,
-        toggleTask,
         dailyNotePath,
         openDailyNote,
     } = settings || {};
@@ -335,47 +333,6 @@ export function renderCalendar(
                 e.preventDefault();
                 openContextMenuForEvent && openContextMenuForEvent(event, e);
             });
-            if (toggleTask) {
-                if (event.extendedProps.isTask) {
-                    const checkbox = document.createElement("input");
-                    checkbox.type = "checkbox";
-                    checkbox.checked =
-                        event.extendedProps.taskCompleted !== false;
-                    checkbox.onclick = async (e) => {
-                        e.stopPropagation();
-                        if (e.target) {
-                            let ret = await toggleTask(
-                                event,
-                                (e.target as HTMLInputElement).checked
-                            );
-                            if (!ret) {
-                                (e.target as HTMLInputElement).checked = !(
-                                    e.target as HTMLInputElement
-                                ).checked;
-                            }
-                        }
-                    };
-                    // Make the checkbox more visible against different color events.
-                    if (textColor == "black") {
-                        checkbox.addClass("ofc-checkbox-black");
-                    } else {
-                        checkbox.addClass("ofc-checkbox-white");
-                    }
-
-                    if (checkbox.checked) {
-                        el.addClass("ofc-task-completed");
-                    }
-
-                    // Depending on the view, we should put the checkbox in a different spot.
-                    const container =
-                        el.querySelector(".fc-event-title") ||
-                        el.querySelector(".fc-list-event-title") ||
-                        el.querySelector(".fc-event-time");
-
-                    container?.addClass("ofc-has-checkbox");
-                    container?.prepend(checkbox);
-                }
-            }
         },
 
         longPressDelay: 250,

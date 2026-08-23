@@ -17,6 +17,49 @@ describe("event selection routing", () => {
     });
 });
 
+describe("task-free event metadata", () => {
+    it("retains categories while omitting task-specific FullCalendar props", () => {
+        const event = parseEvent({
+            title: "Legacy completed event",
+            type: "single",
+            date: "2026-08-22",
+            completed: false,
+            categories: ["work", "planning"],
+            allDay: false,
+            startTime: "09:00",
+            endTime: "10:00",
+        });
+        const rendered = toEventInput("event-id", event);
+
+        expect(rendered?.extendedProps).toEqual({
+            categories: ["work", "planning"],
+        });
+        expect(rendered?.extendedProps).not.toHaveProperty("isTask");
+        expect(rendered?.extendedProps).not.toHaveProperty("taskCompleted");
+    });
+
+    it("carries categories back from FullCalendar and ignores old task props", () => {
+        const event = fromEventApi({
+            title: "Moved event",
+            allDay: false,
+            start: new Date(2026, 7, 23, 11, 0),
+            end: new Date(2026, 7, 23, 12, 0),
+            extendedProps: {
+                categories: ["work", "planning"],
+                isTask: true,
+                taskCompleted: true,
+            },
+        } as any);
+
+        expect(event).toMatchObject({
+            categories: ["work", "planning"],
+            type: "single",
+            date: "2026-08-23",
+        });
+        expect(event).not.toHaveProperty("completed");
+    });
+});
+
 describe("recurring event rendering", () => {
     it.each([
         [

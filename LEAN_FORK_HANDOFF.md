@@ -139,6 +139,7 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 | Phase 2 CalDAV removal | Accepted and integrated at `63c7b5f`; backup confirmed; adversarial `ACCEPT` | Complete |
 | Phase 3 remote boundary | `REMOVE_ICS` accepted and integrated at `298c19a`; adversarial `ACCEPT` | Complete |
 | Phase 4 daily-note event source | Accepted and integrated at `6f54800`; adversarial `ACCEPT` | Complete |
+| Phase 5 task/editor cut | Candidate complete; automated gates `ACCEPT`, adversarial review pending | Coordinator integration and live-Obsidian checks |
 | D1 writable folders | Undecided; recommendation: one | Explicit user decision before Phase 6 design |
 | D2 folder traversal | Undecided; recommendation: direct child | Explicit user decision before Phase 6 design |
 | Sidebar bridge removal | Deferred compatibility work | Persisted migration marker, workspace backup, explicit acceptance or stated version boundary |
@@ -219,6 +220,18 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 - Rollback: reject/revert the single Phase 4 candidate and restore the user-controlled pre-migration plugin-data backup if the removed source configuration is needed. Daily-note contents are never migrated or edited, but Git alone cannot restore a scrubbed source configuration.
 - Integrated result: commit `6f54800`; 15 suites passed, 192 tests passed, 2 todo, and 42 snapshots passed. Compile, lint, production build, `git diff --check`, removed-source searches, and retained-navigation checks passed. Integrated artifacts are `main.js` 2,141,805 bytes, `styles.css`/`main.css` 39,844 bytes, and `package-lock.json` 726,501 bytes, a 14,447-byte integrated bundle reduction from accepted Phase 3.
 - Adversarial result: `ACCEPT`, with no correctness finding. Residual acceptance is limited to the documented live-Obsidian date-header create/open, two restarts, full-note editing/navigation, history, and real-vault daily-note preservation checks. D1/D2 remain explicitly undecided and no local-folder semantics changed.
+
+### Phase 5 candidate record — 2026-08-22
+
+- Candidate scope: removes task rendering/actions/CSS/FullCalendar properties, the React event editor and modal route, all remaining stories/Ladle configuration, calendar-driven delete, and the now-unreachable generic add, cross-calendar move, and note-delete adapter chains. React/ReactDOM and the settings TSX surface remain for Phase 6.
+- Interaction contract: local full-note event clicks open ordinary Markdown buffers; rejected/non-local events never enter note-opening actions. Timed selection and the create command create an `Untitled event` full-note buffer. The context menu contains only **Omit this occurrence** for recurring local events; single and non-local events have no action, and nth-weekday events remain non-draggable while retaining omission through YAML.
+- Preservation gate: FullCalendar round trips retain categories and recurrence metadata. Exact single, weekly, and legacy writer fixtures preserve `completed: false` or a completion timestamp, tags/categories, recurrence bounds/omit dates, unrelated legacy dates, nested YAML, and Markdown bodies while changing only supported timing or omission fields. `completed` remains accepted by the persisted event schema but has no UI/runtime rendering property.
+- Tests and build: 18 suites passed; 205 tests passed, 2 todo; 41 snapshots passed. `npm run compile`, `npm run lint`, production `npm run build`, `git diff --check`, removed-reference/package/bundle searches, retained-metadata searches, and the lock-based production dependency inventory passed.
+- Removed package/config/assets: direct `@ladle/react`, its exclusively unreachable lock graph, `.ladle`, the editor story, the task/context/editor documentation assets, and the task documentation/nav entry. The canonical lock refresh reduces package entries from 749 to 430 and also normalizes development flags under the current npm toolchain; `npm ls --package-lock-only --omit=dev --depth=0` passes with no Ladle dependency.
+- Production artifacts: `main.js` 2,135,925 bytes; `styles.css` and generated `main.css` 39,509 bytes each; `package-lock.json` 412,018 bytes. Against accepted integrated Phase 4, this removes 5,880 bundle bytes, 335 CSS bytes, and 314,483 lockfile bytes.
+- Documentation: the event guide now describes note-first YAML, ordinary-buffer creation/opening, supported drag/resize, and recurrence omission. Obsolete modal/task/delete claims and seven dead GIFs are removed. Phase 8 no longer lists the already-removed add/move capabilities as future candidates.
+- Manual matrix: not run in this headless worktree. No Obsidian application, real vault, user plugin data, `.env`, or `.secrets` was opened. Live note-buffer routing, selection/command creation, drag/resize/omit, history, Grappling Hook, daily-note headers, two restarts, and real-vault byte preservation remain coordinator/release checks.
+- D1/D2 and source-folder semantics are unchanged. Recommendation: `ACCEPT` the candidate subject to exact-commit adversarial review and the documented live checks. Rollback is a single candidate revert; Phase 5 activates no settings, workspace-layout, or note migration.
 
 ## Phase 0 — Safety harness and non-destructive migration framework
 
@@ -532,8 +545,8 @@ Candidate deletions after shadow equivalence:
 - `OneToMany` and daily-note line indexes.
 - Generic source initializer maps.
 - `EditableCalendar` inheritance in favor of a narrow local adapter.
-- Cross-calendar move support if the product is reduced to one writable folder.
-- Generic add/move wrappers that no longer have multiple editable source types.
+
+Phase 5 already removed the editor-only generic add wrapper, cross-calendar move wrapper/adapter method, and calendar-driven note-delete chain after their final UI callers were deleted. Phase 8 must not recreate those capabilities while simplifying the index.
 
 Required shadow phase:
 

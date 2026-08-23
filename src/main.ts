@@ -103,14 +103,11 @@ export default class FullCalendarPlugin extends Plugin {
         eventId: string,
         targetLeaf?: WorkspaceLeaf
     ): Promise<boolean> {
-        const { calendar, location } =
-            this.cache.getInfoForEditableEvent(eventId);
-        if (
-            !(calendar instanceof FullNoteCalendar) ||
-            location.lineNumber !== undefined
-        ) {
+        const details = this.cache.getInfoForFullNoteEvent(eventId);
+        if (!details) {
             return false;
         }
+        const { location } = details;
         const file = this.app.vault.getAbstractFileByPath(location.path);
         if (!(file instanceof TFile)) {
             throw new Error(`Event note was not found at ${location.path}.`);

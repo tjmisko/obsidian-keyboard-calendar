@@ -167,20 +167,6 @@ export default class EventCache {
         return result;
     }
 
-    /**
-     * Check if an event is part of an editable calendar.
-     * @param id ID of event to check
-     * @returns
-     */
-    isEventEditable(id: string): boolean {
-        const calId = this.store.getEventDetails(id)?.calendarId;
-        if (!calId) {
-            return false;
-        }
-        const cal = this.getCalendarById(calId);
-        return cal instanceof EditableCalendar;
-    }
-
     getEventById(s: string): OFCEvent | null {
         return this.store.getEventById(s);
     }
@@ -215,6 +201,26 @@ export default class EventCache {
             );
         }
         return { calendar, location };
+    }
+
+    /**
+     * Return only ordinary full-note events that can safely enter note-opening
+     * and calendar context-action paths. Missing, read-only, and inline-backed
+     * events are deliberately rejected without entering editable APIs.
+     */
+    getInfoForFullNoteEvent(eventId: string) {
+        const details = this.store.getEventDetails(eventId);
+        if (!details || !details.location) {
+            return null;
+        }
+        const calendar = this.calendars.get(details.calendarId);
+        if (
+            !(calendar instanceof FullNoteCalendar) ||
+            details.location.lineNumber !== undefined
+        ) {
+            return null;
+        }
+        return { calendar, location: details.location };
     }
 
     ///
@@ -301,22 +307,6 @@ export default class EventCache {
         return location;
     }
 
-    async addEvent(calendarId: string, event: OFCEvent): Promise<boolean> {
-        await this.createEvent(calendarId, event);
-        return true;
-    }
-
-    /**
-     * Delete an event by its ID.
-     * @param eventId ID of event to be deleted.
-     */
-    async deleteEvent(eventId: string): Promise<void> {
-        const { calendar, location } = this.getInfoForEditableEvent(eventId);
-        this.store.delete(eventId);
-        await calendar.deleteEvent(location);
-        this.updateViews([eventId], []);
-    }
-
     /**
      * Update an event with a given ID.
      * @param eventId ID of event to update.
@@ -374,52 +364,6 @@ export default class EventCache {
         const newEvent = process(event);
         console.debug("process", newEvent, process);
         return this.updateEventWithId(id, newEvent);
-    }
-
-    async moveEventToCalendar(
-        eventId: string,
-        newCalendarId: string
-    ): Promise<void> {
-        const event = this.store.getEventById(eventId);
-        const details = this.store.getEventDetails(eventId);
-        if (!details || !event) {
-            throw new Error(
-                `Tried moving unknown event ID ${eventId} to calendar ${newCalendarId}`
-            );
-        }
-        const { calendarId: oldCalendarId, location } = details;
-
-        const oldCalendar = this.calendars.get(oldCalendarId);
-        if (!oldCalendar) {
-            throw new Error(`Source calendar ${oldCalendarId} did not exist.`);
-        }
-        const newCalendar = this.calendars.get(newCalendarId);
-        if (!newCalendar) {
-            throw new Error(`Source calendar ${newCalendarId} does not exist.`);
-        }
-
-        // TODO: Support moving around events between all sorts of editable calendars.
-        if (
-            !(
-                oldCalendar instanceof FullNoteCalendar &&
-                newCalendar instanceof FullNoteCalendar &&
-                location
-            )
-        ) {
-            throw new Error(
-                `Both calendars must be Full Note Calendars to move events between them.`
-            );
-        }
-
-        await oldCalendar.move(location, newCalendar, (newLocation) => {
-            this.store.delete(eventId);
-            this.store.add({
-                calendar: newCalendar,
-                location: newLocation,
-                id: eventId,
-                event,
-            });
-        });
     }
 
     ///

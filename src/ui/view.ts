@@ -7,18 +7,10 @@ import {
     renderCalendar,
 } from "./calendar";
 import FullCalendarPlugin from "../main";
-import { FCError, PLUGIN_SLUG } from "../types";
-import {
-    dateEndpointsToFrontmatter,
-    fromEventApi,
-    omitRecurringOccurrence,
-    selectionRequiresDayView,
-    toEventInput,
-} from "./interop";
+import { PLUGIN_SLUG } from "../types";
+import { fromEventApi, omitRecurringOccurrence, toEventInput } from "./interop";
 import { renderOnboarding } from "./onboard";
-import { openFileForEvent } from "./actions";
-import { launchEditModal } from "./event_modal";
-import { isTask, toggleTask, unmakeTask } from "src/ui/tasks";
+import { openFullNoteForEvent } from "./actions";
 import { UpdateViewCallback } from "src/core/EventCache";
 import {
     FULL_CALENDAR_SIDEBAR_VIEW_TYPE,
@@ -29,6 +21,8 @@ import {
     openDailyNoteForDate,
     resolveDailyNotePath,
 } from "./daily_note_navigation";
+import { getCalendarEventContextActions } from "./event_context";
+import { handleCalendarSelection } from "./event_creation";
 
 export {
     FULL_CALENDAR_SIDEBAR_VIEW_TYPE,
@@ -204,7 +198,7 @@ export class CalendarView extends ItemView {
                             info.jsEvent.getModifierState("Control") ||
                             info.jsEvent.getModifierState("Meta"),
                         openModified: async (eventId) =>
-                            openFileForEvent(
+                            openFullNoteForEvent(
                                 this.plugin.cache,
                                 this.app,
                                 eventId
@@ -212,9 +206,7 @@ export class CalendarView extends ItemView {
                         openInOriginatingLeaf: async (eventId, leaf) =>
                             this.plugin.openEventNote(eventId, leaf),
                     });
-                    if (!openedNote) {
-                        launchEditModal(this.plugin, info.event.id);
-                    }
+                    return openedNote;
                 } catch (e) {
                     if (e instanceof Error) {
                         console.warn(e);
@@ -223,27 +215,29 @@ export class CalendarView extends ItemView {
                 }
             },
             select: async (start, end, allDay, viewType) => {
-                if (selectionRequiresDayView(viewType, allDay)) {
-                    this.fullCalendarView?.changeView("timeGridDay");
-                    this.fullCalendarView?.gotoDate(start);
-                    return;
-                }
-                const partialEvent = dateEndpointsToFrontmatter(
+                await handleCalendarSelection({
                     start,
                     end,
-                    false
-                );
-                try {
-                    await this.plugin.createTimedEventNote(
-                        partialEvent,
-                        this.leaf
-                    );
-                } catch (e) {
-                    if (e instanceof Error) {
-                        console.error(e);
-                        new Notice(e.message);
-                    }
-                }
+                    allDay,
+                    viewType,
+                    openDay: (date) => {
+                        this.fullCalendarView?.changeView("timeGridDay");
+                        this.fullCalendarView?.gotoDate(date);
+                    },
+                    createTimedNote: async (partialEvent) => {
+                        try {
+                            await this.plugin.createTimedEventNote(
+                                partialEvent,
+                                this.leaf
+                            );
+                        } catch (e) {
+                            if (e instanceof Error) {
+                                console.error(e);
+                                new Notice(e.message);
+                            }
+                        }
+                    },
+                });
             },
             modifyEvent: async (newEvent, oldEvent) => {
                 try {
@@ -299,7 +293,6 @@ export class CalendarView extends ItemView {
                 }
             },
             openContextMenuForEvent: async (e, mouseEvent) => {
-                const menu = new Menu();
                 if (!this.plugin.cache) {
                     return;
                 }
@@ -307,103 +300,45 @@ export class CalendarView extends ItemView {
                 if (!event) {
                     return;
                 }
-
-                if (this.plugin.cache.isEventEditable(e.id)) {
-                    if (event.type !== "single") {
-                        const occurrenceDate = e.start
-                            ? formatDateLabel(e.start)
-                            : null;
-                        menu.addItem((item) =>
-                            item
-                                .setTitle("Omit this occurrence")
-                                .setDisabled(!occurrenceDate)
-                                .onClick(async () => {
-                                    if (!this.plugin.cache || !occurrenceDate) {
-                                        return;
-                                    }
-                                    try {
-                                        await this.plugin.cache.processEvent(
-                                            e.id,
-                                            (event) =>
-                                                omitRecurringOccurrence(
-                                                    event,
-                                                    occurrenceDate
-                                                )
-                                        );
-                                        new Notice(
-                                            `Omitted occurrence on ${occurrenceDate}.`
-                                        );
-                                    } catch (error) {
-                                        console.error(error);
-                                        new Notice(
-                                            error instanceof Error
-                                                ? error.message
-                                                : "Could not omit this occurrence."
-                                        );
-                                    }
-                                })
-                        );
-                        menu.addSeparator();
-                    }
-                    if (isTask(event)) {
-                        menu.addItem((item) =>
-                            item
-                                .setTitle("Remove checkbox")
-                                .onClick(async () => {
-                                    await this.plugin.cache.processEvent(
-                                        e.id,
-                                        unmakeTask
-                                    );
-                                })
-                        );
-                        menu.addSeparator();
-                    }
-                    menu.addItem((item) =>
-                        item.setTitle("Go to note").onClick(() => {
-                            if (!this.plugin.cache) {
-                                return;
-                            }
-                            openFileForEvent(this.plugin.cache, this.app, e.id);
-                        })
-                    );
-                    menu.addItem((item) =>
-                        item.setTitle("Delete").onClick(async () => {
-                            if (!this.plugin.cache) {
-                                return;
-                            }
-                            await this.plugin.cache.deleteEvent(e.id);
-                            new Notice(`Deleted event "${e.title}".`);
-                        })
-                    );
-                } else {
-                    menu.addItem((item) => {
-                        item.setTitle("No actions available").setDisabled(true);
-                    });
+                const occurrenceDate = e.start
+                    ? formatDateLabel(e.start)
+                    : null;
+                const actions = getCalendarEventContextActions({
+                    event,
+                    isLocalFullNote:
+                        this.plugin.cache.getInfoForFullNoteEvent(e.id) !==
+                        null,
+                    occurrenceDate,
+                    omit: async (date) => {
+                        try {
+                            await this.plugin.cache.processEvent(
+                                e.id,
+                                (event) => omitRecurringOccurrence(event, date)
+                            );
+                            new Notice(`Omitted occurrence on ${date}.`);
+                        } catch (error) {
+                            console.error(error);
+                            new Notice(
+                                error instanceof Error
+                                    ? error.message
+                                    : "Could not omit this occurrence."
+                            );
+                        }
+                    },
+                });
+                if (actions.length === 0) {
+                    return;
                 }
-
+                const menu = new Menu();
+                actions.forEach((action) =>
+                    menu.addItem((item) =>
+                        item
+                            .setTitle(action.title)
+                            .setDisabled(action.disabled)
+                            .onClick(action.run)
+                    )
+                );
                 menu.showAtMouseEvent(mouseEvent);
-            },
-            toggleTask: async (e, isDone) => {
-                const event = this.plugin.cache.getEventById(e.id);
-                if (!event) {
-                    return false;
-                }
-                if (event.type !== "single") {
-                    return false;
-                }
-
-                try {
-                    await this.plugin.cache.updateEventWithId(
-                        e.id,
-                        toggleTask(event, isDone)
-                    );
-                } catch (e) {
-                    if (e instanceof FCError) {
-                        new Notice(e.message);
-                    }
-                    return false;
-                }
-                return true;
             },
         });
         if (this.callback) {

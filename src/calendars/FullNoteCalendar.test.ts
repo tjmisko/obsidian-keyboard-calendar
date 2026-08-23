@@ -11,6 +11,7 @@ import FullNoteCalendar, {
     parseFullNoteEvent,
 } from "./FullNoteCalendar";
 import { parseEvent } from "../types/schema";
+import { fromEventApi, toEventInput } from "../ui/interop";
 
 const makeApp = (
     app: MockApp
@@ -31,7 +32,6 @@ const makeApp = (
     create: jest.fn(),
     rewrite: jest.fn(),
     rename: jest.fn(),
-    delete: jest.fn(),
 });
 
 const dirName = "events";
@@ -493,18 +493,41 @@ describe("Note Calendar Tests", () => {
             endDate: null,
             startTime: "11:00",
             endTime: "12:30",
+            categories: ["work", "planning"],
+            completed: "2021-01-01T10:30:00.000Z",
         });
         const filename = "2022-01-01 Test Event.md";
-        const obsidian = makeApp(
-            MockAppBuilder.make()
-                .folder(
-                    new MockAppBuilder("events").file(
-                        filename,
-                        new FileBuilder().frontmatter(event)
-                    )
+        const app = MockAppBuilder.make()
+            .folder(
+                new MockAppBuilder("events").file(
+                    filename,
+                    new FileBuilder().frontmatter(event)
                 )
-                .done()
+            )
+            .done();
+        app.vault.contents.set(
+            "/events/2022-01-01 Test Event.md",
+            [
+                "---",
+                "title: Test Event",
+                "allDay: false",
+                "startTime: 11:00",
+                "endTime: 12:30",
+                "type: single",
+                "date: 2022-01-01",
+                "endDate: null",
+                "categories:",
+                "  - work",
+                "  - planning",
+                "completed: 2021-01-01T10:30:00.000Z",
+                "unknown:",
+                "  nested: true",
+                "---",
+                "Legacy body stays intact",
+                "",
+            ].join("\n")
         );
+        const obsidian = makeApp(app);
         const calendar = new FullNoteCalendar(obsidian, color, dirName);
 
         const firstFile = obsidian.getAbstractFileByPath(
@@ -530,18 +553,27 @@ describe("Note Calendar Tests", () => {
             .calls[0];
         expect(file.path).toBe(join("events", filename));
 
-        expect(rewriteCallback(contents)).toMatchInlineSnapshot(`
-            "---
-            title: Test Event
-            allDay: false
-            startTime: 11:00
-            endTime: 13:30
-            type: single
-            date: 2022-01-01
-            endDate: null
-            ---
-            "
-        `);
+        expect(rewriteCallback(contents)).toBe(
+            [
+                "---",
+                "title: Test Event",
+                "allDay: false",
+                "startTime: 11:00",
+                "endTime: 13:30",
+                "type: single",
+                "date: 2022-01-01",
+                "endDate: null",
+                "categories:",
+                "  - work",
+                "  - planning",
+                "completed: 2021-01-01T10:30:00.000Z",
+                "unknown:",
+                "  nested: true",
+                "---",
+                "Legacy body stays intact",
+                "",
+            ].join("\n")
+        );
     });
 
     it("updates friendly timing without rewriting unknown properties or body", async () => {
@@ -556,6 +588,7 @@ describe("Note Calendar Tests", () => {
                         end: "10:00",
                         tags: ["event", "work"],
                         message: "Keep me",
+                        completed: false,
                     })
                 )
             )
@@ -571,6 +604,7 @@ describe("Note Calendar Tests", () => {
                 "  - event",
                 "  - work",
                 "message: Keep me",
+                "completed: false",
                 "unknown:",
                 "  nested: true",
                 "---",
@@ -583,16 +617,21 @@ describe("Note Calendar Tests", () => {
         const file = obsidian.getFileByPath(`events/${filename}`)!;
         const contents = await obsidian.read(file);
 
+        const [[parsedEvent]] = await calendar.getEventsInFile(file);
+        const rendered = toEventInput("planning", parsedEvent)!;
+        const movedEvent = fromEventApi({
+            title: parsedEvent.title,
+            allDay: false,
+            start: new Date(2026, 7, 22, 23, 0),
+            end: new Date(2026, 7, 23, 1, 0),
+            extendedProps: rendered.extendedProps,
+        } as any);
+        expect(movedEvent.categories).toEqual(["work"]);
+        expect(movedEvent).not.toHaveProperty("completed");
+
         await calendar.modifyEvent(
             { path: file.path, lineNumber: undefined },
-            parseEvent({
-                title: "Planning",
-                type: "single",
-                allDay: false,
-                date: "2026-08-22",
-                startTime: "23:00",
-                endTime: "01:00",
-            }),
+            movedEvent,
             jest.fn()
         );
 
@@ -609,6 +648,7 @@ describe("Note Calendar Tests", () => {
                 "  - event",
                 "  - work",
                 "message: Keep me",
+                "completed: false",
                 "unknown:",
                 "  nested: true",
                 "---",
@@ -711,7 +751,9 @@ describe("Note Calendar Tests", () => {
                         start: "09:00",
                         end: "10:00",
                         weekday: "Monday",
-                        tags: ["event", "recurring"],
+                        omit: ["2026-08-17"],
+                        tags: ["event", "recurring", "work"],
+                        completed: "2026-08-01T12:34:56.000Z",
                     })
                 )
             )
@@ -729,7 +771,13 @@ describe("Note Calendar Tests", () => {
                 "tags:",
                 "  - event",
                 "  - recurring",
+                "  - work",
+                "completed: 2026-08-01T12:34:56.000Z",
                 "unrelated: preserve-me",
+                "unknown:",
+                "  nested: true",
+                "omit:",
+                "  - 2026-08-17",
                 "---",
                 "Body stays byte-equivalent",
                 "",
@@ -740,19 +788,26 @@ describe("Note Calendar Tests", () => {
         const file = obsidian.getFileByPath(`events/${filename}`)!;
         const contents = await obsidian.read(file);
 
+        const [[parsedEvent]] = await calendar.getEventsInFile(file);
+        const rendered = toEventInput("weekly", parsedEvent)!;
+        const movedEvent = fromEventApi({
+            title: parsedEvent.title,
+            allDay: false,
+            start: new Date(2026, 7, 10, 11, 30),
+            end: new Date(2026, 7, 10, 12, 45),
+            extendedProps: rendered.extendedProps,
+        } as any);
+        expect(movedEvent).toMatchObject({
+            type: "recurring",
+            categories: ["work"],
+            startRecur: "2026-08-03",
+            endRecur: "2026-09-01",
+            skipDates: ["2026-08-17"],
+        });
+
         await calendar.modifyEvent(
             { path: file.path, lineNumber: undefined },
-            parseEvent({
-                title: "Different recurrence start",
-                type: "recurring",
-                allDay: false,
-                daysOfWeek: ["M"],
-                startRecur: "2026-08-03",
-                endRecur: "2026-09-01",
-                skipDates: ["2026-08-17"],
-                startTime: "11:30",
-                endTime: "12:45",
-            }),
+            movedEvent,
             jest.fn()
         );
 
@@ -770,7 +825,11 @@ describe("Note Calendar Tests", () => {
                 "tags:",
                 "  - event",
                 "  - recurring",
+                "  - work",
+                "completed: 2026-08-01T12:34:56.000Z",
                 "unrelated: preserve-me",
+                "unknown:",
+                "  nested: true",
                 "omit:",
                 "  - 2026-08-17",
                 "---",
