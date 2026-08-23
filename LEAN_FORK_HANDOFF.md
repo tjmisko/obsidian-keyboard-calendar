@@ -28,7 +28,7 @@ The finished fork provides:
 - Native Obsidian command palette, Escape, Vim, Back/Forward, and recent-file behavior.
 - Daily-note links in calendar date headers. Daily notes are navigation targets, not event stores.
 - A minimal recurrence context menu containing “Omit this occurrence.”
-- Read-only ICS feeds as the only possible external-calendar boundary, if and only if the Phase 3 `KEEP_ICS` spike passes. Otherwise the finished fork is local-only.
+- Local-only operation with no external-calendar or generic remote connector boundary.
 
 The finished fork does not provide:
 
@@ -41,7 +41,7 @@ The finished fork does not provide:
 - Calendar-driven deletion of an entire event note.
 - A generic connector framework intended for hypothetical future sources.
 
-If ICS survives Phase 3, future Google visibility should use that hardened, read-only adapter. OAuth or two-way Google support is a separate future project and must not be coupled to the renderer.
+Future Google visibility, OAuth, or two-way sync is a separate project and must not be coupled to this renderer.
 
 ## Invariants that no cut may break
 
@@ -137,7 +137,7 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 | Phase 0 safety harness | Accepted and integrated at `49d7db8`; adversarial `ACCEPT` | Complete |
 | Phase 1 dead connectors | Accepted and integrated at `f4bff77`; adversarial `ACCEPT` | Complete |
 | Phase 2 CalDAV removal | Accepted and integrated at `63c7b5f`; backup confirmed; adversarial `ACCEPT` | Complete |
-| Phase 3 remote boundary | Blocked | Phase 2 accepted; record exactly one of `KEEP_ICS` or `REMOVE_ICS` |
+| Phase 3 remote boundary | `REMOVE_ICS` recorded; implementation in progress | Complete the removal gate and adversarial review |
 | D1 writable folders | Undecided; recommendation: one | Explicit user decision before Phase 6 design |
 | D2 folder traversal | Undecided; recommendation: direct child | Explicit user decision before Phase 6 design |
 | Sidebar bridge removal | Deferred compatibility work | Persisted migration marker, workspace backup, explicit acceptance or stated version boundary |
@@ -314,6 +314,8 @@ Rollback trigger: startup crash, secret retained/leaked unexpectedly, changed lo
 Owner: remote-boundary agent
 
 Risk: medium/high; remote URLs may be bearer secrets
+
+Formal decision — 2026-08-22: `REMOVE_ICS`. The pinned Obsidian API exposes only fully materialized response bodies and accepts no abort signal, streaming control, timeout, or byte limit. The current `ical.js` parser is synchronous. Browser streaming would lose Obsidian's cross-origin request behavior, while a desktop Node transport would not cover the plugin's supported mobile runtime. A dual native transport plus worker parser is disproportionate to this lean fork, and no qualifying bounded design was demonstrated. The finished product is therefore local-only.
 
 First run a technical spike and record one formal branch decision:
 
