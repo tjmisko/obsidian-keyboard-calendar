@@ -140,14 +140,14 @@
 }
 
 .fc .ofc-event-ghost {
-	opacity: 0.3;
-	filter: grayscale(0.68) saturate(0.42);
+	opacity: 0.32;
+	filter: grayscale(0.35) saturate(0.75);
 }
 
 .fc .ofc-event-ghost:hover,
 .fc .ofc-event-ghost:focus-within {
 	opacity: 0.52;
-	filter: grayscale(0.55) saturate(0.5);
+	filter: grayscale(0.2) saturate(0.85);
 }
 
 .fc .fc-timegrid-slot-label-cushion {
