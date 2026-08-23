@@ -412,7 +412,42 @@ describe("Note Calendar Tests", () => {
             }
         }
     );
-    it.todo("Recursive folder settings");
+    it("keeps the existing initial scan limited to direct-child notes", async () => {
+        const obsidian = makeApp(
+            MockAppBuilder.make()
+                .folder(
+                    new MockAppBuilder(dirName)
+                        .file(
+                            "Direct.md",
+                            new FileBuilder().frontmatter({
+                                title: "Direct",
+                                type: "single",
+                                allDay: true,
+                                date: "2026-08-22",
+                            })
+                        )
+                        .folder(
+                            new MockAppBuilder("nested").file(
+                                "Nested.md",
+                                new FileBuilder().frontmatter({
+                                    title: "Nested",
+                                    type: "single",
+                                    allDay: true,
+                                    date: "2026-08-23",
+                                })
+                            )
+                        )
+                )
+                .done()
+        );
+        const calendar = new FullNoteCalendar(obsidian, color, dirName);
+
+        const paths = (await calendar.getEvents()).map(
+            ([, location]) => location.file.path
+        );
+
+        expect(paths).toEqual([`${dirName}/Direct.md`]);
+    });
 
     it("creates an event", async () => {
         const obsidian = makeApp(MockAppBuilder.make().done());
