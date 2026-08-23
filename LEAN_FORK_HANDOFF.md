@@ -136,7 +136,7 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 | --- | --- | --- |
 | Phase 0 safety harness | Accepted and integrated at `49d7db8`; adversarial `ACCEPT` | Complete |
 | Phase 1 dead connectors | Accepted and integrated at `f4bff77`; adversarial `ACCEPT` | Complete |
-| Phase 2 CalDAV removal | Candidate complete on `codex/phase2-caldav`; user explicitly confirmed the Obsidian/plugin data backup on 2026-08-22 | Coordinator integration and adversarial acceptance |
+| Phase 2 CalDAV removal | Accepted and integrated at `63c7b5f`; backup confirmed; adversarial `ACCEPT` | Complete |
 | Phase 3 remote boundary | Blocked | Phase 2 accepted; record exactly one of `KEEP_ICS` or `REMOVE_ICS` |
 | D1 writable folders | Undecided; recommendation: one | Explicit user decision before Phase 6 design |
 | D2 folder traversal | Undecided; recommendation: direct child | Explicit user decision before Phase 6 design |
@@ -171,7 +171,7 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 - Manual matrix: no live Obsidian GUI was available. Visual event-count equivalence across all four views, recurrence omission appearance, restart behavior, and the broader navigation matrix remain release acceptance items.
 - Rollback: revert the single Phase 1 commit. No persisted settings, workspace layout, note, or external state was mutated by this phase.
 
-### Phase 2 candidate record — 2026-08-22
+### Phase 2 accepted record — 2026-08-22
 
 - Backup gate: satisfied before implementation. The user explicitly acknowledged that Obsidian, including the plugin data needed to restore the pre-migration settings, is backed up. No vault, real plugin data, `.env`, or `.secrets` file was opened in this isolated worktree.
 - Migration behavior: settings version 2 is active. Legacy sources are decoded against original raw slots, numeric local defaults are resolved before filtering, CalDAV sources are removed, and only the generated `{ legacyType: "caldav", removedAtVersion: 2 }` envelope remains. Five distinct synthetic name/URL/home-URL/username/password sentinels are absent from saved output, logs, Notices, and runtime settings.
@@ -184,7 +184,9 @@ Update this table in every phase handoff; an empty decision or acceptance cell i
 - Same-toolchain bundle: `main.js` decreased from 2,645,628 to 2,360,993 bytes, a 284,635-byte reduction. `package-lock.json` decreased from 736,105 to 727,089 bytes. CSS is unchanged at 40,048 bytes.
 - Manual matrix: not run in this headless worktree. No Obsidian application, vault, user plugin data, or network-backed calendar was opened. Calendar UI/navigation and two-restart checks remain coordinator/manual acceptance items.
 - Rollback: reject/revert the single Phase 2 candidate commit and restore the user-controlled pre-migration plugin-data backup. Git alone cannot restore credentials after the activated scrub.
-- Recommendation: `ACCEPT` for coordinator integration and adversarial review. Do not begin Phase 3 until this candidate is integrated and accepted.
+- Acceptance: coordinator integration and adversarial review both `ACCEPT`; the Phase 3 gate is open.
+- Integrated result: commit `63c7b5f`; 16 suites passed, 183 tests passed, 2 todo, and 44 snapshots passed. Compile, lint, production build, `git diff --check`, lock-based dependency inventory, and removed-package/bundle searches passed. Integrated artifacts are `main.js` 2,350,334 bytes, `styles.css`/`main.css` 39,844 bytes, and `package-lock.json` 727,089 bytes. This is a 283,615-byte reduction from the accepted post-Phase-1 `main.js`.
+- Adversarial result: `ACCEPT`, with no correctness finding. Residual acceptance is limited to the documented live-Obsidian restart, navigation, history, network-observation, and real-vault preservation checks.
 
 ## Phase 0 — Safety harness and non-destructive migration framework
 
