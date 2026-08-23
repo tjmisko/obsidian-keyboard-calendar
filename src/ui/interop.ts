@@ -141,14 +141,11 @@ const recurringDuration = (start: Duration, end: Duration): Duration => {
         : duration;
 };
 
-const recurringDurationString = (
+const recurringDurationInput = (
     start: Duration,
     end: Duration
-): string | null =>
-    recurringDuration(start, end)
-        .normalize()
-        .shiftTo("hours", "minutes")
-        .toISO();
+): EventInput["duration"] =>
+    recurringDuration(start, end).normalize().toObject();
 
 export function dateEndpointsToFrontmatter(
     start: Date,
@@ -241,7 +238,7 @@ export function toEventInput(
                 startTime: normalizeTimeString(frontmatter.startTime || ""),
                 ...(startTime && endTime
                     ? {
-                          duration: recurringDurationString(startTime, endTime),
+                          duration: recurringDurationInput(startTime, endTime),
                       }
                     : {}),
             };
@@ -297,7 +294,7 @@ export function toEventInput(
             if (startTime && frontmatter.endTime) {
                 const endTime = parseTime(frontmatter.endTime);
                 const duration =
-                    endTime && recurringDurationString(startTime, endTime);
+                    endTime && recurringDurationInput(startTime, endTime);
                 if (duration) {
                     event.duration = duration;
                 }

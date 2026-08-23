@@ -1,3 +1,4 @@
+import { createDuration } from "@fullcalendar/core";
 import { parseEvent } from "../types/schema";
 import {
     fromEventApi,
@@ -167,7 +168,38 @@ describe("recurring event rendering", () => {
             }),
         ],
     ])("calculates a positive overnight duration for %s events", (_, event) => {
-        expect(toEventInput("event-id", event)?.duration).toBe("PT2H");
+        const duration = toEventInput("event-id", event)?.duration;
+
+        expect(duration).toEqual({
+            days: 0,
+            hours: 2,
+            minutes: 0,
+            seconds: 0,
+            milliseconds: 0,
+        });
+        expect(createDuration(duration!)).toMatchObject({
+            days: 0,
+            milliseconds: 2 * 60 * 60 * 1000,
+        });
+    });
+
+    it("provides an RRule duration that FullCalendar can parse", () => {
+        const event = parseEvent({
+            title: "Down to Dance",
+            type: "rrule",
+            startDate: "1970-01-01",
+            rrule: "FREQ=MONTHLY;BYDAY=4SU",
+            skipDates: [],
+            allDay: false,
+            startTime: "15:00",
+            endTime: "18:00",
+        });
+        const duration = toEventInput("event-id", event)?.duration;
+
+        expect(createDuration(duration!)).toMatchObject({
+            days: 0,
+            milliseconds: 3 * 60 * 60 * 1000,
+        });
     });
 
     it("treats equal recurrence endpoints as a full day", () => {
@@ -180,7 +212,13 @@ describe("recurring event rendering", () => {
             endTime: "09:00",
         });
 
-        expect(toEventInput("event-id", event)?.duration).toBe("PT24H");
+        expect(toEventInput("event-id", event)?.duration).toEqual({
+            days: 1,
+            hours: 0,
+            minutes: 0,
+            seconds: 0,
+            milliseconds: 0,
+        });
     });
 
     it("characterizes the nth-weekday collapse hazard and disables editing", () => {
