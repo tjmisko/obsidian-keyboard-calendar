@@ -20,11 +20,41 @@ interface CalendarEventGrabState {
     current: CalendarEventGrab;
 }
 
+interface CalendarEventMove {
+    before: CalendarEventGrab;
+    after: CalendarEventGrab;
+}
+
 const copyGrab = (grab: CalendarEventGrab): CalendarEventGrab => ({
     eventId: grab.eventId,
     start: new Date(grab.start),
     end: new Date(grab.end),
 });
+
+const copyMove = (move: CalendarEventMove): CalendarEventMove => ({
+    before: copyGrab(move.before),
+    after: copyGrab(move.after),
+});
+
+const grabsMatch = (
+    left: CalendarEventGrab,
+    right: CalendarEventGrab
+): boolean =>
+    left.eventId === right.eventId &&
+    left.start.getTime() === right.start.getTime() &&
+    left.end.getTime() === right.end.getTime();
+
+export const isCalendarMoveRedoShortcut = (
+    event: Pick<
+        KeyboardEvent,
+        "key" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey"
+    >
+): boolean =>
+    event.ctrlKey &&
+    !event.metaKey &&
+    !event.altKey &&
+    !event.shiftKey &&
+    event.key.toLowerCase() === "r";
 
 /** Moves a grabbed event while preserving both endpoints in local time. */
 export const moveCalendarEventGrab = (
@@ -157,7 +187,9 @@ export class CalendarEventNavigator {
     private anchorDate: Date | null = null;
     private pendingCount = "";
     private grabState: CalendarEventGrabState | null = null;
-    private committingGrab = false;
+    private persistingMove = false;
+    private readonly moveUndoStack: CalendarEventMove[] = [];
+    private readonly moveRedoStack: CalendarEventMove[] = [];
     private readonly now: () => Date;
     private readonly canGrabEvent?: (eventId: string) => boolean;
     private readonly previewGrabbedEvent?: (grab: CalendarEventGrab) => void;
@@ -194,7 +226,7 @@ export class CalendarEventNavigator {
     }
 
     deactivate(): void {
-        this.cancelGrabbedEvent();
+        this.restoreGrabbedEvent();
         this.enabled = false;
         this.pendingCount = "";
         this.clearFocus();
@@ -212,6 +244,14 @@ export class CalendarEventNavigator {
 
     isGrabbing(): boolean {
         return this.grabState !== null;
+    }
+
+    canUndoMove(): boolean {
+        return this.moveUndoStack.length > 0;
+    }
+
+    canRedoMove(): boolean {
+        return this.moveRedoStack.length > 0;
     }
 
     getGrabbedEvent(): CalendarEventGrab | null {
@@ -340,7 +380,7 @@ export class CalendarEventNavigator {
             !this.enabled ||
             !this.focusedEvent ||
             this.grabState ||
-            this.committingGrab
+            this.persistingMove
         ) {
             return false;
         }
@@ -368,7 +408,7 @@ export class CalendarEventNavigator {
     }
 
     moveGrabbedEvent(direction: CalendarCellDirection, count = 1): boolean {
-        if (!this.grabState || this.committingGrab) {
+        if (!this.grabState || this.persistingMove) {
             return false;
         }
         this.grabState.current = moveCalendarEventGrab(
@@ -382,8 +422,8 @@ export class CalendarEventNavigator {
         return true;
     }
 
-    cancelGrabbedEvent(): boolean {
-        if (!this.grabState || this.committingGrab) {
+    private restoreGrabbedEvent(): boolean {
+        if (!this.grabState || this.persistingMove) {
             return false;
         }
         const original = copyGrab(this.grabState.original);
@@ -393,34 +433,44 @@ export class CalendarEventNavigator {
     }
 
     async confirmGrabbedEvent(): Promise<boolean> {
-        if (!this.grabState || this.committingGrab) {
+        if (!this.grabState || this.persistingMove) {
             return false;
         }
         const current = copyGrab(this.grabState.current);
         const original = copyGrab(this.grabState.original);
-        this.committingGrab = true;
-        let didCommit = true;
-        try {
-            didCommit = this.commitGrabbedEvent
-                ? await this.commitGrabbedEvent(current)
-                : true;
-        } catch (error) {
-            console.error(error);
-            didCommit = false;
-        } finally {
-            this.committingGrab = false;
+        if (grabsMatch(original, current)) {
+            this.finishGrab(current);
+            return true;
         }
+
+        this.persistingMove = true;
+        const didCommit = await this.persistGrab(current);
+        this.persistingMove = false;
 
         if (!didCommit) {
             this.previewGrabbedEvent?.(original);
+        } else {
+            this.moveUndoStack.push({ before: original, after: current });
+            this.moveRedoStack.length = 0;
         }
         this.finishGrab(didCommit ? current : original);
         return true;
     }
 
+    async undoMove(count = 1): Promise<boolean> {
+        return this.applyMoveHistory("undo", count);
+    }
+
+    async redoMove(count = 1): Promise<boolean> {
+        return this.applyMoveHistory("redo", count);
+    }
+
     handleKey(key: string, repeat = false): boolean {
         if (!this.enabled) {
             return false;
+        }
+        if (this.persistingMove) {
+            return true;
         }
         if (this.grabState) {
             return this.handleGrabKey(key, repeat);
@@ -432,6 +482,15 @@ export class CalendarEventNavigator {
             this.pendingCount = "";
             if (!repeat) {
                 this.beginGrab();
+            }
+            return true;
+        }
+        if (key === "u" || key === "U") {
+            const count = this.takeCount();
+            if (!repeat) {
+                void (key === "u"
+                    ? this.undoMove(count)
+                    : this.redoMove(count));
             }
             return true;
         }
@@ -447,7 +506,7 @@ export class CalendarEventNavigator {
     }
 
     private handleGrabKey(key: string, repeat: boolean): boolean {
-        if (this.committingGrab) {
+        if (this.persistingMove) {
             return true;
         }
         if (this.captureCount(key, repeat)) {
@@ -455,7 +514,10 @@ export class CalendarEventNavigator {
         }
         if (key === "Escape") {
             this.pendingCount = "";
-            return this.cancelGrabbedEvent();
+            if (!repeat) {
+                void this.confirmGrabbedEvent();
+            }
+            return true;
         }
         if (key === "Enter") {
             this.pendingCount = "";
@@ -473,6 +535,63 @@ export class CalendarEventNavigator {
         // normal-mode commands such as insert, today, or view cycling.
         this.pendingCount = "";
         return true;
+    }
+
+    private async persistGrab(grab: CalendarEventGrab): Promise<boolean> {
+        try {
+            return this.commitGrabbedEvent
+                ? await this.commitGrabbedEvent(copyGrab(grab))
+                : true;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    }
+
+    private async applyMoveHistory(
+        direction: "undo" | "redo",
+        count: number
+    ): Promise<boolean> {
+        if (!this.enabled || this.grabState || this.persistingMove) {
+            return false;
+        }
+        const source =
+            direction === "undo" ? this.moveUndoStack : this.moveRedoStack;
+        const destination =
+            direction === "undo" ? this.moveRedoStack : this.moveUndoStack;
+        const operationCount = Math.max(1, Math.floor(count));
+        let focusTarget: CalendarEventGrab | null = null;
+
+        this.persistingMove = true;
+        try {
+            for (let index = 0; index < operationCount; index += 1) {
+                const move = source[source.length - 1];
+                if (!move) {
+                    break;
+                }
+                const target = copyGrab(
+                    direction === "undo" ? move.before : move.after
+                );
+                const fallback = copyGrab(
+                    direction === "undo" ? move.after : move.before
+                );
+                this.previewGrabbedEvent?.(target);
+                if (!(await this.persistGrab(target))) {
+                    this.previewGrabbedEvent?.(fallback);
+                    break;
+                }
+                source.pop();
+                destination.push(copyMove(move));
+                focusTarget = target;
+            }
+        } finally {
+            this.persistingMove = false;
+        }
+
+        if (focusTarget) {
+            this.focusMoveTarget(focusTarget);
+        }
+        return focusTarget !== null;
     }
 
     private getEventElements(): HTMLElement[] {
@@ -586,13 +705,17 @@ export class CalendarEventNavigator {
         this.containerEl.classList.remove("ofc-event-grab-active");
         this.focusedEvent?.classList.remove("ofc-grabbed-calendar-event");
         this.focusedEvent?.removeAttribute("aria-grabbed");
-        if (!this.focusEventById(focusTarget.eventId)) {
+        this.focusMoveTarget(focusTarget);
+        this.onGrabModeChange?.(false);
+    }
+
+    private focusMoveTarget(focusTarget: CalendarEventGrab): void {
+        if (this.enabled && !this.focusEventById(focusTarget.eventId)) {
             this.syncToView(focusTarget.start);
         }
         // A reused FullCalendar element can briefly retain its old dataset
-        // during a render, so keep the committed/cancelled target authoritative.
+        // during a render, so keep the persisted target authoritative.
         this.anchorDate = new Date(focusTarget.start);
-        this.onGrabModeChange?.(false);
     }
 
     private captureCount(key: string, repeat: boolean): boolean {

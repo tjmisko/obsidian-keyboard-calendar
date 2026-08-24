@@ -2,6 +2,7 @@ import type { WorkspaceLeaf } from "obsidian";
 import {
     CalendarEventNavigator,
     getDirectionalEventIndex,
+    isCalendarMoveRedoShortcut,
     moveCalendarEventGrab,
     navigateFromCalendarEvent,
 } from "./event_navigation";
@@ -257,7 +258,9 @@ describe("calendar event grab mode", () => {
         });
         expect(previewGrabbedEvent).toHaveBeenCalledTimes(2);
 
-        await expect(navigator.confirmGrabbedEvent()).resolves.toBe(true);
+        const confirmation = jest.spyOn(navigator, "confirmGrabbedEvent");
+        expect(navigator.handleKey("Enter")).toBe(true);
+        await expect(confirmation.mock.results[0].value).resolves.toBe(true);
         expect(commitGrabbedEvent).toHaveBeenCalledWith({
             eventId: "event-id",
             start: new Date(2026, 7, 21, 9, 30),
@@ -267,7 +270,7 @@ describe("calendar event grab mode", () => {
         expect(onGrabModeChange.mock.calls).toEqual([[true], [false]]);
     });
 
-    it("restores the original position with Escape", () => {
+    it("persists the moved position with Escape and makes it undoable", async () => {
         const start = new Date(2026, 7, 20, 9, 0);
         const end = new Date(2026, 7, 20, 10, 0);
         const focused = makeEventElement(
@@ -277,24 +280,170 @@ describe("calendar event grab mode", () => {
             "event-id"
         );
         const previewGrabbedEvent = jest.fn();
+        const commitGrabbedEvent = jest.fn(async () => true);
         const navigator = new CalendarEventNavigator(makeContainer([focused]), {
             previewGrabbedEvent,
+            commitGrabbedEvent,
         });
         navigator.activate(start);
 
         navigator.handleKey("m");
         navigator.handleKey("ArrowUp");
+        const confirmation = jest.spyOn(navigator, "confirmGrabbedEvent");
         expect(navigator.handleKey("Escape")).toBe(true);
+        await expect(confirmation.mock.results[0].value).resolves.toBe(true);
 
+        const moved = {
+            eventId: "event-id",
+            start: new Date(2026, 7, 20, 8, 45),
+            end: new Date(2026, 7, 20, 9, 45),
+        };
+        expect(commitGrabbedEvent).toHaveBeenLastCalledWith(moved);
+        expect(previewGrabbedEvent).toHaveBeenLastCalledWith(moved);
+        expect(navigator.isGrabbing()).toBe(false);
+        expect(navigator.canUndoMove()).toBe(true);
+        expect(focused.classList.contains("ofc-grabbed-calendar-event")).toBe(
+            false
+        );
+
+        await expect(navigator.undoMove()).resolves.toBe(true);
+        expect(commitGrabbedEvent).toHaveBeenLastCalledWith({
+            eventId: "event-id",
+            start,
+            end,
+        });
+        expect(navigator.canRedoMove()).toBe(true);
+    });
+
+    it("undoes and redoes one completed grab as one move", async () => {
+        const start = new Date(2026, 7, 20, 9, 0);
+        const end = new Date(2026, 7, 20, 10, 0);
+        const focused = makeEventElement(
+            start,
+            end,
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        const previewGrabbedEvent = jest.fn();
+        const commitGrabbedEvent = jest.fn(async () => true);
+        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
+            previewGrabbedEvent,
+            commitGrabbedEvent,
+        });
+        navigator.activate(start);
+        navigator.handleKey("m");
+        navigator.handleKey("2");
+        navigator.handleKey("j");
+        navigator.handleKey("l");
+        await navigator.confirmGrabbedEvent();
+
+        const moved = {
+            eventId: "event-id",
+            start: new Date(2026, 7, 21, 9, 30),
+            end: new Date(2026, 7, 21, 10, 30),
+        };
+        expect(navigator.canUndoMove()).toBe(true);
+        expect(navigator.canRedoMove()).toBe(false);
+
+        await expect(navigator.undoMove()).resolves.toBe(true);
         expect(previewGrabbedEvent).toHaveBeenLastCalledWith({
             eventId: "event-id",
             start,
             end,
         });
-        expect(navigator.isGrabbing()).toBe(false);
-        expect(focused.classList.contains("ofc-grabbed-calendar-event")).toBe(
-            false
+        expect(commitGrabbedEvent).toHaveBeenLastCalledWith({
+            eventId: "event-id",
+            start,
+            end,
+        });
+        expect(navigator.canUndoMove()).toBe(false);
+        expect(navigator.canRedoMove()).toBe(true);
+
+        await expect(navigator.redoMove()).resolves.toBe(true);
+        expect(previewGrabbedEvent).toHaveBeenLastCalledWith(moved);
+        expect(commitGrabbedEvent).toHaveBeenLastCalledWith(moved);
+        expect(navigator.canUndoMove()).toBe(true);
+        expect(navigator.canRedoMove()).toBe(false);
+    });
+
+    it("routes u and U to move history with counts", () => {
+        const focused = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
         );
+        const navigator = new CalendarEventNavigator(makeContainer([focused]));
+        const undoMove = jest
+            .spyOn(navigator, "undoMove")
+            .mockResolvedValue(true);
+        const redoMove = jest
+            .spyOn(navigator, "redoMove")
+            .mockResolvedValue(true);
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+
+        navigator.handleKey("2");
+        expect(navigator.handleKey("u")).toBe(true);
+        navigator.handleKey("3");
+        expect(navigator.handleKey("U")).toBe(true);
+
+        expect(undoMove).toHaveBeenCalledWith(2);
+        expect(redoMove).toHaveBeenCalledWith(3);
+    });
+
+    it("keeps failed undo history and restores the moved preview", async () => {
+        const start = new Date(2026, 7, 20, 9, 0);
+        const focused = makeEventElement(
+            start,
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        const previewGrabbedEvent = jest.fn();
+        const commitGrabbedEvent = jest
+            .fn<Promise<boolean>, []>()
+            .mockResolvedValueOnce(true)
+            .mockResolvedValueOnce(false);
+        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
+            previewGrabbedEvent,
+            commitGrabbedEvent,
+        });
+        navigator.activate(start);
+        navigator.handleKey("m");
+        navigator.handleKey("ArrowDown");
+        await navigator.confirmGrabbedEvent();
+        const moved = {
+            eventId: "event-id",
+            start: new Date(2026, 7, 20, 9, 15),
+            end: new Date(2026, 7, 20, 10, 15),
+        };
+
+        await expect(navigator.undoMove()).resolves.toBe(false);
+
+        expect(previewGrabbedEvent).toHaveBeenLastCalledWith(moved);
+        expect(navigator.canUndoMove()).toBe(true);
+        expect(navigator.canRedoMove()).toBe(false);
+    });
+
+    it("does not record a grab that exits without moving", async () => {
+        const start = new Date(2026, 7, 20, 9, 0);
+        const focused = makeEventElement(
+            start,
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        const commitGrabbedEvent = jest.fn(async () => true);
+        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
+            commitGrabbedEvent,
+        });
+        navigator.activate(start);
+        navigator.handleKey("m");
+
+        await expect(navigator.confirmGrabbedEvent()).resolves.toBe(true);
+
+        expect(commitGrabbedEvent).not.toHaveBeenCalled();
+        expect(navigator.canUndoMove()).toBe(false);
     });
 
     it("reattaches grab focus when FullCalendar replaces the event element", () => {
@@ -368,6 +517,40 @@ describe("calendar event grab mode", () => {
         expect(navigator.handleKey("m")).toBe(true);
         expect(navigator.isGrabbing()).toBe(false);
         expect(onGrabUnavailable).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe("calendar move redo shortcut", () => {
+    const makeShortcut = (
+        overrides: Partial<
+            Pick<
+                KeyboardEvent,
+                "key" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey"
+            >
+        > = {}
+    ) => ({
+        key: "r",
+        ctrlKey: true,
+        metaKey: false,
+        altKey: false,
+        shiftKey: false,
+        ...overrides,
+    });
+
+    it("accepts Ctrl+r without claiming other modifier combinations", () => {
+        expect(isCalendarMoveRedoShortcut(makeShortcut())).toBe(true);
+        expect(
+            isCalendarMoveRedoShortcut(makeShortcut({ shiftKey: true }))
+        ).toBe(false);
+        expect(
+            isCalendarMoveRedoShortcut(makeShortcut({ ctrlKey: false }))
+        ).toBe(false);
+        expect(
+            isCalendarMoveRedoShortcut(makeShortcut({ metaKey: true }))
+        ).toBe(false);
+        expect(isCalendarMoveRedoShortcut(makeShortcut({ key: "u" }))).toBe(
+            false
+        );
     });
 });
 

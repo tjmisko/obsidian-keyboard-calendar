@@ -22,6 +22,7 @@ import { UpdateViewCallback } from "src/core/EventCache";
 import { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
 import {
     CalendarEventNavigator,
+    isCalendarMoveRedoShortcut,
     navigateFromCalendarEvent,
 } from "./event_navigation";
 import {
@@ -95,15 +96,25 @@ export class CalendarView extends ItemView {
         const isEditing = !!targetElement?.closest(
             'input, textarea, select, [contenteditable]:not([contenteditable="false"]), .cm-editor, .modal-container, [role="dialog"]'
         );
+        const isMoveRedo =
+            this.navigationMode === "normal" &&
+            isCalendarMoveRedoShortcut(event);
         if (
             !this.fullCalendarView ||
             this.app.workspace.activeLeaf !== this.leaf ||
             event.defaultPrevented ||
-            event.ctrlKey ||
+            (event.ctrlKey && !isMoveRedo) ||
             event.metaKey ||
             event.altKey ||
             isEditing
         ) {
+            return;
+        }
+
+        if (isMoveRedo) {
+            event.preventDefault();
+            event.stopPropagation();
+            this.eventNavigator?.handleKey("U", event.repeat);
             return;
         }
 
@@ -213,7 +224,7 @@ export class CalendarView extends ItemView {
                 ? "Normal mode — i selects a time block; m moves the focused event"
                 : this.navigationMode === "insert"
                 ? "Insert mode — Escape returns to event navigation"
-                : "Grab mode — arrows move; Enter confirms; Escape cancels";
+                : "Grab mode — arrows move; Enter or Escape keeps the move";
     }
 
     getIcon(): string {
