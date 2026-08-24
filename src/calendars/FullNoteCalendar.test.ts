@@ -125,6 +125,31 @@ describe("note-first frontmatter", () => {
         });
     });
 
+    it.each([
+        ["single", "single", "2026-08-21"],
+        ["recurring", "recurring", ["2026-08-28", "2026-08-21"]],
+    ])("parses legacy %s attending metadata", (_, type, attending) => {
+        expect(
+            parseFullNoteEvent(
+                {
+                    type,
+                    date: "2026-08-21",
+                    daysOfWeek: ["F"],
+                    attending,
+                    allDay: false,
+                    startTime: "09:30",
+                    endTime: "10:15",
+                },
+                "Legacy event"
+            )
+        ).toMatchObject({
+            attendingDates:
+                typeof attending === "string"
+                    ? [attending]
+                    : [...attending].sort(),
+        });
+    });
+
     it("treats an end at or before the start as overnight", () => {
         expect(
             parseFullNoteEvent(
@@ -154,11 +179,45 @@ describe("note-first frontmatter", () => {
         ).toMatchObject({ categories: ["work", "Project A"] });
     });
 
+    it("parses a scalar attending date for a single event", () => {
+        expect(
+            parseFullNoteEvent(
+                {
+                    date: "2026-08-21",
+                    attending: "2026-08-21",
+                    start: "09:30",
+                    end: "10:15",
+                    tags: ["event", "ghost"],
+                },
+                "Attended planning"
+            )
+        ).toMatchObject({
+            type: "single",
+            attendingDates: ["2026-08-21"],
+        });
+    });
+
     it.each([
         [{ date: "2026-02-29", start: "09:00", end: "10:00" }],
         [{ date: "2026-08-21", start: "9:00", end: "10:00" }],
         [{ date: "2026-08-21", start: "25:00", end: "10:00" }],
         [{ date: "2026-08-21", start: "09:00", end: "10:99" }],
+        [
+            {
+                date: "2026-08-21",
+                attending: ["2026-08-21"],
+                start: "09:00",
+                end: "10:00",
+            },
+        ],
+        [
+            {
+                date: "2026-08-21",
+                attending: "2026-02-29",
+                start: "09:00",
+                end: "10:00",
+            },
+        ],
     ])("rejects invalid friendly date/time properties", (properties) => {
         expect(
             parseFullNoteEvent({ ...properties, tags: ["event"] }, "Invalid")
@@ -216,6 +275,30 @@ describe("note-first frontmatter", () => {
             endTime: "10:00",
         });
     });
+
+    it.each([
+        ["weekly", {}],
+        ["monthly", { week: 2 }],
+    ])(
+        "parses, sorts, and de-duplicates attending dates for %s events",
+        (_, recurrence) => {
+            expect(
+                parseFullNoteEvent(
+                    {
+                        start: "09:00",
+                        end: "10:00",
+                        weekday: "Monday",
+                        attending: ["2026-08-24", "2026-08-17", "2026-08-24"],
+                        tags: ["event", "recurring", "ghost"],
+                        ...recurrence,
+                    },
+                    "Attended review"
+                )
+            ).toMatchObject({
+                attendingDates: ["2026-08-17", "2026-08-24"],
+            });
+        }
+    );
 
     it("parses unbounded first- and second-Saturday monthly events", () => {
         const first = parseFullNoteEvent(
@@ -311,6 +394,20 @@ describe("note-first frontmatter", () => {
             {
                 weekday: "Monday",
                 omit: ["not-a-date"],
+                tags: ["event", "recurring"],
+            },
+        ],
+        [
+            {
+                weekday: "Monday",
+                attending: "2026-08-24",
+                tags: ["event", "recurring"],
+            },
+        ],
+        [
+            {
+                weekday: "Monday",
+                attending: ["not-a-date"],
                 tags: ["event", "recurring"],
             },
         ],

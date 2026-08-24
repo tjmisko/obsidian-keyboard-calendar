@@ -17,6 +17,14 @@ tags:
 
 The filename is the event title unless a `title` string is present. `date` must be `YYYY-MM-DD`; `start` and `end` must be 24-hour `HH:mm` values. An end time equal to or earlier than the start represents an overnight event. Tags other than `event` and `recurring` become event categories.
 
+If an event has a tag configured for ghost rendering but you plan to attend it, add an `attending` date matching the event date. That occurrence renders normally instead of as a ghost:
+
+```yaml
+attending: 2026-08-22
+```
+
+The value must be a `YYYY-MM-DD` date. It does not change the event schedule.
+
 The rest of the note is yours for descriptions, links, or meeting notes. Extra frontmatter and note content are preserved when the plugin changes timing or recurrence omissions. Older event notes without the `event` tag remain parser-compatible, but new notes should use the format above.
 
 ## Create a timed event

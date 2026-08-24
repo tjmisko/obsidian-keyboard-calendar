@@ -315,6 +315,7 @@ describe("legacy-index equivalence", () => {
                 daysOfWeek: ["M"],
                 skipDates: ["2026-08-24"],
                 categories: ["Work"],
+                attendingDates: ["2026-08-24"],
             },
         });
         const index = new LocalEventIndex({
@@ -328,6 +329,7 @@ describe("legacy-index equivalence", () => {
         expect(Object.isFrozen(stored)).toBe(true);
         expect(Object.isFrozen(stored.event)).toBe(true);
         expect(Object.isFrozen(stored.event.categories)).toBe(true);
+        expect(Object.isFrozen(stored.event.attendingDates)).toBe(true);
         if (stored.event.type !== "recurring") {
             throw new Error("Expected recurring test event.");
         }

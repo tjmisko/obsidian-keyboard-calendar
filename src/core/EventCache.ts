@@ -443,6 +443,11 @@ export default class EventCache {
         } else {
             merged.categories = [...previous.categories];
         }
+        if (previous.attendingDates === undefined) {
+            delete merged.attendingDates;
+        } else {
+            merged.attendingDates = [...previous.attendingDates];
+        }
         if (merged.type === "single") {
             if (
                 previous.type === "single" &&
@@ -532,6 +537,11 @@ export default class EventCache {
                             ...event,
                             ...(event.categories
                                 ? { categories: [...event.categories] }
+                                : {}),
+                            ...(event.attendingDates
+                                ? {
+                                      attendingDates: [...event.attendingDates],
+                                  }
                                 : {}),
                             ...(event.type === "recurring"
                                 ? {

@@ -60,6 +60,41 @@ describe("task-free event metadata", () => {
         expect(event).not.toHaveProperty("completed");
     });
 
+    it("round-trips mutable attending-date metadata", () => {
+        const event = parseEvent({
+            title: "Weekly review",
+            type: "recurring",
+            daysOfWeek: ["M"],
+            attendingDates: ["2026-08-17", "2026-08-24"],
+            allDay: false,
+            startTime: "09:00",
+            endTime: "10:00",
+        });
+        Object.freeze(event.attendingDates);
+        Object.freeze(event);
+
+        const rendered = toEventInput("event-id", event)!;
+        const renderedDates = rendered.extendedProps
+            ?.attendingDates as string[];
+        expect(Object.isFrozen(renderedDates)).toBe(false);
+        renderedDates.push("2026-08-31");
+        expect(event.attendingDates).toEqual(["2026-08-17", "2026-08-24"]);
+
+        const moved = fromEventApi({
+            title: "Weekly review",
+            allDay: false,
+            start: new Date(2026, 7, 17, 11, 0),
+            end: new Date(2026, 7, 17, 12, 0),
+            extendedProps: rendered.extendedProps,
+        } as any);
+        expect(moved.attendingDates).toEqual([
+            "2026-08-17",
+            "2026-08-24",
+            "2026-08-31",
+        ]);
+        expect(moved.attendingDates).not.toBe(renderedDates);
+    });
+
     it.each([
         [
             "single",

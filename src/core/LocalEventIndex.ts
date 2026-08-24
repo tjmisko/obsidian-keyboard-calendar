@@ -37,6 +37,9 @@ export type LocalEventIndexApplyResult = "applied" | "stale";
 const cloneEvent = (event: OFCEvent): OFCEvent => {
     const cloned = { ...event } as OFCEvent;
     if (event.categories) cloned.categories = [...event.categories];
+    if (event.attendingDates) {
+        cloned.attendingDates = [...event.attendingDates];
+    }
     if (event.type === "recurring") {
         const recurring = cloned as Extract<OFCEvent, { type: "recurring" }>;
         if (event.daysOfWeek) recurring.daysOfWeek = [...event.daysOfWeek];
@@ -57,6 +60,7 @@ const cloneRecord = (record: LocalEventRecord): LocalEventRecord => ({
 const freezeEvent = (event: OFCEvent): OFCEvent => {
     const frozen = cloneEvent(event);
     if (frozen.categories) Object.freeze(frozen.categories);
+    if (frozen.attendingDates) Object.freeze(frozen.attendingDates);
     if (frozen.type === "recurring") {
         if (frozen.daysOfWeek) Object.freeze(frozen.daysOfWeek);
         if (frozen.skipDates) Object.freeze(frozen.skipDates);
