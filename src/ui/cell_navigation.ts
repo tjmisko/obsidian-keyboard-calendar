@@ -22,6 +22,7 @@ export interface CalendarCellNavigatorOptions {
 export type CalendarScrollAlignment = "start" | "center" | "end";
 
 const FALLBACK_PAGE_CELL_COUNT = 16;
+const MAX_OPERATION_COUNT = 9999;
 
 const minutesSinceStartOfDay = (date: Date): number =>
     date.getHours() * 60 + date.getMinutes();
@@ -98,17 +99,22 @@ export const getInitialCalendarCell = (
 
 export const moveCalendarCell = (
     cell: CalendarCell,
-    direction: CalendarCellDirection
+    direction: CalendarCellDirection,
+    count = 1
 ): CalendarCell => {
     const next = new Date(cell.start);
+    const distance = Math.max(1, Math.floor(count));
 
     if (direction === "left" || direction === "right") {
-        next.setDate(next.getDate() + (direction === "left" ? -1 : 1));
+        next.setDate(
+            next.getDate() + (direction === "left" ? -distance : distance)
+        );
         return createCalendarCell(next);
     }
 
     const offset =
-        direction === "up" ? -CALENDAR_CELL_MINUTES : CALENDAR_CELL_MINUTES;
+        (direction === "up" ? -CALENDAR_CELL_MINUTES : CALENDAR_CELL_MINUTES) *
+        distance;
     const nextMinute = Math.max(
         0,
         Math.min(
@@ -179,6 +185,7 @@ export class CalendarCellNavigator {
     private eventDraft: CalendarEventDraft | null = null;
     private enabled = false;
     private pendingPrefix: "g" | "z" | null = null;
+    private pendingCount = "";
     private creatingEvent = false;
     private readonly now: () => Date;
     private readonly createEvent?: (start: Date, end: Date) => Promise<void>;
@@ -195,14 +202,33 @@ export class CalendarCellNavigator {
 
     activate(): void {
         this.enabled = true;
+        this.pendingCount = "";
         this.containerEl.classList.add("ofc-cell-navigation-active");
         this.syncToView(true);
+    }
+
+    activateAtCurrentTime(): void {
+        this.enabled = true;
+        this.eventDraft = null;
+        this.pendingPrefix = null;
+        this.pendingCount = "";
+        this.containerEl.classList.add("ofc-cell-navigation-active");
+        this.containerEl.classList.remove("ofc-event-draft-active");
+
+        const { activeStart, activeEnd } = this.calendar.view;
+        this.selectedCell = getInitialCalendarCell(
+            activeStart,
+            activeEnd,
+            this.now()
+        );
+        this.renderSelection(true);
     }
 
     deactivate(): void {
         this.enabled = false;
         this.eventDraft = null;
         this.pendingPrefix = null;
+        this.pendingCount = "";
         this.removeSelectionElement();
         this.containerEl.classList.remove("ofc-cell-navigation-active");
         this.containerEl.classList.remove("ofc-event-draft-active");
@@ -260,7 +286,7 @@ export class CalendarCellNavigator {
         this.renderSelection(scrollIntoView);
     }
 
-    move(direction: CalendarCellDirection): boolean {
+    move(direction: CalendarCellDirection, count = 1): boolean {
         if (!this.isActive()) {
             return false;
         }
@@ -271,11 +297,13 @@ export class CalendarCellNavigator {
             return false;
         }
 
-        this.select(moveCalendarCell(this.selectedCell, direction).start);
+        this.select(
+            moveCalendarCell(this.selectedCell, direction, count).start
+        );
         return true;
     }
 
-    movePage(direction: "up" | "down"): boolean {
+    movePage(direction: "up" | "down", count = 1): boolean {
         if (!this.isActive() || !this.selectedCell) {
             return false;
         }
@@ -288,7 +316,7 @@ export class CalendarCellNavigator {
         this.select(
             moveCalendarCellBy(
                 this.selectedCell,
-                direction === "up" ? -cellCount : cellCount
+                (direction === "up" ? -cellCount : cellCount) * count
             ).start
         );
         return true;
@@ -331,6 +359,16 @@ export class CalendarCellNavigator {
         return true;
     }
 
+    moveToHour(hour: number): boolean {
+        if (!this.isActive() || !this.selectedCell) {
+            return false;
+        }
+        const date = new Date(this.selectedCell.start);
+        date.setHours(Math.max(0, Math.min(23, hour)), 0, 0, 0);
+        this.select(date);
+        return true;
+    }
+
     alignSelection(alignment: CalendarScrollAlignment): boolean {
         if (!this.isActive() || !this.selectedCell) {
             return false;
@@ -365,6 +403,7 @@ export class CalendarCellNavigator {
             return false;
         }
         this.pendingPrefix = null;
+        this.pendingCount = "";
         this.eventDraft = copyCell(this.selectedCell);
         this.containerEl.classList.add("ofc-event-draft-active");
         this.renderSelection(true);
@@ -381,13 +420,13 @@ export class CalendarCellNavigator {
         return true;
     }
 
-    resizeEventDraft(direction: CalendarCellDirection): boolean {
+    resizeEventDraft(direction: CalendarCellDirection, count = 1): boolean {
         if (!this.eventDraft || !this.selectedCell) {
             return false;
         }
 
         if (direction === "left" || direction === "right") {
-            const dayOffset = direction === "left" ? -1 : 1;
+            const dayOffset = (direction === "left" ? -1 : 1) * count;
             this.eventDraft.start.setDate(
                 this.eventDraft.start.getDate() + dayOffset
             );
@@ -416,7 +455,8 @@ export class CalendarCellNavigator {
                 candidateEnd.getMinutes() +
                     (direction === "up"
                         ? -CALENDAR_CELL_MINUTES
-                        : CALENDAR_CELL_MINUTES)
+                        : CALENDAR_CELL_MINUTES) *
+                        count
             );
             this.eventDraft.end = new Date(
                 Math.max(
@@ -454,20 +494,27 @@ export class CalendarCellNavigator {
             return false;
         }
 
+        if (!this.pendingPrefix && this.captureCount(key, repeat)) {
+            return true;
+        }
+
         if (this.eventDraft) {
             if (key === "Escape") {
+                this.pendingCount = "";
                 return this.cancelEventDraft();
             }
             if (key === "Enter") {
+                this.pendingCount = "";
                 if (!repeat) {
                     void this.confirmEventDraft();
                 }
                 return true;
             }
             const draftDirection = getCalendarCellDirection(key);
-            return draftDirection
-                ? this.resizeEventDraft(draftDirection)
-                : false;
+            if (draftDirection) {
+                return this.resizeEventDraft(draftDirection, this.takeCount());
+            }
+            return this.discardCount();
         }
 
         if (this.pendingPrefix) {
@@ -477,9 +524,12 @@ export class CalendarCellNavigator {
             const prefix = this.pendingPrefix;
             this.pendingPrefix = null;
             if (prefix === "g" && key === "g") {
-                return this.moveToTimeBoundary("first");
+                return this.hasCount()
+                    ? this.moveToHour(this.takeCount())
+                    : this.moveToTimeBoundary("first");
             }
             if (prefix === "z") {
+                this.pendingCount = "";
                 switch (key.toLowerCase()) {
                     case "z":
                         return this.alignSelection("center");
@@ -493,6 +543,7 @@ export class CalendarCellNavigator {
                         return this.scrollHorizontally("right");
                 }
             }
+            this.pendingCount = "";
             return true;
         }
 
@@ -503,25 +554,37 @@ export class CalendarCellNavigator {
             return true;
         }
         if (key === "G") {
-            return this.moveToTimeBoundary("last");
+            return this.hasCount()
+                ? this.moveToHour(this.takeCount())
+                : this.moveToTimeBoundary("last");
         }
         if (key === "Home") {
+            this.pendingCount = "";
             return this.moveToDayBoundary("first");
         }
         if (key === "End") {
+            this.pendingCount = "";
             return this.moveToDayBoundary("last");
         }
         if (key === "PageUp" || key === "PageDown") {
-            return this.movePage(key === "PageUp" ? "up" : "down");
+            return this.movePage(
+                key === "PageUp" ? "up" : "down",
+                this.takeCount()
+            );
         }
         if (key === "Enter") {
+            this.pendingCount = "";
             return repeat ? true : this.beginEventDraft();
         }
         if (key === "Escape") {
+            this.pendingCount = "";
             return false;
         }
         const direction = getCalendarCellDirection(key);
-        return direction ? this.move(direction) : false;
+        if (direction) {
+            return this.move(direction, this.takeCount());
+        }
+        return this.discardCount();
     }
 
     renderSelection(scrollIntoView = false): void {
@@ -612,5 +675,35 @@ export class CalendarCellNavigator {
         return this.containerEl.querySelector<HTMLElement>(
             `.fc-timegrid-slot-lane[data-time="${formatTimeAttribute(date)}"]`
         );
+    }
+
+    private captureCount(key: string, repeat: boolean): boolean {
+        if (!/^\d$/.test(key) || (key === "0" && !this.pendingCount)) {
+            return false;
+        }
+        if (!repeat && this.pendingCount.length < 4) {
+            this.pendingCount += key;
+        }
+        return true;
+    }
+
+    private hasCount(): boolean {
+        return this.pendingCount.length > 0;
+    }
+
+    private takeCount(): number {
+        const count = this.hasCount()
+            ? Math.min(MAX_OPERATION_COUNT, Number(this.pendingCount))
+            : 1;
+        this.pendingCount = "";
+        return count;
+    }
+
+    private discardCount(): boolean {
+        if (!this.hasCount()) {
+            return false;
+        }
+        this.pendingCount = "";
+        return true;
     }
 }

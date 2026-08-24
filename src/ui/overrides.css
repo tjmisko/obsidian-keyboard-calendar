@@ -127,6 +127,14 @@
 	transform: translateY(-1px);
 }
 
+.fc .fc-event.ofc-focused-calendar-event {
+	outline: 2px solid color-mix(in srgb, var(--interactive-accent) 92%, white 8%);
+	outline-offset: 2px;
+	box-shadow:
+		0 0 0 2px color-mix(in srgb, var(--background-primary) 82%, transparent),
+		0 7px 20px rgba(0, 0, 0, 0.24);
+}
+
 .fc .fc-timegrid-event .fc-event-time {
 	display: none !important;
 }
@@ -269,6 +277,29 @@
 	background: color-mix(in srgb, var(--background-secondary) 64%, transparent);
 	border: 1px solid color-mix(in srgb, var(--background-modifier-border) 78%, transparent);
 	border-radius: var(--radius-m, 8px);
+}
+
+.fc .ofc-mode-chip {
+	display: inline-flex;
+	align-items: center;
+	min-height: 1.35rem;
+	margin-inline-start: var(--size-4-1, 0.25rem);
+	padding: 0.05rem 0.42rem;
+	color: var(--text-muted);
+	background: color-mix(in srgb, var(--background-primary) 68%, transparent);
+	border: 1px solid color-mix(in srgb, var(--background-modifier-border) 88%, transparent);
+	border-radius: 999px;
+	font-size: 0.58rem;
+	font-variant-caps: all-small-caps;
+	font-weight: var(--font-semibold, 600);
+	letter-spacing: 0.07em;
+	line-height: 1;
+}
+
+.fc .ofc-mode-chip[data-mode="insert"] {
+	color: var(--text-accent);
+	background: color-mix(in srgb, var(--interactive-accent) 14%, var(--background-primary));
+	border-color: color-mix(in srgb, var(--interactive-accent) 54%, var(--background-modifier-border));
 }
 
 .fc .fc-toolbar-title {

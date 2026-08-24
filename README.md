@@ -39,16 +39,22 @@ The complete documentation starts at [docs/index.md](docs/index.md).
 
 ## Keyboard navigation
 
-Week and day views use a cell-oriented insert mode with one 15-minute cell selected. The keyboard commands are:
+The calendar opens in event-oriented normal mode. The mode chip in the toolbar shows `Normal` or `Insert`.
+
+- In normal mode, Arrow keys or `h`, `j`, `k`, and `l` move spatially between events; counts repeat a move (for example, `3j`). `Enter` opens the focused event.
+- Press `i` in a week or day view to enter blockwise insert mode at the current quarter-hour. Press `Escape` to return to normal mode and focus the event nearest the selected block.
+
+Insert-mode commands are:
 
 - Arrow keys or `h`, `j`, `k`, and `l`: move left, down, up, and right. Vertical movement stops at the day's boundary; horizontal movement continues into adjacent dates.
+- A count repeats a movement: `3j` moves 45 minutes down, `2h` moves two days back, and `2l` moves two days forward. A counted `G` selects an absolute hour, so `18G` selects 18:00–18:15.
 - `PageUp` and `PageDown`: move by one visible page of time cells.
 - `Home` and `End`: move to the first or last visible day at the current time.
 - `gg` and `G`: move to the first or last time cell of the day.
 - `zt`, `zz`, and `zb`: align the selected cell at the top, center, or bottom of the viewport. `zh` and `zl` scroll horizontally when the grid overflows.
-- `Enter`: start a 15-minute event draft. Up/down (or `k`/`j`) resize it, left/right (or `h`/`l`) move it by one day, a second `Enter` creates the event note, and `Escape` cancels.
+- `Enter`: start a 15-minute event draft. Counted up/down (or `k`/`j`) resizes it, counted left/right (or `h`/`l`) moves it by days, and a second `Enter` creates the event note. `Escape` cancels the draft and returns to normal mode.
 
-Cell navigation only captures keys while the calendar is the active Obsidian leaf and no editor, input, or modal is active. `Tab` and `Shift+Tab` cycle calendar views, and `t` returns to today.
+Calendar navigation only captures keys while the calendar is the active Obsidian leaf and no editor, input, or modal is active. `Tab` and `Shift+Tab` cycle calendar views, and `t` returns to today.
 
 ## Development
 

@@ -55,6 +55,7 @@ interface ExtraRenderProps {
     dailyNotePath?: (date: Date) => string;
     openDailyNote?: (date: Date) => Promise<void>;
     datesSet?: () => void;
+    eventsSet?: () => void;
 }
 
 /** A local, already-materialized source. URL and callback sources are excluded. */
@@ -236,6 +237,7 @@ export function renderCalendar(
         },
         firstDay: settings?.firstDay,
         datesSet: settings?.datesSet,
+        eventsSet: settings?.eventsSet,
         slotLabelContent: ({ date }) => formatTimeGridSlotLabel(date),
         slotLabelClassNames: ({ date }) =>
             date.getMinutes() === 0
@@ -367,6 +369,13 @@ export function renderCalendar(
                 )
             ) {
                 el.addClass("ofc-event-ghost");
+            }
+            if (event.start && !event.display.includes("background")) {
+                el.dataset.ofcEventStart = event.start.toISOString();
+                el.dataset.ofcEventEnd = (
+                    event.end || event.start
+                ).toISOString();
+                el.tabIndex = -1;
             }
             el.addEventListener("contextmenu", (e) => {
                 e.preventDefault();

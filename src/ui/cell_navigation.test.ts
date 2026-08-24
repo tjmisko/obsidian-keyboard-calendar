@@ -91,6 +91,20 @@ describe("calendar cell model", () => {
         expectTime(moveCalendarCell(cell, "right").start, 2026, 7, 24, 9, 30);
     });
 
+    it("applies a count to vertical cells and horizontal days", () => {
+        const cell = createCalendarCell(new Date(2026, 7, 23, 9, 30));
+
+        expectTime(
+            moveCalendarCell(cell, "down", 3).start,
+            2026,
+            7,
+            23,
+            10,
+            15
+        );
+        expectTime(moveCalendarCell(cell, "left", 2).start, 2026, 7, 21, 9, 30);
+    });
+
     it("moves by a page-sized cell count and clamps to the day", () => {
         const cell = createCalendarCell(new Date(2026, 7, 23, 9, 30));
 
@@ -202,6 +216,53 @@ describe("cell navigator", () => {
         expectTime(navigator.getSelectedCell()!.start, 2026, 7, 23, 10, 0);
     });
 
+    it("supports Vim counts and counted G as an absolute hour", () => {
+        const navigator = new CalendarCellNavigator(
+            makeContainer(),
+            makeCalendar(
+                "timeGridWeek",
+                new Date(2026, 7, 17),
+                new Date(2026, 7, 24)
+            ),
+            { now: () => new Date(2026, 7, 20, 10, 7) }
+        );
+
+        navigator.handleKey("3");
+        navigator.handleKey("j");
+        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 20, 10, 45);
+
+        navigator.handleKey("2");
+        navigator.handleKey("h");
+        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 18, 10, 45);
+
+        navigator.handleKey("2");
+        navigator.handleKey("l");
+        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 20, 10, 45);
+
+        navigator.handleKey("1");
+        navigator.handleKey("8");
+        navigator.handleKey("G");
+        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 20, 18, 0);
+    });
+
+    it("starts each insert-mode activation from the current time", () => {
+        const navigator = new CalendarCellNavigator(
+            makeContainer(),
+            makeCalendar(
+                "timeGridWeek",
+                new Date(2026, 7, 17),
+                new Date(2026, 7, 24)
+            ),
+            { now: () => new Date(2026, 7, 20, 10, 7) }
+        );
+
+        navigator.select(new Date(2026, 7, 22, 19, 30), false);
+        navigator.deactivate();
+        navigator.activateAtCurrentTime();
+
+        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 20, 10, 0);
+    });
+
     it("supports Vim scroll-position prefixes", () => {
         const navigator = new CalendarCellNavigator(
             makeContainer(),
@@ -266,6 +327,27 @@ describe("cell navigator", () => {
             new Date(2026, 7, 24, 10, 30)
         );
         expect(navigator.getEventDraft()).toBeNull();
+    });
+
+    it("applies counts while resizing and moving an event draft", () => {
+        const navigator = new CalendarCellNavigator(
+            makeContainer(),
+            makeCalendar(
+                "timeGridWeek",
+                new Date(2026, 7, 17),
+                new Date(2026, 7, 24)
+            ),
+            { now: () => new Date(2026, 7, 20, 10, 7) }
+        );
+
+        navigator.handleKey("Enter");
+        navigator.handleKey("3");
+        navigator.handleKey("j");
+        navigator.handleKey("2");
+        navigator.handleKey("l");
+
+        expectTime(navigator.getEventDraft()!.start, 2026, 7, 22, 10, 0);
+        expectTime(navigator.getEventDraft()!.end, 2026, 7, 22, 11, 0);
     });
 
     it("cancels a keyboard event draft with Escape", () => {

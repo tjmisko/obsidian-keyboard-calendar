@@ -14,7 +14,10 @@ import { renderOnboarding } from "./onboard";
 import { openFullNoteForEvent } from "./actions";
 import { UpdateViewCallback } from "src/core/EventCache";
 import { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
-import { navigateFromCalendarEvent } from "./event_navigation";
+import {
+    CalendarEventNavigator,
+    navigateFromCalendarEvent,
+} from "./event_navigation";
 import {
     openDailyNoteForDate,
     resolveDailyNotePath,
@@ -25,6 +28,8 @@ import { CalendarCellNavigator } from "./cell_navigation";
 import { applyCalendarCacheUpdate } from "./calendar_update";
 
 export { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
+
+type CalendarNavigationMode = "normal" | "insert";
 
 function getCalendarColors(color: string | null | undefined): {
     color: string;
@@ -62,7 +67,10 @@ export class CalendarView extends ItemView {
     plugin: FullCalendarPlugin;
     fullCalendarView: Calendar | null = null;
     cellNavigator: CalendarCellNavigator | null = null;
+    eventNavigator: CalendarEventNavigator | null = null;
     callback: UpdateViewCallback | null = null;
+    private navigationMode: CalendarNavigationMode = "normal";
+    private modeChipEl: HTMLElement | null = null;
 
     constructor(leaf: WorkspaceLeaf, plugin: FullCalendarPlugin) {
         super(leaf);
@@ -93,7 +101,26 @@ export class CalendarView extends ItemView {
             return;
         }
 
-        if (this.cellNavigator?.handleKey(event.key, event.repeat)) {
+        if (this.navigationMode === "insert" && event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            this.enterNormalMode();
+            return;
+        }
+
+        if (this.navigationMode === "normal" && event.key === "i") {
+            if (event.repeat || this.enterInsertMode()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            return;
+        }
+
+        const handledByNavigator =
+            this.navigationMode === "insert"
+                ? this.cellNavigator?.handleKey(event.key, event.repeat)
+                : this.eventNavigator?.handleKey(event.key, event.repeat);
+        if (handledByNavigator) {
             event.preventDefault();
             event.stopPropagation();
             return;
@@ -124,6 +151,56 @@ export class CalendarView extends ItemView {
             event.preventDefault();
             this.fullCalendarView.today();
         }
+    }
+
+    private enterInsertMode(): boolean {
+        if (
+            !this.fullCalendarView?.view.type.startsWith("timeGrid") ||
+            !this.cellNavigator
+        ) {
+            return false;
+        }
+        this.eventNavigator?.deactivate();
+        this.cellNavigator.activateAtCurrentTime();
+        this.navigationMode = "insert";
+        this.updateModeChip();
+        return true;
+    }
+
+    private enterNormalMode(): void {
+        const cursorDate = this.cellNavigator?.getSelectedCell()?.start;
+        this.cellNavigator?.deactivate();
+        this.navigationMode = "normal";
+        this.eventNavigator?.activate(cursorDate || new Date());
+        this.updateModeChip();
+    }
+
+    private createModeChip(calendarEl: HTMLElement): void {
+        this.modeChipEl?.remove();
+        const chip = calendarEl.ownerDocument.createElement("span");
+        chip.className = "ofc-mode-chip";
+        chip.setAttribute("role", "status");
+        chip.setAttribute("aria-live", "polite");
+        const toolbarChunk = calendarEl.querySelector<HTMLElement>(
+            ".fc-header-toolbar .fc-toolbar-chunk"
+        );
+        (toolbarChunk || calendarEl).appendChild(chip);
+        this.modeChipEl = chip;
+        this.updateModeChip();
+    }
+
+    private updateModeChip(): void {
+        if (!this.modeChipEl) {
+            return;
+        }
+        const label = this.navigationMode === "normal" ? "Normal" : "Insert";
+        this.modeChipEl.dataset.mode = this.navigationMode;
+        this.modeChipEl.textContent = label;
+        this.modeChipEl.setAttribute("aria-label", `Calendar mode: ${label}`);
+        this.modeChipEl.title =
+            this.navigationMode === "normal"
+                ? "Normal mode — i selects a time block"
+                : "Insert mode — Escape returns to event navigation";
     }
 
     getIcon(): string {
@@ -188,6 +265,10 @@ export class CalendarView extends ItemView {
         if (this.fullCalendarView) {
             this.cellNavigator?.destroy();
             this.cellNavigator = null;
+            this.eventNavigator?.destroy();
+            this.eventNavigator = null;
+            this.modeChipEl?.remove();
+            this.modeChipEl = null;
             this.fullCalendarView.destroy();
             this.fullCalendarView = null;
         }
@@ -288,7 +369,23 @@ export class CalendarView extends ItemView {
             firstDay: this.plugin.settings.firstDay,
             initialView: this.plugin.settings.initialView,
             timeFormat24h: this.plugin.settings.timeFormat24h,
-            datesSet: () => this.cellNavigator?.syncToView(true),
+            datesSet: () => {
+                if (
+                    this.navigationMode === "insert" &&
+                    !this.fullCalendarView?.view.type.startsWith("timeGrid")
+                ) {
+                    this.enterNormalMode();
+                } else if (this.navigationMode === "insert") {
+                    this.cellNavigator?.syncToView(true);
+                } else {
+                    this.eventNavigator?.syncToView();
+                }
+            },
+            eventsSet: () => {
+                if (this.navigationMode === "normal") {
+                    this.eventNavigator?.syncToView();
+                }
+            },
             ghostEventTags: () => this.plugin.settings.ghostEventTags,
             dailyNotePath: (date) => this.getDailyNotePath(date),
             openDailyNote: async (date) => {
@@ -365,6 +462,11 @@ export class CalendarView extends ItemView {
                     ),
             }
         );
+        this.cellNavigator.deactivate();
+        this.eventNavigator = new CalendarEventNavigator(calendarEl);
+        this.navigationMode = "normal";
+        this.eventNavigator.activate();
+        this.createModeChip(calendarEl);
         if (this.callback) {
             this.plugin.cache.off("update", this.callback);
             this.callback = null;
@@ -377,7 +479,13 @@ export class CalendarView extends ItemView {
                 calendar: this.fullCalendarView,
                 update: payload,
                 getEventSources: () => this.translateSources(),
-                renderSelection: () => this.cellNavigator?.renderSelection(),
+                renderSelection: () => {
+                    if (this.navigationMode === "insert") {
+                        this.cellNavigator?.renderSelection();
+                    } else {
+                        this.eventNavigator?.syncToView();
+                    }
+                },
             });
         });
     }
@@ -385,13 +493,21 @@ export class CalendarView extends ItemView {
     onResize(): void {
         if (this.fullCalendarView) {
             this.fullCalendarView.render();
-            this.cellNavigator?.renderSelection();
+            if (this.navigationMode === "insert") {
+                this.cellNavigator?.renderSelection();
+            } else {
+                this.eventNavigator?.syncToView();
+            }
         }
     }
 
     async onunload() {
         this.cellNavigator?.destroy();
         this.cellNavigator = null;
+        this.eventNavigator?.destroy();
+        this.eventNavigator = null;
+        this.modeChipEl?.remove();
+        this.modeChipEl = null;
         if (this.fullCalendarView) {
             this.fullCalendarView.destroy();
             this.fullCalendarView = null;

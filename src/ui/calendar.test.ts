@@ -234,6 +234,41 @@ describe("calendar renderer", () => {
 
         expect(addClass).toHaveBeenCalledWith("ofc-event-ghost");
     });
+
+    it("annotates foreground events for normal-mode focus", () => {
+        const eventsSet = jest.fn();
+        renderCalendar({} as HTMLElement, [], { eventsSet });
+        const calls = (Calendar as unknown as jest.Mock).mock.calls;
+        const options = calls[calls.length - 1][1] as any;
+        const start = new Date(2026, 7, 23, 18, 0);
+        const end = new Date(2026, 7, 23, 18, 15);
+        const element = {
+            dataset: {},
+            style: { setProperty: jest.fn() },
+            addClass: jest.fn(),
+            addEventListener: jest.fn(),
+            tabIndex: 0,
+        };
+
+        options.eventDidMount({
+            event: {
+                start,
+                end,
+                display: "auto",
+                extendedProps: { categories: [] },
+            },
+            el: element,
+            backgroundColor: "",
+            textColor: "black",
+        });
+
+        expect(element.dataset).toEqual({
+            ofcEventStart: start.toISOString(),
+            ofcEventEnd: end.toISOString(),
+        });
+        expect(element.tabIndex).toBe(-1);
+        expect(options.eventsSet).toBe(eventsSet);
+    });
 });
 
 describe("calendar labels", () => {
