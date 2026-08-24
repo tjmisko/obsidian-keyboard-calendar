@@ -364,6 +364,13 @@ export function renderCalendar(
                 eventHasGhostTag(
                     event.extendedProps.categories,
                     ghostEventTags?.() || []
+                ) &&
+                !(
+                    event.start &&
+                    Array.isArray(event.extendedProps.attendingDates) &&
+                    event.extendedProps.attendingDates.includes(
+                        formatDateLabel(event.start)
+                    )
                 )
             ) {
                 el.addClass("ofc-event-ghost");

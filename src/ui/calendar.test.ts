@@ -234,6 +234,49 @@ describe("calendar renderer", () => {
 
         expect(addClass).toHaveBeenCalledWith("ofc-event-ghost");
     });
+
+    it("does not ghost explicitly attended occurrences", () => {
+        renderCalendar({} as HTMLElement, [], {
+            ghostEventTags: () => ["ghost"],
+        });
+        const calls = (Calendar as unknown as jest.Mock).mock.calls;
+        const options = calls[calls.length - 1][1] as any;
+        const attendedAddClass = jest.fn();
+        const unattendedAddClass = jest.fn();
+        const element = (addClass: jest.Mock) => ({
+            style: { setProperty: jest.fn() },
+            addClass,
+            addEventListener: jest.fn(),
+        });
+
+        options.eventDidMount({
+            event: {
+                start: new Date(2026, 7, 24, 9, 0),
+                extendedProps: {
+                    categories: ["ghost"],
+                    attendingDates: ["2026-08-17", "2026-08-24"],
+                },
+            },
+            el: element(attendedAddClass),
+            backgroundColor: "",
+            textColor: "black",
+        });
+        options.eventDidMount({
+            event: {
+                start: new Date(2026, 7, 31, 9, 0),
+                extendedProps: {
+                    categories: ["ghost"],
+                    attendingDates: ["2026-08-17", "2026-08-24"],
+                },
+            },
+            el: element(unattendedAddClass),
+            backgroundColor: "",
+            textColor: "black",
+        });
+
+        expect(attendedAddClass).not.toHaveBeenCalledWith("ofc-event-ghost");
+        expect(unattendedAddClass).toHaveBeenCalledWith("ofc-event-ghost");
+    });
 });
 
 describe("calendar labels", () => {

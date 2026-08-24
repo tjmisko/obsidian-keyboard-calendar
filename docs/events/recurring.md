@@ -26,4 +26,14 @@ weekday: tuesday
 
 Right-click a displayed recurring event and choose **Omit this occurrence** to append a `YYYY-MM-DD` value to the note's `omit` list. The plugin deduplicates and sorts omissions.
 
+For a recurring event with a tag configured for ghost rendering, list the occurrence dates you plan to attend. Matching occurrences render normally while the other occurrences remain ghosted:
+
+```yaml
+attending:
+  - 2026-08-18
+  - 2026-09-15
+```
+
+Recurring `attending` values must be a YAML array of `YYYY-MM-DD` dates. The parser deduplicates and sorts them; they do not change the recurrence schedule.
+
 Simple weekly recurrences can be dragged or resized while retaining local wall-clock time across daylight-saving changes. Nth-weekday recurrences are deliberately non-draggable; edit their frontmatter or omit an occurrence instead. An end time equal to or earlier than the start represents an overnight duration.

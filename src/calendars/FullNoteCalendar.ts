@@ -79,6 +79,20 @@ const parseDateList = (value: unknown): string[] | null => {
     return [...new Set(dates as string[])].sort();
 };
 
+const parseAttendingDates = (
+    value: unknown,
+    recurring: boolean
+): string[] | null => {
+    if (value === undefined) {
+        return [];
+    }
+    if (!recurring) {
+        const date = parseDate(value);
+        return date ? [date] : null;
+    }
+    return value === null ? null : parseDateList(value);
+};
+
 const inclusiveToExclusiveDate = (date: string): string =>
     DateTime.fromISO(date, { zone: "utc" }).plus({ days: 1 }).toISODate();
 
@@ -115,7 +129,18 @@ export function parseFullNoteEvent(
             : filenameTitle;
 
     if (!isFriendly) {
-        return validateEvent({ ...frontmatter, title: explicitTitle });
+        const attendingDates = parseAttendingDates(
+            frontmatter.attending,
+            frontmatter.type === "recurring" || frontmatter.type === "rrule"
+        );
+        if (attendingDates === null) {
+            return null;
+        }
+        return validateEvent({
+            ...frontmatter,
+            title: explicitTitle,
+            ...(attendingDates.length > 0 ? { attendingDates } : {}),
+        });
     }
 
     const startTime = parseTime(frontmatter.start);
@@ -143,6 +168,13 @@ export function parseFullNoteEvent(
         if (!date) {
             return null;
         }
+        const attendingDates = parseAttendingDates(
+            frontmatter.attending,
+            false
+        );
+        if (attendingDates === null) {
+            return null;
+        }
         const endDate =
             endTime <= startTime
                 ? DateTime.fromISO(date, { zone: "utc" })
@@ -154,6 +186,7 @@ export function parseFullNoteEvent(
             type: "single",
             date,
             endDate,
+            ...(attendingDates.length > 0 ? { attendingDates } : {}),
         });
     }
 
@@ -170,10 +203,12 @@ export function parseFullNoteEvent(
             ? undefined
             : parseDate(frontmatter["end-recurrence"]);
     const skipDates = parseDateList(frontmatter.omit);
+    const attendingDates = parseAttendingDates(frontmatter.attending, true);
     if (
         recurrenceStart === null ||
         recurrenceEnd === null ||
         skipDates === null ||
+        attendingDates === null ||
         (recurrenceStart && recurrenceEnd && recurrenceEnd < recurrenceStart)
     ) {
         return null;
@@ -196,6 +231,7 @@ export function parseFullNoteEvent(
             type: "recurring",
             daysOfWeek: [weekday.simple],
             skipDates,
+            ...(attendingDates.length > 0 ? { attendingDates } : {}),
             ...(recurrenceStart ? { startRecur: recurrenceStart } : {}),
             ...(endRecur ? { endRecur } : {}),
         });
@@ -216,6 +252,7 @@ export function parseFullNoteEvent(
         startDate: recurrenceStart || FRIENDLY_RECURRENCE_ANCHOR,
         rrule: `FREQ=MONTHLY;BYDAY=${frontmatter.week}${weekday.rrule}`,
         skipDates,
+        ...(attendingDates.length > 0 ? { attendingDates } : {}),
         ...(endRecur ? { endRecur } : {}),
     });
 }

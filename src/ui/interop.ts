@@ -173,13 +173,18 @@ export function toEventInput(
     frontmatter: OFCEvent
 ): EventInput | null {
     const categories = [...(frontmatter.categories || [])];
+    const attendingDates = frontmatter.attendingDates
+        ? [...frontmatter.attendingDates]
+        : undefined;
+    const commonExtendedProps = {
+        categories,
+        ...(attendingDates ? { attendingDates } : {}),
+    };
     let event: EventInput = {
         id,
         title: frontmatter.title,
         allDay: frontmatter.allDay,
-        extendedProps: {
-            categories,
-        },
+        extendedProps: commonExtendedProps,
     };
     if (frontmatter.type === "recurring") {
         const daysOfWeek = [...frontmatter.daysOfWeek];
@@ -213,7 +218,7 @@ export function toEventInput(
                     recurrenceStart
                 ),
                 extendedProps: {
-                    categories,
+                    ...commonExtendedProps,
                     ofcRecurrence: recurrenceMetadata,
                 },
             };
@@ -224,7 +229,7 @@ export function toEventInput(
                 startRecur: frontmatter.startRecur,
                 endRecur: frontmatter.endRecur,
                 extendedProps: {
-                    categories,
+                    ...commonExtendedProps,
                     ofcRecurrence: recurrenceMetadata,
                 },
             };
@@ -284,9 +289,7 @@ export function toEventInput(
             }).toString(),
             exdate,
             exrule: getRecurrenceEndRule(frontmatter.endRecur, dtstart),
-            extendedProps: {
-                categories,
-            },
+            extendedProps: commonExtendedProps,
         };
 
         if (!frontmatter.allDay) {
@@ -324,18 +327,14 @@ export function toEventInput(
                 ...event,
                 start,
                 end,
-                extendedProps: {
-                    categories,
-                },
+                extendedProps: commonExtendedProps,
             };
         } else {
             event = {
                 ...event,
                 start: frontmatter.date,
                 end: frontmatter.endDate || undefined,
-                extendedProps: {
-                    categories,
-                },
+                extendedProps: commonExtendedProps,
             };
         }
     }
@@ -371,6 +370,9 @@ export function fromEventApi(event: EventApi): OFCEvent {
     return {
         title: event.title,
         categories: event.extendedProps.categories || [],
+        ...(Array.isArray(event.extendedProps.attendingDates)
+            ? { attendingDates: [...event.extendedProps.attendingDates] }
+            : {}),
         ...(event.allDay
             ? { allDay: true }
             : {

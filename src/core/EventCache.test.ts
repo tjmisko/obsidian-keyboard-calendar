@@ -635,18 +635,20 @@ describe("single local EventCache runtime", () => {
                 name: "absent",
                 previous: event("Absent"),
                 expected: {},
-                absent: ["id", "categories", "completed"],
+                absent: ["id", "categories", "attendingDates", "completed"],
             },
             {
                 name: "false-empty",
                 previous: event("False empty", "2026-08-22", {
                     id: "authored",
                     categories: [],
+                    attendingDates: [],
                     completed: false,
                 }),
                 expected: {
                     id: "authored",
                     categories: [],
+                    attendingDates: [],
                     completed: false,
                 },
                 absent: [],
@@ -667,6 +669,7 @@ describe("single local EventCache runtime", () => {
                 event("Updated", "2026-08-23", {
                     id: "replacement",
                     categories: ["replacement"],
+                    attendingDates: ["2026-08-30"],
                     completed: "replacement",
                 })
             );

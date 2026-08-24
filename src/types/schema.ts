@@ -17,6 +17,7 @@ export const CommonSchema = z.object({
     title: z.string(),
     id: z.string().optional(),
     categories: z.array(z.string()).optional(),
+    attendingDates: z.array(ParsedDate).optional(),
 });
 
 export const EventSchema = z.discriminatedUnion("type", [
