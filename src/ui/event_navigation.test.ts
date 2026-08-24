@@ -30,6 +30,7 @@ const makeEventElement = (
         getAttribute: (name: string) => attributes.get(name) || null,
         getBoundingClientRect: () => rect,
         focus: jest.fn(),
+        blur: jest.fn(),
         scrollIntoView: jest.fn(),
         click: jest.fn(),
         tabIndex: -1,
@@ -98,6 +99,22 @@ describe("calendar event focus", () => {
 
         expect(navigator.getFocusedEvent()).toBe(events[2]);
         expect(events[2].click).toHaveBeenCalledTimes(1);
+    });
+
+    it("releases DOM focus when normal mode is deactivated", () => {
+        const focused = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 }
+        );
+        const navigator = new CalendarEventNavigator(makeContainer([focused]));
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+
+        navigator.deactivate();
+
+        expect(focused.blur).toHaveBeenCalledTimes(1);
+        expect(focused.tabIndex).toBe(-1);
+        expect(navigator.getFocusedEvent()).toBeNull();
     });
 });
 

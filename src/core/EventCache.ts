@@ -4,7 +4,11 @@ import FullNoteCalendar, {
     FullNoteEventLocation,
 } from "../calendars/FullNoteCalendar";
 import { CalendarInfo, OFCEvent } from "../types";
-import { LocalEventIndex, LocalEventRecord } from "./LocalEventIndex";
+import {
+    LocalEventIndex,
+    LocalEventReadAdapter,
+    LocalEventRecord,
+} from "./LocalEventIndex";
 
 export type LocalCalendarInitializer = (info: CalendarInfo) => FullNoteCalendar;
 
@@ -316,6 +320,85 @@ export default class EventCache {
         }
     }
 
+    /** Refresh from the saved vault bytes without waiting for metadata parsing. */
+    async fileModified(file: TFile): Promise<void> {
+        if (
+            this.queueSuppressedCallback({ type: "changed", path: file.path }, [
+                file.path,
+            ])
+        ) {
+            return;
+        }
+        const calendar = this.calendar;
+        if (!calendar) return;
+        try {
+            await this.index.refresh(
+                file.path,
+                this.getDiskReadAdapter(calendar),
+                { path: file.path, handle: file }
+            );
+        } finally {
+            this.publishTouched([file.path]);
+        }
+    }
+
+    /**
+     * Reconcile files that may have changed while no calendar view was mounted.
+     * The live listeners remain the fast path; this closes missed/delayed event
+     * windows against the authoritative saved bytes when a view returns.
+     */
+    async reconcileFromDisk(): Promise<void> {
+        const pendingPopulation = this.population;
+        if (pendingPopulation) {
+            await pendingPopulation.promise;
+        }
+
+        const calendar = this.calendar;
+        if (!calendar) {
+            this.initialized = true;
+            return;
+        }
+        const epoch = this.index.epoch;
+        const listedFiles = calendar.listFiles();
+        const listedByPath = new Map(
+            listedFiles.map((file) => [file.path, file] as const)
+        );
+        if (listedByPath.size !== listedFiles.length) {
+            throw new Error("Duplicate path returned by local event scan.");
+        }
+
+        const touchedPaths = new Set<string>([
+            ...this.publishedIdByPath.keys(),
+            ...this.index.getImmutableRecordsForCache().map(({ path }) => path),
+            ...listedByPath.keys(),
+        ]);
+        const diskAdapter = this.getDiskReadAdapter(calendar);
+        const pathsToRefresh = [...touchedPaths]
+            .sort()
+            .filter((path) => !this.activeMutationsByPath.has(path));
+        await Promise.all(
+            pathsToRefresh.map(async (path) => {
+                try {
+                    await this.index.refresh(
+                        path,
+                        diskAdapter,
+                        listedByPath.get(path)
+                    );
+                } catch (error) {
+                    console.error(
+                        `Could not reconcile event note ${path} from disk`,
+                        error
+                    );
+                }
+            })
+        );
+        if (calendar !== this.calendar || epoch !== this.index.epoch) {
+            return;
+        }
+        this.initialized = true;
+        this.publishTouched([...touchedPaths]);
+    }
+
     async fileRenamed(file: TFile, oldPath: string): Promise<void> {
         const calendar = this.calendar;
         if (!calendar) return;
@@ -359,6 +442,15 @@ export default class EventCache {
             this.index.invalidatePath(path);
         });
         return mutation;
+    }
+
+    private getDiskReadAdapter(
+        calendar: FullNoteCalendar
+    ): LocalEventReadAdapter {
+        return {
+            listFiles: () => calendar.listFiles(),
+            readEvent: (path) => calendar.readEventFromDisk(path),
+        };
     }
 
     private releaseMutation(mutation: MutationGuard): void {

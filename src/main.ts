@@ -189,6 +189,21 @@ export default class FullCalendarPlugin extends Plugin {
         );
 
         this.registerEvent(
+            this.app.vault.on("modify", (file) => {
+                if (file instanceof TFile) {
+                    void this.cache
+                        .fileModified(file)
+                        .catch((error) =>
+                            console.error(
+                                "Could not refresh modified event note",
+                                error
+                            )
+                        );
+                }
+            })
+        );
+
+        this.registerEvent(
             this.app.vault.on("rename", (file, oldPath) => {
                 if (file instanceof TFile) {
                     void this.cache

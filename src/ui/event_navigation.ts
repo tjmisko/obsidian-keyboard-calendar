@@ -307,10 +307,12 @@ export class CalendarEventNavigator {
         if (!this.focusedEvent) {
             return;
         }
-        this.focusedEvent.classList.remove("ofc-focused-calendar-event");
-        this.focusedEvent.removeAttribute("aria-current");
-        this.focusedEvent.tabIndex = -1;
+        const focusedEvent = this.focusedEvent;
         this.focusedEvent = null;
+        focusedEvent.classList.remove("ofc-focused-calendar-event");
+        focusedEvent.removeAttribute("aria-current");
+        focusedEvent.tabIndex = -1;
+        focusedEvent.blur();
     }
 
     private captureCount(key: string, repeat: boolean): boolean {

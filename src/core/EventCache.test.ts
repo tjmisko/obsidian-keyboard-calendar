@@ -432,6 +432,47 @@ describe("single local EventCache runtime", () => {
         expect(eventPayloads(callback)).toHaveLength(3);
     });
 
+    it("reads saved bytes directly for vault modify notifications", async () => {
+        const calendar = new TestFullNoteCalendar("events", {
+            "events/A.md": event("Before"),
+        });
+        const cache = makeCache(calendar);
+        await cache.populate();
+        calendar.readEvent.mockResolvedValue(event("Stale metadata"));
+        calendar.readEventFromDisk.mockResolvedValue(event("Saved bytes"));
+
+        await cache.fileModified(file("events/A.md"));
+
+        expect(sourceEvents(cache)[0].event.title).toBe("Saved bytes");
+        expect(calendar.readEventFromDisk).toHaveBeenCalledWith("events/A.md");
+    });
+
+    it("reconciles missed edits and new files from disk before a view returns", async () => {
+        const calendar = new TestFullNoteCalendar("events", {
+            "events/A.md": event("Before"),
+        });
+        const cache = makeCache(calendar);
+        await cache.populate();
+        const callback = jest.fn();
+        cache.on("update", callback);
+        calendar.readEvent.mockClear();
+        calendar.readEventFromDisk.mockClear();
+
+        calendar.events.set("events/A.md", event("Edited on disk"));
+        calendar.events.set("events/New.md", event("New on disk"));
+        calendar.existing.add("events/New.md");
+
+        await cache.reconcileFromDisk();
+
+        expect(
+            sourceEvents(cache).map(({ event: cached }) => cached.title)
+        ).toEqual(["Edited on disk", "New on disk"]);
+        expect(calendar.readEvent).not.toHaveBeenCalled();
+        expect(calendar.readEventFromDisk).toHaveBeenCalledTimes(2);
+        expect(eventPayloads(callback)).toHaveLength(1);
+        expect(eventPayloads(callback)[0].toAdd).toHaveLength(2);
+    });
+
     it("commits create only after disk success and suppresses its listener", async () => {
         const calendar = new TestFullNoteCalendar();
         const cache = makeCache(calendar);
