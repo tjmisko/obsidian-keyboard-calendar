@@ -72,6 +72,11 @@ const padTimePart = (value: number): string =>
 export const formatTimeLabel = (date: Date): string =>
     `${padTimePart(date.getHours())}:${padTimePart(date.getMinutes())}`;
 
+export const formatTimeGridSlotLabel = (date: Date): string =>
+    date.getMinutes() === 0
+        ? formatTimeLabel(date)
+        : `:${padTimePart(date.getMinutes())}`;
+
 export const formatDateLabel = (date: Date): string =>
     `${date.getFullYear()}-${padTimePart(date.getMonth() + 1)}-${padTimePart(
         date.getDate()
@@ -206,7 +211,7 @@ export function renderCalendar(
         weekNumberCalculation: "ISO",
         slotDuration: "00:15:00",
         snapDuration: "00:15:00",
-        slotLabelInterval: "01:00:00",
+        slotLabelInterval: "00:15:00",
 
         headerToolbar: {
             left: "prev,next today",
@@ -231,7 +236,15 @@ export function renderCalendar(
         },
         firstDay: settings?.firstDay,
         datesSet: settings?.datesSet,
-        slotLabelContent: ({ date }) => formatTimeLabel(date),
+        slotLabelContent: ({ date }) => formatTimeGridSlotLabel(date),
+        slotLabelClassNames: ({ date }) =>
+            date.getMinutes() === 0
+                ? ["ofc-time-label-major"]
+                : ["ofc-time-label-minor"],
+        slotLaneClassNames: ({ date }) =>
+            date?.getMinutes() === 0
+                ? ["ofc-time-slot-major"]
+                : ["ofc-time-slot-minor"],
         dayHeaderContent: ({ date, text, view }) => {
             if (!isTimeGridView(view.type)) {
                 return text;

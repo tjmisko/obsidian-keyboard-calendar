@@ -21,10 +21,7 @@ import {
 } from "./daily_note_navigation";
 import { getCalendarEventContextActions } from "./event_context";
 import { handleCalendarSelection } from "./event_creation";
-import {
-    CalendarCellNavigator,
-    getCalendarCellDirection,
-} from "./cell_navigation";
+import { CalendarCellNavigator } from "./cell_navigation";
 
 export { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
 
@@ -95,8 +92,7 @@ export class CalendarView extends ItemView {
             return;
         }
 
-        const cellDirection = getCalendarCellDirection(event.key);
-        if (cellDirection && this.cellNavigator?.move(cellDirection)) {
+        if (this.cellNavigator?.handleKey(event.key, event.repeat)) {
             event.preventDefault();
             event.stopPropagation();
             return;
@@ -194,6 +190,36 @@ export class CalendarView extends ItemView {
             this.fullCalendarView.destroy();
             this.fullCalendarView = null;
         }
+        const handleSelection = async (
+            start: Date,
+            end: Date,
+            allDay: boolean,
+            viewType: string
+        ): Promise<void> => {
+            await handleCalendarSelection({
+                start,
+                end,
+                allDay,
+                viewType,
+                openDay: (date) => {
+                    this.fullCalendarView?.changeView("timeGridDay");
+                    this.fullCalendarView?.gotoDate(date);
+                },
+                createTimedNote: async (partialEvent) => {
+                    try {
+                        await this.plugin.createTimedEventNote(
+                            partialEvent,
+                            this.leaf
+                        );
+                    } catch (e) {
+                        if (e instanceof Error) {
+                            console.error(e);
+                            new Notice(e.message);
+                        }
+                    }
+                },
+            });
+        };
         this.fullCalendarView = renderCalendar(calendarEl, sources, {
             eventClick: async (info) => {
                 try {
@@ -220,31 +246,7 @@ export class CalendarView extends ItemView {
                     }
                 }
             },
-            select: async (start, end, allDay, viewType) => {
-                await handleCalendarSelection({
-                    start,
-                    end,
-                    allDay,
-                    viewType,
-                    openDay: (date) => {
-                        this.fullCalendarView?.changeView("timeGridDay");
-                        this.fullCalendarView?.gotoDate(date);
-                    },
-                    createTimedNote: async (partialEvent) => {
-                        try {
-                            await this.plugin.createTimedEventNote(
-                                partialEvent,
-                                this.leaf
-                            );
-                        } catch (e) {
-                            if (e instanceof Error) {
-                                console.error(e);
-                                new Notice(e.message);
-                            }
-                        }
-                    },
-                });
-            },
+            select: handleSelection,
             modifyEvent: async (newEvent, oldEvent) => {
                 try {
                     if (
@@ -351,7 +353,16 @@ export class CalendarView extends ItemView {
         });
         this.cellNavigator = new CalendarCellNavigator(
             calendarEl,
-            this.fullCalendarView
+            this.fullCalendarView,
+            {
+                createEvent: async (start, end) =>
+                    handleSelection(
+                        start,
+                        end,
+                        false,
+                        this.fullCalendarView?.view.type || "timeGridWeek"
+                    ),
+            }
         );
         if (this.callback) {
             this.plugin.cache.off("update", this.callback);

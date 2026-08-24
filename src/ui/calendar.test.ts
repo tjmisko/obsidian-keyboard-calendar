@@ -14,6 +14,7 @@ import {
     formatDateLabel,
     formatLongDateTitle,
     formatTimeLabel,
+    formatTimeGridSlotLabel,
     getAdjacentCalendarView,
     getRenderedEventTitle,
     LocalMaterializedEventSource,
@@ -60,7 +61,17 @@ describe("calendar renderer", () => {
         });
         expect(options?.slotDuration).toBe("00:15:00");
         expect(options?.snapDuration).toBe("00:15:00");
-        expect(options?.slotLabelInterval).toBe("01:00:00");
+        expect(options?.slotLabelInterval).toBe("00:15:00");
+        expect(
+            (options?.slotLabelClassNames as any)?.({
+                date: new Date(2026, 7, 23, 9, 0),
+            })
+        ).toEqual(["ofc-time-label-major"]);
+        expect(
+            (options?.slotLaneClassNames as any)?.({
+                date: new Date(2026, 7, 23, 9, 15),
+            })
+        ).toEqual(["ofc-time-slot-minor"]);
     });
 
     it("uses the same desktop toolbar and initial view without reading viewport width", () => {
@@ -230,6 +241,18 @@ describe("calendar labels", () => {
         expect(formatTimeLabel(new Date(2026, 7, 21, 0, 0))).toBe("00:00");
         expect(formatTimeLabel(new Date(2026, 7, 21, 8, 5))).toBe("08:05");
         expect(formatTimeLabel(new Date(2026, 7, 21, 23, 45))).toBe("23:45");
+    });
+
+    it("distinguishes major hour labels from compact quarter-hour labels", () => {
+        expect(formatTimeGridSlotLabel(new Date(2026, 7, 21, 8, 0))).toBe(
+            "08:00"
+        );
+        expect(formatTimeGridSlotLabel(new Date(2026, 7, 21, 8, 15))).toBe(
+            ":15"
+        );
+        expect(formatTimeGridSlotLabel(new Date(2026, 7, 21, 8, 45))).toBe(
+            ":45"
+        );
     });
 
     it("always formats date labels as YYYY-MM-DD", () => {

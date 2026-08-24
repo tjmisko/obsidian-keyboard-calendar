@@ -4,8 +4,10 @@ import {
     CalendarCellNavigator,
     createCalendarCell,
     getCalendarCellDirection,
+    getCalendarPageCellCount,
     getInitialCalendarCell,
     moveCalendarCell,
+    moveCalendarCellBy,
 } from "./cell_navigation";
 
 const expectTime = (
@@ -89,6 +91,16 @@ describe("calendar cell model", () => {
         expectTime(moveCalendarCell(cell, "right").start, 2026, 7, 24, 9, 30);
     });
 
+    it("moves by a page-sized cell count and clamps to the day", () => {
+        const cell = createCalendarCell(new Date(2026, 7, 23, 9, 30));
+
+        expectTime(moveCalendarCellBy(cell, 8).start, 2026, 7, 23, 11, 30);
+        expectTime(moveCalendarCellBy(cell, -100).start, 2026, 7, 23, 0, 0);
+        expectTime(moveCalendarCellBy(cell, 100).start, 2026, 7, 23, 23, 45);
+        expect(getCalendarPageCellCount(300, 15)).toBe(19);
+        expect(getCalendarPageCellCount(0, 0)).toBe(16);
+    });
+
     it.each([
         ["ArrowUp", "up"],
         ["k", "up"],
@@ -115,11 +127,9 @@ describe("cell navigator", () => {
             new Date(2026, 7, 17),
             new Date(2026, 7, 24)
         );
-        const navigator = new CalendarCellNavigator(
-            container,
-            calendar,
-            () => new Date(2026, 7, 23, 10, 7)
-        );
+        const navigator = new CalendarCellNavigator(container, calendar, {
+            now: () => new Date(2026, 7, 23, 10, 7),
+        });
 
         expectTime(navigator.getSelectedCell()!.start, 2026, 7, 23, 10, 0);
         expect(navigator.move("right")).toBe(true);
@@ -137,7 +147,7 @@ describe("cell navigator", () => {
                 new Date(2026, 7, 1),
                 new Date(2026, 8, 1)
             ),
-            () => new Date(2026, 7, 23, 10, 7)
+            { now: () => new Date(2026, 7, 23, 10, 7) }
         );
 
         expect(navigator.getSelectedCell()).toBeNull();
@@ -152,7 +162,7 @@ describe("cell navigator", () => {
                 new Date(2026, 7, 17),
                 new Date(2026, 7, 24)
             ),
-            () => new Date(2026, 7, 23, 10, 7)
+            { now: () => new Date(2026, 7, 23, 10, 7) }
         );
         const selected = navigator.getSelectedCell();
 
@@ -161,5 +171,116 @@ describe("cell navigator", () => {
         expect(navigator.isActive()).toBe(false);
         expect(navigator.move("down")).toBe(false);
         expect(navigator.getSelectedCell()).toEqual(selected);
+    });
+
+    it("supports page, row-boundary, and Vim time-boundary movement", () => {
+        const navigator = new CalendarCellNavigator(
+            makeContainer(),
+            makeCalendar(
+                "timeGridWeek",
+                new Date(2026, 7, 17),
+                new Date(2026, 7, 24)
+            ),
+            { now: () => new Date(2026, 7, 20, 10, 7) }
+        );
+
+        expect(navigator.handleKey("Home")).toBe(true);
+        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 17, 10, 0);
+        expect(navigator.handleKey("End")).toBe(true);
+        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 23, 10, 0);
+
+        expect(navigator.handleKey("g")).toBe(true);
+        expect(navigator.handleKey("g")).toBe(true);
+        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 23, 0, 0);
+        expect(navigator.handleKey("G")).toBe(true);
+        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 23, 23, 45);
+
+        navigator.select(new Date(2026, 7, 23, 10, 0), false);
+        expect(navigator.handleKey("PageDown")).toBe(true);
+        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 23, 14, 0);
+        expect(navigator.handleKey("PageUp")).toBe(true);
+        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 23, 10, 0);
+    });
+
+    it("supports Vim scroll-position prefixes", () => {
+        const navigator = new CalendarCellNavigator(
+            makeContainer(),
+            makeCalendar(
+                "timeGridWeek",
+                new Date(2026, 7, 17),
+                new Date(2026, 7, 24)
+            ),
+            { now: () => new Date(2026, 7, 20, 10, 7) }
+        );
+        const align = jest
+            .spyOn(navigator, "alignSelection")
+            .mockReturnValue(true);
+        const horizontal = jest
+            .spyOn(navigator, "scrollHorizontally")
+            .mockReturnValue(true);
+
+        navigator.handleKey("z");
+        navigator.handleKey("z");
+        navigator.handleKey("z");
+        navigator.handleKey("t");
+        navigator.handleKey("z");
+        navigator.handleKey("b");
+        navigator.handleKey("z");
+        navigator.handleKey("l");
+
+        expect(align).toHaveBeenNthCalledWith(1, "center");
+        expect(align).toHaveBeenNthCalledWith(2, "start");
+        expect(align).toHaveBeenNthCalledWith(3, "end");
+        expect(horizontal).toHaveBeenCalledWith("right");
+    });
+
+    it("creates, resizes, moves, and confirms a keyboard event draft", async () => {
+        const createEvent = jest.fn(async () => undefined);
+        const calendar = makeCalendar(
+            "timeGridWeek",
+            new Date(2026, 7, 17),
+            new Date(2026, 7, 24)
+        );
+        const navigator = new CalendarCellNavigator(makeContainer(), calendar, {
+            now: () => new Date(2026, 7, 23, 10, 7),
+            createEvent,
+        });
+
+        expect(navigator.handleKey("Enter")).toBe(true);
+        expectTime(navigator.getEventDraft()!.start, 2026, 7, 23, 10, 0);
+        expectTime(navigator.getEventDraft()!.end, 2026, 7, 23, 10, 15);
+
+        navigator.handleKey("ArrowDown");
+        navigator.handleKey("j");
+        navigator.handleKey("ArrowUp");
+        navigator.handleKey("ArrowRight");
+        expectTime(navigator.getEventDraft()!.start, 2026, 7, 24, 10, 0);
+        expectTime(navigator.getEventDraft()!.end, 2026, 7, 24, 10, 30);
+        expect(calendar.gotoDate).toHaveBeenCalledWith(
+            new Date(2026, 7, 24, 10, 0)
+        );
+
+        await expect(navigator.confirmEventDraft()).resolves.toBe(true);
+        expect(createEvent).toHaveBeenCalledWith(
+            new Date(2026, 7, 24, 10, 0),
+            new Date(2026, 7, 24, 10, 30)
+        );
+        expect(navigator.getEventDraft()).toBeNull();
+    });
+
+    it("cancels a keyboard event draft with Escape", () => {
+        const navigator = new CalendarCellNavigator(
+            makeContainer(),
+            makeCalendar(
+                "timeGridWeek",
+                new Date(2026, 7, 17),
+                new Date(2026, 7, 24)
+            ),
+            { now: () => new Date(2026, 7, 20, 10, 7) }
+        );
+
+        navigator.handleKey("Enter");
+        expect(navigator.handleKey("Escape")).toBe(true);
+        expect(navigator.getEventDraft()).toBeNull();
     });
 });

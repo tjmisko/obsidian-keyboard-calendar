@@ -39,7 +39,14 @@ The complete documentation starts at [docs/index.md](docs/index.md).
 
 ## Keyboard navigation
 
-Week and day views use 15-minute cells and keep one cell selected. Use the arrow keys or `h`, `j`, `k`, and `l` to move left, down, up, and right. Vertical movement stops at the first or last cell of the day; horizontal movement continues into the adjacent date and changes the visible range when necessary.
+Week and day views use a cell-oriented insert mode with one 15-minute cell selected. The keyboard commands are:
+
+- Arrow keys or `h`, `j`, `k`, and `l`: move left, down, up, and right. Vertical movement stops at the day's boundary; horizontal movement continues into adjacent dates.
+- `PageUp` and `PageDown`: move by one visible page of time cells.
+- `Home` and `End`: move to the first or last visible day at the current time.
+- `gg` and `G`: move to the first or last time cell of the day.
+- `zt`, `zz`, and `zb`: align the selected cell at the top, center, or bottom of the viewport. `zh` and `zl` scroll horizontally when the grid overflows.
+- `Enter`: start a 15-minute event draft. Up/down (or `k`/`j`) resize it, left/right (or `h`/`l`) move it by one day, a second `Enter` creates the event note, and `Escape` cancels.
 
 Cell navigation only captures keys while the calendar is the active Obsidian leaf and no editor, input, or modal is active. `Tab` and `Shift+Tab` cycle calendar views, and `t` returns to today.
 
