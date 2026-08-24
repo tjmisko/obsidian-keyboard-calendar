@@ -1,6 +1,6 @@
 # FullCalendar Configuration
 
-Full Calendar exposes its retained display preferences through native Obsidian settings controls.
+Keyboard Calendar exposes its retained display preferences through native Obsidian settings controls.
 
 ## First day of week
 

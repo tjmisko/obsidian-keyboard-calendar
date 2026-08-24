@@ -130,7 +130,10 @@ export default class EventCache {
             try {
                 callback({ type: "resync" });
             } catch (error) {
-                console.error("Full Calendar cache subscriber failed", error);
+                console.error(
+                    "Keyboard Calendar cache subscriber failed",
+                    error
+                );
             }
         }
     }
@@ -565,7 +568,10 @@ export default class EventCache {
                     })),
                 });
             } catch (error) {
-                console.error("Full Calendar cache subscriber failed", error);
+                console.error(
+                    "Keyboard Calendar cache subscriber failed",
+                    error
+                );
             }
         }
     }

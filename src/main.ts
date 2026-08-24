@@ -213,7 +213,7 @@ export default class FullCalendarPlugin extends Plugin {
 
         this.addRibbonIcon(
             "calendar-glyph",
-            "Open Full Calendar",
+            "Open Keyboard Calendar",
             async (_: MouseEvent) => {
                 await this.activateView();
             }
@@ -244,7 +244,7 @@ export default class FullCalendarPlugin extends Plugin {
                             this.app.workspace.detachLeavesOfType(
                                 FULL_CALENDAR_VIEW_TYPE
                             );
-                            new Notice("Full Calendar has been reset.");
+                            new Notice("Keyboard Calendar has been reset.");
                             return;
                         case "full-calendar-open":
                             void this.activateView();
@@ -255,7 +255,7 @@ export default class FullCalendarPlugin extends Plugin {
         );
 
         (this.app.workspace as any).registerHoverLinkSource(PLUGIN_SLUG, {
-            display: "Full Calendar",
+            display: "Keyboard Calendar",
             defaultMod: true,
         });
     }

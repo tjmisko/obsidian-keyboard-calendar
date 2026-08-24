@@ -4,7 +4,7 @@ Click an event to open its backing note in a normal Markdown buffer. Edit its ti
 
 ## Moving events
 
-Drag a single event or a simple weekly recurring event to change its date or time. For note-first files tagged `event`, Full Calendar changes the timing fields in place and preserves unrelated frontmatter and note content. Parser-compatible legacy notes without that tag also preserve YAML/body content, but may be renamed to their historical date/title-derived filename during an edit.
+Drag a single event or a simple weekly recurring event to change its date or time. For note-first files tagged `event`, Keyboard Calendar changes the timing fields in place and preserves unrelated frontmatter and note content. Parser-compatible legacy notes without that tag also preserve YAML/body content, but may be renamed to their historical date/title-derived filename during an edit.
 
 Nth-weekday recurrence rules remain note-editable, but are not draggable because a single displayed occurrence does not define how the rule itself should change.
 

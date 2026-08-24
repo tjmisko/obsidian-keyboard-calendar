@@ -113,7 +113,7 @@ const formatFallbackWarning = ({
     eventId,
     sourceId,
 }: IncrementalFailure): string =>
-    `Full Calendar update fallback: ${reason}; event=${eventId}; source=${sourceId}`;
+    `Keyboard Calendar update fallback: ${reason}; event=${eventId}; source=${sourceId}`;
 
 /** Keep an existing FullCalendar instance synchronized with EventCache. */
 export const applyCalendarCacheUpdate = ({

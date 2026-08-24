@@ -1,6 +1,6 @@
 # Migration and rollback
 
-Back up Obsidian's plugin data and workspace layout before installing this fork over an older Full Calendar release. The migration never moves, rewrites, or deletes event notes or daily-note contents, but it intentionally narrows saved settings and may rewrite a restored workspace layout. Git rollback alone cannot undo those changes.
+Back up Obsidian's plugin data and workspace layout before installing Keyboard Calendar over an older Full Calendar release. The migration never moves, rewrites, or deletes event notes or daily-note contents, but it intentionally narrows saved settings and may rewrite a restored workspace layout. Git rollback alone cannot undo those changes.
 
 ## What changes
 

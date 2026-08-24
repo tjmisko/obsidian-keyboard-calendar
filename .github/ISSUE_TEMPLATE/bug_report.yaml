@@ -1,7 +1,7 @@
 # Modified from Obsidian Tasks, which is (c) 2021 Martin Schenck and Clare Macrae under the MIT license.
 # https://github.com/obsidian-tasks-group/obsidian-tasks/blob/main/.github/ISSUE_TEMPLATE/bug-report.yaml
 name: Bug Report
-description: Create a bug report to help us improve Full Calendar
+description: Create a bug report to help us improve Keyboard Calendar
 labels: ["bug"]
 body:
     - type: markdown
@@ -9,7 +9,7 @@ body:
           value: |
               ## Before you start
               Please **make sure you are on the latest release of this lean fork.**
-              If you encountered the issue after you installed, updated, or reloaded the Full Calendar plugin, **please try restarting obsidian before reporting the bug**.
+              If you encountered the issue after you installed, updated, or reloaded the Keyboard Calendar plugin, **please try restarting Obsidian before reporting the bug**.
 
     - type: checkboxes
       id: no-duplicate-issues
@@ -17,7 +17,7 @@ body:
           label: "Please check that this issue hasn't been reported before."
           description: "The **Label filters** may help make your search more focussed."
           options:
-              - label: "I searched previous [Bug Reports](https://github.com/tjmisko/obsidian-full-calendar/issues?q=is%3Aissue+is%3Aopen+label%3Abug) and didn't find any similar reports."
+              - label: "I searched previous [Bug Reports](https://github.com/tjmisko/obsidian-keyboard-calendar/issues?q=is%3Aissue+is%3Aopen+label%3Abug) and didn't find any similar reports."
                 required: true
 
     - type: textarea
@@ -88,9 +88,9 @@ body:
     - type: input
       id: full-calendar-version
       attributes:
-          label: Full Calendar Plugin Version
-          description: Which Full Calendar version are you using?
-          placeholder: "Enter Full Calendar version here."
+          label: Keyboard Calendar Plugin Version
+          description: Which Keyboard Calendar version are you using?
+          placeholder: "Enter Keyboard Calendar version here."
       validations:
           required: true
 

@@ -6,6 +6,6 @@ Only Markdown files directly inside the configured folder are eligible; the `.md
 
 You may add unrelated frontmatter and any Markdown content, such as descriptions, links, or meeting notes. Supported calendar edits preserve that content.
 
-New timed event notes start with an `Untitled event` filename and open as ordinary Markdown buffers so you can name and edit them normally. Full Calendar never offers a calendar action that deletes the backing note.
+New timed event notes start with an `Untitled event` filename and open as ordinary Markdown buffers so you can name and edit them normally. Keyboard Calendar never offers a calendar action that deletes the backing note.
 
 Changing or removing the configured folder affects settings only. It never moves, rewrites, or deletes existing notes. Notes outside the selected folder remain on disk but are not displayed.

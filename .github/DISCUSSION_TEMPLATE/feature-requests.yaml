@@ -7,9 +7,9 @@ body:
       attributes:
           label: "⚠️ Please check that this feature request hasn't been suggested before."
           options:
-              - label: "I searched previous [Ideas in Discussions](https://github.com/tjmisko/obsidian-full-calendar/discussions/categories/feature-requests) didn't find any similar feature requests."
+              - label: "I searched previous [Ideas in Discussions](https://github.com/tjmisko/obsidian-keyboard-calendar/discussions/categories/feature-requests) and didn't find any similar feature requests."
                 required: true
-              - label: "I searched previous [Issues](https://github.com/tjmisko/obsidian-full-calendar/issues) didn't find any similar feature requests."
+              - label: "I searched previous [Issues](https://github.com/tjmisko/obsidian-keyboard-calendar/issues) and didn't find any similar feature requests."
                 required: true
 
     - type: textarea

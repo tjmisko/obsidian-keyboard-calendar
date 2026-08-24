@@ -1,4 +1,4 @@
-# Lean Full Calendar Fork: Execution Handoff
+# Lean Keyboard Calendar Fork: Execution Handoff
 
 Status: Phase 9 final convergence accepted at exact `0a01c26fa1294e4b79ee5d0c627277a1be22e547`; three exact-SHA reviewers `ACCEPT`; live Obsidian release matrix pending
 

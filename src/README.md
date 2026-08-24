@@ -2,7 +2,7 @@
 
 This fork gives desktop users a normal-tab calendar over local, full-note events. One configured folder—normally `events`—is writable. Ownership is exact: only direct children with a case-insensitive `.md` extension are indexed. Daily notes remain navigation targets from date headers rather than event stores.
 
-Obsidian Full Calendar takes its name from [FullCalendar](https://github.com/fullcalendar/fullcalendar), a "Full-sized drag & drop event calendar in JavaScript." This plugin uses FullCalendar as its calendar view. While the naming can be ambiguous, this document will always refer to the FullCalendar view library without any spaces, or as `fullcalendar.io`. The plugin will be referred to either as "the plugin", "Full Calendar" with a space, or "Obsidian Full Calendar".
+Keyboard Calendar uses [FullCalendar](https://github.com/fullcalendar/fullcalendar), a "Full-sized drag & drop event calendar in JavaScript," as its calendar view. This document refers to the view library as FullCalendar without a space, or as `fullcalendar.io`, and to this plugin as Keyboard Calendar.
 
 The active runtime supports one event source format:
 
@@ -26,7 +26,7 @@ Following the advice in [this blog post on architecture docs](https://matklad.gi
 
 ### `types`
 
-This module defines some common types used throughout the code. The most prevalent is `OFCEvent`, short for Obsidian Full Calendar Event, that specifies the intermediate representation for all events in the plugin. Note that FullCalendar.io uses a different event format called `EventInput`, which you can read about [in their documentation](https://fullcalendar.io/docs/event-parsing).
+This module defines some common types used throughout the code. The most prevalent is the inherited `OFCEvent` type (short for Obsidian Full Calendar Event), which specifies the intermediate representation for all events in the plugin. FullCalendar.io uses a different event format called `EventInput`, which you can read about [in its documentation](https://fullcalendar.io/docs/event-parsing).
 
 `OFCEvent` is derived from a [Zod parser](https://github.com/colinhacks/zod) that handles parsing/validating JavaScript objects into the expected shape of an event. You can check out the parser in `types/schema.ts`.
 

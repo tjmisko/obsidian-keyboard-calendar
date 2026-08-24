@@ -15,7 +15,7 @@ export class LegacySidebarCompatibilityView extends ItemView {
     }
 
     getDisplayText(): string {
-        return "Full Calendar compatibility";
+        return "Keyboard Calendar compatibility";
     }
 
     getIcon(): string {

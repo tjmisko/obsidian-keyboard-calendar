@@ -5,7 +5,7 @@ import { DateTime, Duration } from "luxon";
 import { rrulestr } from "rrule";
 
 /*
- * Functions for converting between the types used by the FullCalendar view plugin and types used internally by Obsidian Full Calendar.
+ * Functions for converting between the types used by FullCalendar and those used internally by Keyboard Calendar.
  */
 
 const parseTime = (time: string): Duration | null => {

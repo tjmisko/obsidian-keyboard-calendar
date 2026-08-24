@@ -200,7 +200,7 @@ describe("calendar cache updates", () => {
         expectOneCompleteRebuild(harness);
         expect(warn).toHaveBeenCalledTimes(1);
         expect(warn).toHaveBeenCalledWith(
-            "Full Calendar update fallback: event conversion returned null; event=invalid; source=local"
+            "Keyboard Calendar update fallback: event conversion returned null; event=invalid; source=local"
         );
     });
 
@@ -220,7 +220,7 @@ describe("calendar cache updates", () => {
         expect(harness.renderedIds()).toEqual(["missing-source"]);
         expect(warn).toHaveBeenCalledTimes(1);
         expect(warn).toHaveBeenCalledWith(
-            "Full Calendar update fallback: event source was not found; event=missing-source; source=gone"
+            "Keyboard Calendar update fallback: event source was not found; event=missing-source; source=gone"
         );
     });
 
@@ -240,7 +240,7 @@ describe("calendar cache updates", () => {
         expect(harness.renderedIds()).toEqual(["null-result"]);
         expect(warn).toHaveBeenCalledTimes(1);
         expect(warn).toHaveBeenCalledWith(
-            "Full Calendar update fallback: addEvent returned null; event=null-result; source=local"
+            "Keyboard Calendar update fallback: addEvent returned null; event=null-result; source=local"
         );
     });
 
@@ -262,7 +262,7 @@ describe("calendar cache updates", () => {
         expect(harness.renderedIds()).toEqual(["unverified"]);
         expect(warn).toHaveBeenCalledTimes(1);
         expect(warn).toHaveBeenCalledWith(
-            "Full Calendar update fallback: event ID was missing after addEvent; event=unverified; source=local"
+            "Keyboard Calendar update fallback: event ID was missing after addEvent; event=unverified; source=local"
         );
     });
 

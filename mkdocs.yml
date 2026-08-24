@@ -1,6 +1,6 @@
-site_name: Full Calendar
-repo_url: https://github.com/tjmisko/obsidian-full-calendar
-repo_name: obsidian-full-calendar
+site_name: Keyboard Calendar
+repo_url: https://github.com/tjmisko/obsidian-keyboard-calendar
+repo_name: obsidian-keyboard-calendar
 theme:
     name: material
     icon:

@@ -1,11 +1,10 @@
 {
 	"id": "obsidian-full-calendar",
-	"name": "Full Calendar",
+	"name": "Keyboard Calendar",
 	"version": "0.10.7",
 	"minAppVersion": "0.16.3",
-	"description": "Desktop local-note calendar for Obsidian",
-	"author": "Davis Haupt",
-	"authorUrl": "https://davi.sh",
-	"isDesktopOnly": true,
-	"fundingUrl": "https://ko-fi.com/davish"
+	"description": "Keyboard-first local-note calendar for Obsidian",
+	"author": "Tristan Misko",
+	"authorUrl": "https://github.com/tjmisko",
+	"isDesktopOnly": true
 }

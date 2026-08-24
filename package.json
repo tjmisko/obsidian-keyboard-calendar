@@ -1,7 +1,7 @@
 {
-    "name": "obsidian-full-calendar",
+    "name": "obsidian-keyboard-calendar",
     "version": "0.10.7",
-    "description": "Desktop local-note calendar for Obsidian",
+    "description": "Keyboard-first local-note calendar for Obsidian",
     "main": "main.js",
     "scripts": {
         "dev": "node esbuild.config.mjs",
@@ -19,9 +19,12 @@
     },
     "keywords": [],
     "author": {
-        "name": "Davis Haupt",
-        "email": "contact@davishaupt.com",
-        "url": "https://davi.sh"
+        "name": "Tristan Misko",
+        "url": "https://github.com/tjmisko"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/tjmisko/obsidian-keyboard-calendar.git"
     },
     "license": "MIT",
     "devDependencies": {

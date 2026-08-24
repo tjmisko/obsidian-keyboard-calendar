@@ -244,7 +244,7 @@ export class CalendarView extends ItemView {
     async onOpen() {
         await this.plugin.loadSettings();
         if (!this.plugin.cache) {
-            new Notice("Full Calendar event cache not loaded.");
+            new Notice("Keyboard Calendar event cache not loaded.");
             return;
         }
         if (!this.plugin.cache.initialized) {

@@ -1,6 +1,6 @@
-# Full Calendar — Lean Local Fork
+# Keyboard Calendar
 
-Full Calendar is a desktop-only, note-first calendar for Obsidian. It renders events with [FullCalendar](https://fullcalendar.io/) while keeping every event in an ordinary Markdown note in the local vault.
+Keyboard Calendar is a desktop-only, keyboard-first calendar for Obsidian by [Tristan Misko](https://github.com/tjmisko). It renders events with [FullCalendar](https://fullcalendar.io/) while keeping every event in an ordinary Markdown note in the local vault.
 
 This fork deliberately supports one model:
 
@@ -31,9 +31,9 @@ The filename supplies the title unless `title` is set. The rest of the note is y
 
 Back up Obsidian's plugin data and workspace layout before installing this fork. Migration intentionally scrubs or narrows older remote, daily-note-event, multi-folder, mobile, and sidebar settings. It never moves, rewrites, or deletes event notes or daily-note contents, but Git rollback cannot restore settings or a workspace layout that Obsidian has already saved.
 
-Use a release from this fork's [releases page](https://github.com/tjmisko/obsidian-full-calendar/releases), or build the repository and copy `main.js`, `manifest.json`, and `styles.css` into the vault's `.obsidian/plugins/obsidian-full-calendar/` directory. See [migration and rollback](docs/migration.md) before upgrading an existing installation.
+Use a release from this fork's [releases page](https://github.com/tjmisko/obsidian-keyboard-calendar/releases), or build the repository and copy `main.js`, `manifest.json`, and `styles.css` into the vault's `.obsidian/plugins/obsidian-full-calendar/` directory. See [migration and rollback](docs/migration.md) before upgrading an existing installation.
 
-The retained plugin ID matches the historical project for workspace/settings compatibility. The Obsidian Community Plugins listing belongs to the upstream product and is not an install or update channel for this fork.
+The repository and package slug is `obsidian-keyboard-calendar`. The retained plugin ID and install directory remain `obsidian-full-calendar` for workspace/settings compatibility. The Obsidian Community Plugins listing belongs to the upstream product and is not an install or update channel for this fork.
 
 The complete documentation starts at [docs/index.md](docs/index.md).
 
