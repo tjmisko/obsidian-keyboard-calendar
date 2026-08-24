@@ -99,4 +99,16 @@ describe("event-note navigation", () => {
         expect(selection.removeAllRanges).toHaveBeenCalledTimes(1);
         expect(selection.addRange).toHaveBeenCalledWith(range);
     });
+
+    it("retains the created file for one calendar return", async () => {
+        const { editor } = setup();
+        const leaf = {
+            openFile: jest.fn(async () => undefined),
+        } as unknown as WorkspaceLeaf;
+
+        await editor.open(file, leaf, { focusEventOnReturn: true });
+
+        expect(editor.consumeCalendarReturnTarget(leaf)).toBe(file);
+        expect(editor.consumeCalendarReturnTarget(leaf)).toBeNull();
+    });
 });

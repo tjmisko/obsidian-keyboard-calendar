@@ -26,7 +26,7 @@ describe("calendar selection routing", () => {
                 startTime: "09:00",
                 endTime: "10:30",
             },
-            { focusTitle: false }
+            { focusTitle: false, focusEventOnReturn: true }
         );
     });
 
@@ -45,6 +45,7 @@ describe("calendar selection routing", () => {
 
         expect(createTimedNote).toHaveBeenCalledWith(expect.any(Object), {
             focusTitle: true,
+            focusEventOnReturn: true,
         });
     });
 

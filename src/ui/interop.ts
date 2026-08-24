@@ -168,6 +168,20 @@ export function dateEndpointsToFrontmatter(
     };
 }
 
+/** Resolve the current local start of a concrete event for view navigation. */
+export function getSingleEventStartDate(event: OFCEvent): Date | null {
+    if (event.type !== "single") {
+        return null;
+    }
+    const start = event.allDay
+        ? DateTime.fromISO(event.date)
+        : (() => {
+              const value = combineDateTimeStrings(event.date, event.startTime);
+              return value ? DateTime.fromISO(value) : null;
+          })();
+    return start?.isValid ? start.toJSDate() : null;
+}
+
 export function toEventInput(
     id: string,
     frontmatter: OFCEvent

@@ -194,6 +194,19 @@ describe("single local EventCache runtime", () => {
         });
     });
 
+    it("resolves the current event ID from its path", async () => {
+        const calendar = new TestFullNoteCalendar("events", {
+            "events/A.md": event("A"),
+        });
+        const cache = makeCache(calendar);
+        await cache.populate();
+
+        expect(cache.getEventIdForPath("events/A.md")).toBe(
+            sourceEvents(cache)[0].id
+        );
+        expect(cache.getEventIdForPath("events/Missing.md")).toBeNull();
+    });
+
     it("retains direct-root production ownership and lifecycle semantics", async () => {
         const calendar = new TestFullNoteCalendar("", {
             "Root.md": event("Root"),

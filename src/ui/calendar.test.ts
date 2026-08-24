@@ -252,6 +252,7 @@ describe("calendar renderer", () => {
 
         options.eventDidMount({
             event: {
+                id: "event-id",
                 start,
                 end,
                 display: "auto",
@@ -263,11 +264,22 @@ describe("calendar renderer", () => {
         });
 
         expect(element.dataset).toEqual({
+            ofcEventId: "event-id",
             ofcEventStart: start.toISOString(),
             ofcEventEnd: end.toISOString(),
         });
         expect(element.tabIndex).toBe(-1);
         expect(options.eventsSet).toBe(eventsSet);
+    });
+
+    it("can render directly on a return-navigation date", () => {
+        const initialDate = new Date(2026, 7, 23, 18, 0);
+
+        renderCalendar({} as HTMLElement, [], { initialDate });
+
+        const calls = (Calendar as unknown as jest.Mock).mock.calls;
+        const options = calls[calls.length - 1][1] as CalendarOptions;
+        expect(options.initialDate).toBe(initialDate);
     });
 
     it("does not ghost explicitly attended occurrences", () => {

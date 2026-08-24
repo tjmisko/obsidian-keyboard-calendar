@@ -9,7 +9,12 @@ import {
 } from "./calendar";
 import FullCalendarPlugin from "../main";
 import { PLUGIN_SLUG } from "../types";
-import { fromEventApi, omitRecurringOccurrence, toEventInput } from "./interop";
+import {
+    fromEventApi,
+    getSingleEventStartDate,
+    omitRecurringOccurrence,
+    toEventInput,
+} from "./interop";
 import { renderOnboarding } from "./onboard";
 import { openFullNoteForEvent } from "./actions";
 import { UpdateViewCallback } from "src/core/EventCache";
@@ -262,6 +267,20 @@ export class CalendarView extends ItemView {
             return;
         }
 
+        const returnTarget =
+            this.plugin.eventNoteEditor?.consumeCalendarReturnTarget(
+                this.leaf
+            ) || null;
+        const returnEventId = returnTarget
+            ? this.plugin.cache.getEventIdForPath(returnTarget.path)
+            : null;
+        const returnEvent = returnEventId
+            ? this.plugin.cache.getEventById(returnEventId)
+            : null;
+        const returnEventDate = returnEvent
+            ? getSingleEventStartDate(returnEvent)
+            : null;
+
         const sources: LocalMaterializedEventSource[] = this.translateSources();
 
         if (this.fullCalendarView) {
@@ -373,6 +392,7 @@ export class CalendarView extends ItemView {
             },
             firstDay: this.plugin.settings.firstDay,
             initialView: this.plugin.settings.initialView,
+            initialDate: returnEventDate || undefined,
             timeFormat24h: this.plugin.settings.timeFormat24h,
             datesSet: () => {
                 if (
@@ -471,7 +491,10 @@ export class CalendarView extends ItemView {
         this.cellNavigator.deactivate();
         this.eventNavigator = new CalendarEventNavigator(calendarEl);
         this.navigationMode = "normal";
-        this.eventNavigator.activate();
+        this.eventNavigator.activate(
+            returnEventDate || undefined,
+            returnEventId || undefined
+        );
         this.createModeChip(calendarEl);
         if (this.callback) {
             this.plugin.cache.off("update", this.callback);

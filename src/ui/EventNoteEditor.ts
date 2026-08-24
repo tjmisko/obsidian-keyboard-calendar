@@ -2,6 +2,7 @@ import { App, TFile, WorkspaceLeaf } from "obsidian";
 
 export interface EventNoteOpenOptions {
     focusTitle?: boolean;
+    focusEventOnReturn?: boolean;
 }
 
 const INLINE_TITLE_SELECTOR =
@@ -32,7 +33,18 @@ const focusInlineTitle = (leaf: WorkspaceLeaf): void => {
  * Vim, recent-file, alternate-file, and back/forward behavior.
  */
 export default class EventNoteEditor {
+    private readonly calendarReturnTargets = new WeakMap<
+        WorkspaceLeaf,
+        TFile
+    >();
+
     constructor(private app: App) {}
+
+    consumeCalendarReturnTarget(leaf: WorkspaceLeaf): TFile | null {
+        const file = this.calendarReturnTargets.get(leaf) || null;
+        this.calendarReturnTargets.delete(leaf);
+        return file;
+    }
 
     async open(
         file: TFile,
@@ -43,7 +55,17 @@ export default class EventNoteEditor {
             targetLeaf ||
             this.app.workspace.activeLeaf ||
             this.app.workspace.getLeaf(false);
-        await leaf.openFile(file);
+        if (options.focusEventOnReturn) {
+            this.calendarReturnTargets.set(leaf, file);
+        }
+        try {
+            await leaf.openFile(file);
+        } catch (error) {
+            if (this.calendarReturnTargets.get(leaf) === file) {
+                this.calendarReturnTargets.delete(leaf);
+            }
+            throw error;
+        }
         if (options.focusTitle) {
             focusInlineTitle(leaf);
         }

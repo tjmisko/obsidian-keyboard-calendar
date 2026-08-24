@@ -41,7 +41,7 @@ The complete documentation starts at [docs/index.md](docs/index.md).
 
 The calendar opens in event-oriented normal mode. The mode chip in the toolbar shows `Normal` or `Insert`.
 
-- In normal mode, Arrow keys or `h`, `j`, `k`, and `l` move spatially between events; counts repeat a move (for example, `3j`). `Enter` opens the focused event.
+- In normal mode, Down/`j` and Up/`k` move to the next and previous event by start time; equal starts follow their rendered order. Left/`h` and Right/`l` continue to move spatially. Counts repeat a move (for example, `3j`), and `Enter` opens the focused event.
 - Press `i` in a week or day view to enter blockwise insert mode at the current quarter-hour. Press `Escape` to return to normal mode and focus the event nearest the selected block.
 
 Insert-mode commands are:

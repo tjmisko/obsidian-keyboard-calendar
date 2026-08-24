@@ -162,6 +162,10 @@ export default class EventCache {
         return this.index.getRecord(id)?.event || null;
     }
 
+    getEventIdForPath(path: string): string | null {
+        return this.index.getIdForPath(path);
+    }
+
     hasLocalCalendar(): boolean {
         return this.calendar !== null;
     }

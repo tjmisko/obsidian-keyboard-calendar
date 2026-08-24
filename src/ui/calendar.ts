@@ -46,6 +46,7 @@ interface ExtraRenderProps {
     eventMouseEnter?: (info: EventHoveringArg) => void;
     firstDay?: number;
     initialView?: string;
+    initialDate?: Date;
     timeFormat24h?: boolean;
     ghostEventTags?: () => readonly string[];
     openContextMenuForEvent?: (
@@ -206,6 +207,7 @@ export function renderCalendar(
             rrulePlugin,
         ],
         initialView: settings?.initialView || "timeGridWeek",
+        initialDate: settings?.initialDate,
         nowIndicator: true,
         scrollTimeReset: false,
         dayMaxEvents: true,
@@ -378,6 +380,7 @@ export function renderCalendar(
                 el.addClass("ofc-event-ghost");
             }
             if (event.start && !event.display.includes("background")) {
+                el.dataset.ofcEventId = event.id;
                 el.dataset.ofcEventStart = event.start.toISOString();
                 el.dataset.ofcEventEnd = (
                     event.end || event.start

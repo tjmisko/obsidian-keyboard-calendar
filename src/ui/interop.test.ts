@@ -2,6 +2,7 @@ import { createDuration } from "@fullcalendar/core";
 import { parseEvent } from "../types/schema";
 import {
     fromEventApi,
+    getSingleEventStartDate,
     omitRecurringOccurrence,
     selectionRequiresDayView,
     toEventInput,
@@ -15,6 +16,30 @@ describe("event selection routing", () => {
 
     it("creates notes only from a timed grid selection", () => {
         expect(selectionRequiresDayView("timeGridWeek", false)).toBe(false);
+    });
+});
+
+describe("single-event navigation date", () => {
+    it("uses the current local date and start time", () => {
+        const event = parseEvent({
+            title: "Created event",
+            type: "single",
+            date: "2026-08-22",
+            allDay: false,
+            startTime: "09:30",
+            endTime: "10:00",
+        });
+
+        const start = getSingleEventStartDate(event);
+
+        expect(start).not.toBeNull();
+        expect([
+            start!.getFullYear(),
+            start!.getMonth(),
+            start!.getDate(),
+            start!.getHours(),
+            start!.getMinutes(),
+        ]).toEqual([2026, 7, 22, 9, 30]);
     });
 });
 

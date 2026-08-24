@@ -22,7 +22,10 @@ export async function handleCalendarSelection({
     openDay: (date: Date) => void;
     createTimedNote: (
         event: Partial<OFCEvent>,
-        options: { focusTitle: boolean }
+        options: {
+            focusTitle: boolean;
+            focusEventOnReturn: boolean;
+        }
     ) => Promise<void>;
 }): Promise<void> {
     if (selectionRequiresDayView(viewType, allDay)) {
@@ -31,5 +34,6 @@ export async function handleCalendarSelection({
     }
     await createTimedNote(dateEndpointsToFrontmatter(start, end, false), {
         focusTitle,
+        focusEventOnReturn: true,
     });
 }

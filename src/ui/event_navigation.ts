@@ -119,11 +119,17 @@ export class CalendarEventNavigator {
         this.now = options.now || (() => new Date());
     }
 
-    activate(preferredDate: Date = this.now()): void {
+    activate(
+        preferredDate: Date = this.now(),
+        preferredEventId?: string
+    ): void {
         this.enabled = true;
         this.pendingCount = "";
         this.anchorDate = new Date(preferredDate);
         this.containerEl.classList.add("ofc-event-navigation-active");
+        if (preferredEventId && this.focusEventById(preferredEventId)) {
+            return;
+        }
         this.syncToView(preferredDate);
     }
 
@@ -190,6 +196,35 @@ export class CalendarEventNavigator {
         if (!this.focusedEvent || !events.includes(this.focusedEvent)) {
             this.syncToView();
         }
+        if (direction === "up" || direction === "down") {
+            const orderedEvents = events
+                .map((event, domIndex) => ({
+                    event,
+                    domIndex,
+                    start:
+                        parseEventDate(event, "ofcEventStart")?.getTime() || 0,
+                }))
+                .sort(
+                    (left, right) =>
+                        left.start - right.start ||
+                        left.domIndex - right.domIndex
+                )
+                .map(({ event }) => event);
+            const currentIndex = this.focusedEvent
+                ? orderedEvents.indexOf(this.focusedEvent)
+                : -1;
+            if (currentIndex < 0) {
+                return true;
+            }
+            const offset = (direction === "down" ? 1 : -1) * count;
+            const nextIndex = Math.max(
+                0,
+                Math.min(orderedEvents.length - 1, currentIndex + offset)
+            );
+            this.focus(orderedEvents[nextIndex]);
+            return true;
+        }
+
         let currentIndex = this.focusedEvent
             ? events.indexOf(this.focusedEvent)
             : -1;
@@ -247,6 +282,17 @@ export class CalendarEventNavigator {
                 CALENDAR_EVENT_NAVIGATION_SELECTOR
             )
         ).filter((element) => !!parseEventDate(element, "ofcEventStart"));
+    }
+
+    private focusEventById(eventId: string): boolean {
+        const event = this.getEventElements().find(
+            (element) => element.dataset.ofcEventId === eventId
+        );
+        if (!event) {
+            return false;
+        }
+        this.focus(event);
+        return true;
     }
 
     private getNearestEvent(
