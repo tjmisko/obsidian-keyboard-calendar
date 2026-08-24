@@ -61,4 +61,42 @@ describe("event-note navigation", () => {
 
         await expect(editor.open(file)).rejects.toThrow("open failed");
     });
+
+    it("focuses and selects the inline title after opening a created note", async () => {
+        const { editor } = setup();
+        const order: string[] = [];
+        const range = {
+            selectNodeContents: jest.fn(),
+        };
+        const selection = {
+            removeAllRanges: jest.fn(),
+            addRange: jest.fn(),
+        };
+        const title = {
+            focus: jest.fn(() => order.push("focus")),
+            ownerDocument: {
+                createRange: jest.fn(() => range),
+                getSelection: jest.fn(() => selection),
+            },
+        } as unknown as HTMLElement;
+        const querySelector = jest.fn(() => title);
+        const leaf = {
+            openFile: jest.fn(async () => {
+                order.push("open");
+            }),
+            view: {
+                containerEl: { querySelector },
+            },
+        } as unknown as WorkspaceLeaf;
+
+        await editor.open(file, leaf, { focusTitle: true });
+
+        expect(order).toEqual(["open", "focus"]);
+        expect(querySelector).toHaveBeenCalledWith(
+            '.inline-title[contenteditable]:not([contenteditable="false"])'
+        );
+        expect(range.selectNodeContents).toHaveBeenCalledWith(title);
+        expect(selection.removeAllRanges).toHaveBeenCalledTimes(1);
+        expect(selection.addRange).toHaveBeenCalledWith(range);
+    });
 });

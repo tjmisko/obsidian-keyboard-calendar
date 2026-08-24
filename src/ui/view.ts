@@ -278,22 +278,25 @@ export class CalendarView extends ItemView {
             start: Date,
             end: Date,
             allDay: boolean,
-            viewType: string
+            viewType: string,
+            focusTitle = false
         ): Promise<void> => {
             await handleCalendarSelection({
                 start,
                 end,
                 allDay,
                 viewType,
+                focusTitle,
                 openDay: (date) => {
                     this.fullCalendarView?.changeView("timeGridDay");
                     this.fullCalendarView?.gotoDate(date);
                 },
-                createTimedNote: async (partialEvent) => {
+                createTimedNote: async (partialEvent, options) => {
                     try {
                         await this.plugin.createTimedEventNote(
                             partialEvent,
-                            this.leaf
+                            this.leaf,
+                            options
                         );
                     } catch (e) {
                         if (e instanceof Error) {
@@ -460,7 +463,8 @@ export class CalendarView extends ItemView {
                         start,
                         end,
                         false,
-                        this.fullCalendarView?.view.type || "timeGridWeek"
+                        this.fullCalendarView?.view.type || "timeGridWeek",
+                        true
                     ),
             }
         );

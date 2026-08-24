@@ -10,7 +10,7 @@ import { OFCEvent, parseEvent, PLUGIN_SLUG } from "./types";
 import EventCache from "./core/EventCache";
 import { ObsidianIO } from "./ObsidianAdapter";
 import FullNoteCalendar from "./calendars/FullNoteCalendar";
-import EventNoteEditor from "./ui/EventNoteEditor";
+import EventNoteEditor, { EventNoteOpenOptions } from "./ui/EventNoteEditor";
 import {
     capturePersistedSettings,
     captureRuntimeSettingsBaseline,
@@ -50,7 +50,8 @@ export default class FullCalendarPlugin extends Plugin {
 
     async createTimedEventNote(
         partialEvent: Partial<OFCEvent>,
-        targetLeaf?: WorkspaceLeaf
+        targetLeaf?: WorkspaceLeaf,
+        options: EventNoteOpenOptions = {}
     ): Promise<TFile | null> {
         if (!this.cache.hasLocalCalendar()) {
             new Notice(
@@ -71,7 +72,7 @@ export default class FullCalendarPlugin extends Plugin {
                 `Created event note was not found at ${location.file.path}.`
             );
         }
-        await this.eventNoteEditor?.open(file, targetLeaf);
+        await this.eventNoteEditor?.open(file, targetLeaf, options);
         return file;
     }
 

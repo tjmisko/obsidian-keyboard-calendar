@@ -18,12 +18,33 @@ describe("calendar selection routing", () => {
         });
 
         expect(openDay).not.toHaveBeenCalled();
-        expect(createTimedNote).toHaveBeenCalledWith({
-            type: "single",
-            date: "2026-08-22",
+        expect(createTimedNote).toHaveBeenCalledWith(
+            {
+                type: "single",
+                date: "2026-08-22",
+                allDay: false,
+                startTime: "09:00",
+                endTime: "10:30",
+            },
+            { focusTitle: false }
+        );
+    });
+
+    it("requests title focus for an insert-mode selection", async () => {
+        const createTimedNote = jest.fn(async () => undefined);
+
+        await handleCalendarSelection({
+            start,
+            end,
             allDay: false,
-            startTime: "09:00",
-            endTime: "10:30",
+            viewType: "timeGridWeek",
+            focusTitle: true,
+            openDay: jest.fn(),
+            createTimedNote,
+        });
+
+        expect(createTimedNote).toHaveBeenCalledWith(expect.any(Object), {
+            focusTitle: true,
         });
     });
 
