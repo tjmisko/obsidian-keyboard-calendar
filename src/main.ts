@@ -63,7 +63,6 @@ export default class FullCalendarPlugin extends Plugin {
             ...partialEvent,
             title: "Untitled event",
             type: "single",
-            allDay: false,
         });
         const location = await this.cache.createEvent(event);
         const file = this.app.vault.getAbstractFileByPath(location.file.path);
@@ -251,7 +250,7 @@ export default class FullCalendarPlugin extends Plugin {
                                 start.getTime() + 60 * 60 * 1000
                             );
                             void this.createTimedEventNote(
-                                dateEndpointsToFrontmatter(start, end, false)
+                                dateEndpointsToFrontmatter(start, end)
                             ).catch(reportEventNoteCreationFailure);
                             return;
                         }

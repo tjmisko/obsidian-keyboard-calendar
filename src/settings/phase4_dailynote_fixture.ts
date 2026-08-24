@@ -10,11 +10,11 @@ export const PHASE4_DAILY_NOTE_FIXTURE = {
     contents: [
         "# 2026-08-22",
         "## Calendar",
-        "- [ ] Planning [startTime:: 09:00] [endTime:: 10:00] [allDay:: false]",
-        "- Holiday [allDay:: true]",
+        "- [ ] Planning [startTime:: 09:00] [endTime:: 10:00]",
+        "- Holiday [startTime:: 11:00] [endTime:: 12:00]",
         "- Plain bullet",
         "## Other",
-        "- Hidden [allDay:: true]",
+        "- Hidden [startTime:: 15:00] [endTime:: 16:00]",
         "",
     ].join("\n"),
 } as const;
@@ -27,7 +27,8 @@ export const PHASE4_DAILY_NOTE_FIXTURE = {
 export const PHASE4_DAILY_NOTE_EVENTS: readonly OFCEvent[] = [
     {
         title: "Holiday",
-        allDay: true,
+        startTime: "11:00",
+        endTime: "12:00",
         type: "single",
         date: "2026-08-22",
         endDate: null,
@@ -35,7 +36,6 @@ export const PHASE4_DAILY_NOTE_EVENTS: readonly OFCEvent[] = [
     },
     {
         title: "Planning",
-        allDay: false,
         startTime: "09:00",
         endTime: "10:00",
         type: "single",
@@ -48,7 +48,6 @@ export const PHASE4_DAILY_NOTE_EVENTS: readonly OFCEvent[] = [
 export const PHASE4_FULL_NOTE_EVENTS: readonly OFCEvent[] = [
     {
         title: "Retained full-note planning",
-        allDay: false,
         startTime: "13:00",
         endTime: "14:00",
         type: "single",

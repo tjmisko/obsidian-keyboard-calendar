@@ -20,9 +20,10 @@ const event = (
     ({
         title,
         type: "single",
-        allDay: true,
         date,
         endDate: null,
+        startTime: "09:00",
+        endTime: "10:00",
         ...extra,
     } as OFCEvent);
 

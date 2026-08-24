@@ -10,13 +10,12 @@ import {
 } from "./interop";
 
 describe("event selection routing", () => {
-    it("opens day view for month selections and all-day slots", () => {
-        expect(selectionRequiresDayView("dayGridMonth", false)).toBe(true);
-        expect(selectionRequiresDayView("timeGridWeek", true)).toBe(true);
+    it("opens day view for month selections", () => {
+        expect(selectionRequiresDayView("dayGridMonth")).toBe(true);
     });
 
     it("creates notes only from a timed grid selection", () => {
-        expect(selectionRequiresDayView("timeGridWeek", false)).toBe(false);
+        expect(selectionRequiresDayView("timeGridWeek")).toBe(false);
     });
 });
 
@@ -26,7 +25,6 @@ describe("single-event navigation date", () => {
             title: "Created event",
             type: "single",
             date: "2026-08-22",
-            allDay: false,
             startTime: "09:30",
             endTime: "10:00",
         });
@@ -51,7 +49,6 @@ describe("grabbed single-event persistence", () => {
             type: "single",
             date: "2026-08-22",
             categories: ["work"],
-            allDay: false,
             startTime: "23:30",
             endTime: "23:45",
         });
@@ -68,32 +65,35 @@ describe("grabbed single-event persistence", () => {
             type: "single",
             date: "2026-08-24",
             endDate: "2026-08-25",
-            allDay: false,
             startTime: "23:45",
             endTime: "00:00",
         });
     });
 
-    it("does not collapse recurring or all-day events into timed singles", () => {
+    it("does not collapse recurring events into timed singles", () => {
         const recurring = parseEvent({
             title: "Weekly",
             type: "recurring",
             daysOfWeek: ["M"],
-            allDay: false,
             startTime: "09:00",
             endTime: "10:00",
-        });
-        const allDay = parseEvent({
-            title: "Holiday",
-            type: "single",
-            date: "2026-08-24",
-            allDay: true,
         });
         const start = new Date(2026, 7, 24, 9, 0);
         const end = new Date(2026, 7, 24, 10, 0);
 
         expect(moveSingleTimedEvent(recurring, start, end)).toBeNull();
-        expect(moveSingleTimedEvent(allDay, start, end)).toBeNull();
+    });
+
+    it("rejects an all-day event from the FullCalendar boundary", () => {
+        expect(() =>
+            fromEventApi({
+                title: "Unsupported",
+                allDay: true,
+                start: new Date(2026, 7, 24),
+                end: new Date(2026, 7, 25),
+                extendedProps: {},
+            } as any)
+        ).toThrow("All-day events are not supported.");
     });
 });
 
@@ -105,7 +105,6 @@ describe("task-free event metadata", () => {
             date: "2026-08-22",
             completed: false,
             categories: ["work", "planning"],
-            allDay: false,
             startTime: "09:00",
             endTime: "10:00",
         });
@@ -145,7 +144,6 @@ describe("task-free event metadata", () => {
             type: "recurring",
             daysOfWeek: ["M"],
             attendingDates: ["2026-08-17", "2026-08-24"],
-            allDay: false,
             startTime: "09:00",
             endTime: "10:00",
         });
@@ -182,7 +180,8 @@ describe("task-free event metadata", () => {
                 type: "single",
                 date: "2026-08-22",
                 categories: ["work"],
-                allDay: true,
+                startTime: "09:00",
+                endTime: "10:00",
             }),
         ],
         [
@@ -192,7 +191,8 @@ describe("task-free event metadata", () => {
                 type: "recurring",
                 daysOfWeek: ["M"],
                 categories: ["work"],
-                allDay: true,
+                startTime: "09:00",
+                endTime: "10:00",
             }),
         ],
         [
@@ -204,7 +204,8 @@ describe("task-free event metadata", () => {
                 rrule: "FREQ=MONTHLY;BYDAY=1SA",
                 skipDates: [],
                 categories: ["work"],
-                allDay: true,
+                startTime: "09:00",
+                endTime: "10:00",
             }),
         ],
     ])("returns mutable category output for frozen %s input", (_, event) => {
@@ -230,7 +231,8 @@ describe("recurring event rendering", () => {
             daysOfWeek: ["M"],
             skipDates: ["2026-08-24"],
             categories: ["work"],
-            allDay: true,
+            startTime: "09:00",
+            endTime: "10:00",
         });
         if (event.type !== "recurring") {
             throw new Error("Expected recurring test event.");
@@ -263,7 +265,6 @@ describe("recurring event rendering", () => {
                 title: "Weekly overnight",
                 type: "recurring",
                 daysOfWeek: ["M"],
-                allDay: false,
                 startTime: "23:00",
                 endTime: "01:00",
             }),
@@ -276,7 +277,6 @@ describe("recurring event rendering", () => {
                 startDate: "1970-01-01",
                 rrule: "FREQ=MONTHLY;BYDAY=1SA",
                 skipDates: [],
-                allDay: false,
                 startTime: "23:00",
                 endTime: "01:00",
             }),
@@ -304,7 +304,6 @@ describe("recurring event rendering", () => {
             startDate: "1970-01-01",
             rrule: "FREQ=MONTHLY;BYDAY=4SU",
             skipDates: [],
-            allDay: false,
             startTime: "15:00",
             endTime: "18:00",
         });
@@ -321,7 +320,6 @@ describe("recurring event rendering", () => {
             title: "Full day by endpoints",
             type: "recurring",
             daysOfWeek: ["M"],
-            allDay: false,
             startTime: "09:00",
             endTime: "09:00",
         });
@@ -342,7 +340,6 @@ describe("recurring event rendering", () => {
             startDate: "2026-08-01",
             rrule: "FREQ=MONTHLY;BYDAY=1SA",
             skipDates: [],
-            allDay: false,
             startTime: "09:00",
             endTime: "10:00",
         });
@@ -372,7 +369,6 @@ describe("recurring event rendering", () => {
             title: "Weekly review",
             type: "recurring",
             daysOfWeek: ["M"],
-            allDay: false,
             startTime: "09:00",
             endTime: "10:00",
         });
@@ -387,7 +383,6 @@ describe("recurring event rendering", () => {
             startRecur: "2026-08-03",
             endRecur: "2026-09-01",
             skipDates: ["2026-08-17"],
-            allDay: false,
             startTime: "09:00",
             endTime: "10:00",
         });
@@ -410,7 +405,6 @@ describe("recurring event rendering", () => {
             type: "recurring",
             daysOfWeek: ["M"],
             skipDates: ["2026-08-24"],
-            allDay: false,
             startTime: "09:00",
             endTime: "10:00",
         });

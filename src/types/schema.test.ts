@@ -1,3 +1,5 @@
+import fc from "fast-check";
+import { ZodFastCheck } from "zod-fast-check";
 import {
     CommonSchema,
     EventSchema,
@@ -8,341 +10,137 @@ import {
     parseEvent,
     validateEvent,
 } from "./schema";
-import fc from "fast-check";
-import { ZodFastCheck } from "zod-fast-check";
 
 describe("schema parsing tests", () => {
-    describe("single events", () => {
-        it("simplest", () => {
+    describe("timed single events", () => {
+        it("defaults to a single event and requires a start time", () => {
             expect(
                 parseEvent({
                     title: "Test",
                     date: "2021-01-01",
-                    allDay: true,
-                })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": true,
-                  "date": "2021-01-01",
-                  "endDate": null,
-                  "title": "Test",
-                  "type": "single",
-                }
-            `);
-        });
-        it("explicit type", () => {
-            expect(
-                parseEvent({
-                    title: "Test",
-                    type: "single",
-                    date: "2021-01-01",
-                    allDay: true,
-                })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": true,
-                  "date": "2021-01-01",
-                  "endDate": null,
-                  "title": "Test",
-                  "type": "single",
-                }
-            `);
-        });
-        it("truncates time from date", () => {
-            expect(
-                parseEvent({
-                    title: "Test",
-                    type: "single",
-                    date: "2021-01-01",
-                    allDay: true,
-                })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": true,
-                  "date": "2021-01-01",
-                  "endDate": null,
-                  "title": "Test",
-                  "type": "single",
-                }
-            `);
-        });
-        it("start time", () => {
-            expect(
-                parseEvent({
-                    title: "Test",
-                    type: "single",
-                    date: "2021-01-01T10:30:00.000Z",
-                    allDay: false,
                     startTime: "10:30",
-                    endTime: null,
                 })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": false,
-                  "date": "2021-01-01T10:30:00.000Z",
-                  "endDate": null,
-                  "endTime": null,
-                  "startTime": "10:30",
-                  "title": "Test",
-                  "type": "single",
-                }
-            `);
+            ).toEqual({
+                title: "Test",
+                type: "single",
+                date: "2021-01-01",
+                endDate: null,
+                startTime: "10:30",
+                endTime: null,
+            });
         });
-        it("am/pm start time", () => {
+
+        it("strips a legacy false allDay marker", () => {
             expect(
                 parseEvent({
-                    title: "Test",
+                    title: "Legacy timed event",
                     type: "single",
                     date: "2021-01-01",
                     allDay: false,
                     startTime: "10:30 pm",
-                    endTime: null,
+                    endTime: "11:45 pm",
                 })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": false,
-                  "date": "2021-01-01",
-                  "endDate": null,
-                  "endTime": null,
-                  "startTime": "10:30 pm",
-                  "title": "Test",
-                  "type": "single",
-                }
-            `);
+            ).toEqual({
+                title: "Legacy timed event",
+                type: "single",
+                date: "2021-01-01",
+                endDate: null,
+                startTime: "10:30 pm",
+                endTime: "11:45 pm",
+            });
         });
-        it("end time", () => {
+
+        it("retains multi-day endpoints and legacy completion metadata", () => {
             expect(
                 parseEvent({
-                    title: "Test",
-                    type: "single",
-                    date: "2021-01-01",
-                    allDay: false,
-                    startTime: "10:30",
-                    endTime: "11:45",
-                })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": false,
-                  "date": "2021-01-01",
-                  "endDate": null,
-                  "endTime": "11:45",
-                  "startTime": "10:30",
-                  "title": "Test",
-                  "type": "single",
-                }
-            `);
-        });
-        it("multi-day events", () => {
-            expect(
-                parseEvent({
-                    title: "Test",
+                    title: "Overnight",
                     type: "single",
                     date: "2021-01-01",
                     endDate: "2021-01-03",
-                    allDay: true,
-                })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": true,
-                  "date": "2021-01-01",
-                  "endDate": "2021-01-03",
-                  "title": "Test",
-                  "type": "single",
-                }
-            `);
-        });
-        it("to-do", () => {
-            expect(
-                parseEvent({
-                    title: "Test",
-                    type: "single",
-                    date: "2021-01-01",
-                    allDay: true,
-                    completed: null,
-                })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": true,
-                  "completed": null,
-                  "date": "2021-01-01",
-                  "endDate": null,
-                  "title": "Test",
-                  "type": "single",
-                }
-            `);
-        });
-        it("to-do unchecked", () => {
-            expect(
-                parseEvent({
-                    title: "Test",
-                    type: "single",
-                    date: "2021-01-01",
-                    allDay: true,
+                    startTime: "23:00",
+                    endTime: "01:00",
                     completed: false,
                 })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": true,
-                  "completed": false,
-                  "date": "2021-01-01",
-                  "endDate": null,
-                  "title": "Test",
-                  "type": "single",
-                }
-            `);
-        });
-        it("to-do completed", () => {
-            expect(
-                parseEvent({
-                    title: "Test",
-                    type: "single",
-                    date: "2021-01-01",
-                    allDay: true,
-                    completed: "2021-01-01T10:30:00.000Z",
-                })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": true,
-                  "completed": "2021-01-01T10:30:00.000Z",
-                  "date": "2021-01-01",
-                  "endDate": null,
-                  "title": "Test",
-                  "type": "single",
-                }
-            `);
+            ).toEqual({
+                title: "Overnight",
+                type: "single",
+                date: "2021-01-01",
+                endDate: "2021-01-03",
+                startTime: "23:00",
+                endTime: "01:00",
+                completed: false,
+            });
         });
     });
-    describe("simple recurring events", () => {
-        it("recurs once per week", () => {
+
+    describe("timed recurring events", () => {
+        it("parses a bounded weekly recurrence", () => {
             expect(
                 parseEvent({
                     title: "Test",
-                    allDay: true,
-                    type: "recurring",
-                    daysOfWeek: ["M"],
-                })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": true,
-                  "daysOfWeek": [
-                    "M",
-                  ],
-                  "title": "Test",
-                  "type": "recurring",
-                }
-            `);
-        });
-        it("recurs twice per week", () => {
-            expect(
-                parseEvent({
-                    title: "Test",
-                    allDay: true,
                     type: "recurring",
                     daysOfWeek: ["M", "W"],
-                })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": true,
-                  "daysOfWeek": [
-                    "M",
-                    "W",
-                  ],
-                  "title": "Test",
-                  "type": "recurring",
-                }
-            `);
-        });
-        it("recurs with start date", () => {
-            expect(
-                parseEvent({
-                    title: "Test",
-                    allDay: true,
-                    type: "recurring",
-                    daysOfWeek: ["M"],
-                    startRecur: "2023-01-05",
-                })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": true,
-                  "daysOfWeek": [
-                    "M",
-                  ],
-                  "startRecur": "2023-01-05",
-                  "title": "Test",
-                  "type": "recurring",
-                }
-            `);
-        });
-        it("recurs with end date", () => {
-            expect(
-                parseEvent({
-                    title: "Test",
-                    allDay: true,
-                    type: "recurring",
-                    daysOfWeek: ["M"],
-                    endRecur: "2023-01-05",
-                })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": true,
-                  "daysOfWeek": [
-                    "M",
-                  ],
-                  "endRecur": "2023-01-05",
-                  "title": "Test",
-                  "type": "recurring",
-                }
-            `);
-        });
-        it("recurs with both start and end dates", () => {
-            expect(
-                parseEvent({
-                    title: "Test",
-                    allDay: true,
-                    type: "recurring",
-                    daysOfWeek: ["M"],
                     startRecur: "2023-01-05",
                     endRecur: "2023-05-12",
+                    startTime: "09:00",
+                    endTime: "10:00",
                 })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": true,
-                  "daysOfWeek": [
-                    "M",
-                  ],
-                  "endRecur": "2023-05-12",
-                  "startRecur": "2023-01-05",
-                  "title": "Test",
-                  "type": "recurring",
-                }
-            `);
+            ).toEqual({
+                title: "Test",
+                type: "recurring",
+                daysOfWeek: ["M", "W"],
+                startRecur: "2023-01-05",
+                endRecur: "2023-05-12",
+                startTime: "09:00",
+                endTime: "10:00",
+            });
         });
-    });
-    describe("rrule events", () => {
-        it("basic rrule", () => {
+
+        it("parses an rrule recurrence", () => {
             expect(
                 parseEvent({
                     title: "Test",
-                    allDay: true,
                     type: "rrule",
                     id: "hi",
                     rrule: "RRULE",
                     skipDates: [],
                     startDate: "2023-01-05",
+                    startTime: "09:00",
+                    endTime: "10:00",
                 })
-            ).toMatchInlineSnapshot(`
-                {
-                  "allDay": true,
-                  "id": "hi",
-                  "rrule": "RRULE",
-                  "skipDates": [],
-                  "startDate": "2023-01-05",
-                  "title": "Test",
-                  "type": "rrule",
-                }
-            `);
+            ).toEqual({
+                title: "Test",
+                type: "rrule",
+                id: "hi",
+                rrule: "RRULE",
+                skipDates: [],
+                startDate: "2023-01-05",
+                startTime: "09:00",
+                endTime: "10:00",
+            });
         });
     });
+
+    it.each(["single", "recurring", "rrule"])(
+        "rejects legacy all-day %s events",
+        (type) => {
+            const event = {
+                title: "Unsupported",
+                type,
+                allDay: true,
+                date: "2021-01-01",
+                daysOfWeek: ["M"],
+                startDate: "2021-01-01",
+                rrule: "FREQ=WEEKLY",
+                skipDates: [],
+            };
+
+            expect(() => parseEvent(event)).toThrow(
+                "All-day events are not supported."
+            );
+            expect(validateEvent(event)).toBeNull();
+        }
+    );
 
     it("logs only a fixed diagnostic for invalid private data", () => {
         const privateSentinel = "SYNTHETIC_PRIVATE_FIELD_DO_NOT_LOG";

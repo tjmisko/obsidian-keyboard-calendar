@@ -4,14 +4,10 @@ export const ParsedDate = z.string();
 
 export const ParsedTime = z.string();
 
-export const TimeSchema = z.discriminatedUnion("allDay", [
-    z.object({ allDay: z.literal(true) }),
-    z.object({
-        allDay: z.literal(false),
-        startTime: ParsedTime,
-        endTime: ParsedTime.nullable().default(null),
-    }),
-]);
+export const TimeSchema = z.object({
+    startTime: ParsedTime,
+    endTime: ParsedTime.nullable().default(null),
+});
 
 export const CommonSchema = z.object({
     title: z.string(),
@@ -52,10 +48,13 @@ type CommonType = z.infer<typeof CommonSchema>;
 export type OFCEvent = CommonType & TimeType & EventType;
 
 export function parseEvent(obj: unknown): OFCEvent {
-    if (typeof obj !== "object") {
+    if (typeof obj !== "object" || obj === null) {
         throw new Error("value for parsing was not an object.");
     }
-    const objectWithDefaults = { type: "single", allDay: false, ...obj };
+    if ((obj as Record<string, unknown>).allDay === true) {
+        throw new Error("All-day events are not supported.");
+    }
+    const objectWithDefaults = { type: "single", ...obj };
     return {
         ...CommonSchema.parse(objectWithDefaults),
         ...TimeSchema.parse(objectWithDefaults),

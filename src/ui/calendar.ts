@@ -39,7 +39,6 @@ interface ExtraRenderProps {
     select?: (
         startDate: Date,
         endDate: Date,
-        allDay: boolean,
         viewType: string
     ) => Promise<void>;
     modifyEvent?: (event: EventApi, oldEvent: EventApi) => Promise<boolean>;
@@ -347,7 +346,7 @@ export function renderCalendar(
         select:
             select &&
             (async (info) => {
-                await select(info.start, info.end, info.allDay, info.view.type);
+                await select(info.start, info.end, info.view.type);
                 info.view.calendar.unselect();
             }),
 

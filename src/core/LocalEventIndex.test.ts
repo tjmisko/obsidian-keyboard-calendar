@@ -15,9 +15,10 @@ const event = (title: string, date = "2026-08-22", id?: string): OFCEvent => ({
     title,
     ...(id ? { id } : {}),
     type: "single",
-    allDay: true,
     date,
     endDate: null,
+    startTime: "09:00",
+    endTime: "10:00",
 });
 
 const deferred = <T>() => {
@@ -115,7 +116,6 @@ describe("legacy-index equivalence", () => {
                         new FileBuilder().frontmatter({
                             title: "Weekly",
                             type: "recurring",
-                            allDay: false,
                             startTime: "09:00",
                             endTime: "10:00",
                             daysOfWeek: ["M"],
@@ -129,7 +129,6 @@ describe("legacy-index equivalence", () => {
                         new FileBuilder().frontmatter({
                             title: "Monthly",
                             type: "rrule",
-                            allDay: false,
                             startTime: "11:00",
                             endTime: "12:00",
                             startDate: "2026-08-01",
@@ -281,7 +280,6 @@ describe("legacy-index equivalence", () => {
         const recurring = {
             title: "Weekly",
             type: "recurring",
-            allDay: false,
             startTime: "09:00",
             endTime: "10:00",
             daysOfWeek: ["M"],
@@ -309,7 +307,6 @@ describe("legacy-index equivalence", () => {
             "events/Weekly.md": {
                 title: "Weekly",
                 type: "recurring",
-                allDay: false,
                 startTime: "09:00",
                 endTime: "10:00",
                 daysOfWeek: ["M"],

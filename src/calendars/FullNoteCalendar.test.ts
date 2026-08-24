@@ -83,7 +83,6 @@ describe("note-first frontmatter", () => {
         ).toEqual({
             title: "Planning",
             type: "single",
-            allDay: false,
             date: "2026-08-21",
             endDate: null,
             startTime: "09:30",
@@ -119,7 +118,6 @@ describe("note-first frontmatter", () => {
         ).toMatchObject({
             title: "Legacy event",
             type: "single",
-            allDay: false,
             startTime: "09:30",
             endTime: "10:15",
         });
@@ -136,7 +134,6 @@ describe("note-first frontmatter", () => {
                     date: "2026-08-21",
                     daysOfWeek: ["F"],
                     attending,
-                    allDay: false,
                     startTime: "09:30",
                     endTime: "10:15",
                 },
@@ -239,7 +236,6 @@ describe("note-first frontmatter", () => {
         ).toEqual({
             title: "Monday review",
             type: "recurring",
-            allDay: false,
             daysOfWeek: ["M"],
             skipDates: [],
             startRecur: "2026-08-21",
@@ -266,7 +262,6 @@ describe("note-first frontmatter", () => {
         ).toEqual({
             title: "Bounded review",
             type: "recurring",
-            allDay: false,
             daysOfWeek: ["M"],
             startRecur: "2026-08-10",
             endRecur: "2026-09-01",
@@ -438,8 +433,9 @@ describe("Note Calendar Tests", () => {
                     title: "2022-01-01 Test Event.md",
                     event: {
                         title: "Test Event",
-                        allDay: true,
                         date: "2022-01-01",
+                        startTime: "09:00",
+                        endTime: "10:00",
                     } as OFCEvent,
                 },
             ],
@@ -451,16 +447,18 @@ describe("Note Calendar Tests", () => {
                     title: "2022-01-01 Test Event.md",
                     event: {
                         title: "Test Event",
-                        allDay: true,
                         date: "2022-01-01",
+                        startTime: "09:00",
+                        endTime: "10:00",
                     } as OFCEvent,
                 },
                 {
                     title: "2022-01-02 Another Test Event.md",
                     event: {
                         title: "Another Test Event",
-                        allDay: true,
                         date: "2022-01-02",
+                        startTime: "11:00",
+                        endTime: "12:00",
                     } as OFCEvent,
                 },
             ],
@@ -472,8 +470,9 @@ describe("Note Calendar Tests", () => {
                     title: "2022-01-01 Test Event.md",
                     event: {
                         title: "Test Event",
-                        allDay: true,
                         date: "2022-01-01",
+                        startTime: "09:00",
+                        endTime: "10:00",
                     } as OFCEvent,
                 },
                 {
@@ -514,7 +513,6 @@ describe("Note Calendar Tests", () => {
                 title: i.title,
                 event: {
                     endDate: null,
-                    allDay: false,
                     type: "single",
                     ...i.event,
                 },
@@ -542,8 +540,9 @@ describe("Note Calendar Tests", () => {
                             new FileBuilder().frontmatter({
                                 title: "Direct",
                                 type: "single",
-                                allDay: true,
                                 date: "2026-08-22",
+                                startTime: "09:00",
+                                endTime: "10:00",
                             })
                         )
                         .folder(
@@ -552,8 +551,9 @@ describe("Note Calendar Tests", () => {
                                 new FileBuilder().frontmatter({
                                     title: "Nested",
                                     type: "single",
-                                    allDay: true,
                                     date: "2026-08-23",
+                                    startTime: "09:00",
+                                    endTime: "10:00",
                                 })
                             )
                         )
@@ -576,9 +576,10 @@ describe("Note Calendar Tests", () => {
                 new FileBuilder().frontmatter({
                     title: "Root",
                     type: "single",
-                    allDay: true,
                     date: "2026-08-22",
                     endDate: null,
+                    startTime: "09:00",
+                    endTime: "10:00",
                 })
             )
             .file("Ignore.txt", new FileBuilder().text("ignored"))
@@ -588,9 +589,10 @@ describe("Note Calendar Tests", () => {
                     new FileBuilder().frontmatter({
                         title: "Nested",
                         type: "single",
-                        allDay: true,
                         date: "2026-08-22",
                         endDate: null,
+                        startTime: "09:00",
+                        endTime: "10:00",
                     })
                 )
             )
@@ -617,7 +619,6 @@ describe("Note Calendar Tests", () => {
             parseEvent({
                 title: "Requested",
                 type: "single",
-                allDay: false,
                 date: "2026-08-24",
                 startTime: "09:00",
                 endTime: "10:00",
@@ -636,9 +637,10 @@ describe("Note Calendar Tests", () => {
                 parseEvent({
                     title: "Renamed",
                     type: "single",
-                    allDay: true,
                     date: "2026-08-23",
                     endDate: null,
+                    startTime: "09:00",
+                    endTime: "10:00",
                 })
             ).file.path
         ).toBe("2026-08-23 Renamed.md");
@@ -651,7 +653,6 @@ describe("Note Calendar Tests", () => {
             title: "Test Event",
             date: "2022-01-01",
             endDate: null,
-            allDay: false,
             startTime: "11:00",
             endTime: "12:30",
         };
@@ -688,7 +689,6 @@ describe("Note Calendar Tests", () => {
     it("uses a collision-safe filename", async () => {
         const event = {
             title: "Test Event",
-            allDay: false,
             date: "2022-01-01",
             endDate: null,
             startTime: "11:00",
@@ -731,7 +731,6 @@ describe("Note Calendar Tests", () => {
     it("modify an existing event and keeping the same day and title", async () => {
         const event = parseEvent({
             title: "Test Event",
-            allDay: false,
             date: "2022-01-01",
             endDate: null,
             startTime: "11:00",
@@ -802,7 +801,6 @@ describe("Note Calendar Tests", () => {
             [
                 "---",
                 "title: Test Event",
-                "allDay: false",
                 "startTime: 11:00",
                 "endTime: 13:30",
                 "type: single",
@@ -919,7 +917,6 @@ describe("Note Calendar Tests", () => {
                     new FileBuilder().frontmatter({
                         title: "Metadata title",
                         type: "single",
-                        allDay: false,
                         date: "2026-08-22",
                         startTime: "09:00",
                         endTime: "10:00",
@@ -958,7 +955,6 @@ describe("Note Calendar Tests", () => {
             parseEvent({
                 title: "Moved",
                 type: "single",
-                allDay: false,
                 date: "2026-08-23",
                 startTime: "11:00",
                 endTime: "12:00",
@@ -1021,7 +1017,6 @@ describe("Note Calendar Tests", () => {
             parseEvent({
                 title: "Monday review",
                 type: "recurring",
-                allDay: false,
                 daysOfWeek: ["M"],
                 startRecur: "2026-08-03",
                 endRecur: "2026-09-01",

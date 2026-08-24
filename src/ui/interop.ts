@@ -95,9 +95,6 @@ const getRecurrenceStart = (
     event: OFCEvent,
     startDate: string
 ): DateTime | null => {
-    if (event.allDay) {
-        return DateTime.fromISO(startDate);
-    }
     const start = combineDateTimeStrings(startDate, event.startTime);
     return start ? DateTime.fromISO(start) : null;
 };
@@ -129,10 +126,8 @@ const getRecurrenceEndRule = (
     };
 };
 
-export const selectionRequiresDayView = (
-    viewType: string,
-    allDay: boolean
-): boolean => viewType === "dayGridMonth" || allDay;
+export const selectionRequiresDayView = (viewType: string): boolean =>
+    viewType === "dayGridMonth";
 
 const recurringDuration = (start: Duration, end: Duration): Duration => {
     const duration = end.minus(start);
@@ -149,8 +144,7 @@ const recurringDurationInput = (
 
 export function dateEndpointsToFrontmatter(
     start: Date,
-    end: Date,
-    allDay: boolean
+    end: Date
 ): Partial<OFCEvent> {
     const date = getDate(start);
     const endDate = getDate(end);
@@ -158,13 +152,8 @@ export function dateEndpointsToFrontmatter(
         type: "single",
         date,
         endDate: date !== endDate ? endDate : undefined,
-        allDay,
-        ...(allDay
-            ? {}
-            : {
-                  startTime: getTime(start),
-                  endTime: getTime(end),
-              }),
+        startTime: getTime(start),
+        endTime: getTime(end),
     };
 }
 
@@ -174,12 +163,12 @@ export function moveSingleTimedEvent(
     start: Date,
     end: Date
 ): OFCEvent | null {
-    if (event.type !== "single" || event.allDay) {
+    if (event.type !== "single") {
         return null;
     }
     return parseEvent({
         ...event,
-        ...dateEndpointsToFrontmatter(start, end, false),
+        ...dateEndpointsToFrontmatter(start, end),
     });
 }
 
@@ -188,12 +177,8 @@ export function getSingleEventStartDate(event: OFCEvent): Date | null {
     if (event.type !== "single") {
         return null;
     }
-    const start = event.allDay
-        ? DateTime.fromISO(event.date)
-        : (() => {
-              const value = combineDateTimeStrings(event.date, event.startTime);
-              return value ? DateTime.fromISO(value) : null;
-          })();
+    const value = combineDateTimeStrings(event.date, event.startTime);
+    const start = value ? DateTime.fromISO(value) : null;
     return start?.isValid ? start.toJSDate() : null;
 }
 
@@ -212,7 +197,7 @@ export function toEventInput(
     let event: EventInput = {
         id,
         title: frontmatter.title,
-        allDay: frontmatter.allDay,
+        allDay: false,
         extendedProps: commonExtendedProps,
     };
     if (frontmatter.type === "recurring") {
@@ -263,36 +248,23 @@ export function toEventInput(
                 },
             };
         }
-        if (!frontmatter.allDay) {
-            const startTime = parseTime(frontmatter.startTime);
-            const endTime =
-                frontmatter.endTime && parseTime(frontmatter.endTime);
-            event = {
-                ...event,
-                startTime: normalizeTimeString(frontmatter.startTime || ""),
-                ...(startTime && endTime
-                    ? {
-                          duration: recurringDurationInput(startTime, endTime),
-                      }
-                    : {}),
-            };
-        }
+        const startTime = parseTime(frontmatter.startTime);
+        const endTime = frontmatter.endTime && parseTime(frontmatter.endTime);
+        event = {
+            ...event,
+            startTime: normalizeTimeString(frontmatter.startTime || ""),
+            ...(startTime && endTime
+                ? {
+                      duration: recurringDurationInput(startTime, endTime),
+                  }
+                : {}),
+        };
     } else if (frontmatter.type === "rrule") {
-        const dtstart = (() => {
-            if (frontmatter.allDay) {
-                return DateTime.fromISO(frontmatter.startDate);
-            } else {
-                const dtstartStr = combineDateTimeStrings(
-                    frontmatter.startDate,
-                    frontmatter.startTime
-                );
-
-                if (!dtstartStr) {
-                    return null;
-                }
-                return DateTime.fromISO(dtstartStr);
-            }
-        })();
+        const dtstartStr = combineDateTimeStrings(
+            frontmatter.startDate,
+            frontmatter.startTime
+        );
+        const dtstart = dtstartStr ? DateTime.fromISO(dtstartStr) : null;
         if (dtstart === null) {
             return null;
         }
@@ -306,7 +278,7 @@ export function toEventInput(
         event = {
             id,
             title: frontmatter.title,
-            allDay: frontmatter.allDay,
+            allDay: false,
             // Nth-weekday recurrence cannot currently be reconstructed from a
             // dragged FullCalendar occurrence. Source-level editability would
             // otherwise let fromEventApi collapse it into a single event.
@@ -321,51 +293,40 @@ export function toEventInput(
             extendedProps: commonExtendedProps,
         };
 
-        if (!frontmatter.allDay) {
-            const startTime = parseTime(frontmatter.startTime);
-            if (startTime && frontmatter.endTime) {
-                const endTime = parseTime(frontmatter.endTime);
-                const duration =
-                    endTime && recurringDurationInput(startTime, endTime);
-                if (duration) {
-                    event.duration = duration;
-                }
+        const startTime = parseTime(frontmatter.startTime);
+        if (startTime && frontmatter.endTime) {
+            const endTime = parseTime(frontmatter.endTime);
+            const duration =
+                endTime && recurringDurationInput(startTime, endTime);
+            if (duration) {
+                event.duration = duration;
             }
         }
     } else if (frontmatter.type === "single") {
-        if (!frontmatter.allDay) {
-            const start = combineDateTimeStrings(
-                frontmatter.date,
-                frontmatter.startTime
+        const start = combineDateTimeStrings(
+            frontmatter.date,
+            frontmatter.startTime
+        );
+        if (!start) {
+            return null;
+        }
+        let end = undefined;
+        if (frontmatter.endTime) {
+            end = combineDateTimeStrings(
+                frontmatter.endDate || frontmatter.date,
+                frontmatter.endTime
             );
-            if (!start) {
+            if (!end) {
                 return null;
             }
-            let end = undefined;
-            if (frontmatter.endTime) {
-                end = combineDateTimeStrings(
-                    frontmatter.endDate || frontmatter.date,
-                    frontmatter.endTime
-                );
-                if (!end) {
-                    return null;
-                }
-            }
-
-            event = {
-                ...event,
-                start,
-                end,
-                extendedProps: commonExtendedProps,
-            };
-        } else {
-            event = {
-                ...event,
-                start: frontmatter.date,
-                end: frontmatter.endDate || undefined,
-                extendedProps: commonExtendedProps,
-            };
         }
+
+        event = {
+            ...event,
+            start,
+            end,
+            extendedProps: commonExtendedProps,
+        };
     }
 
     return event;
@@ -383,6 +344,9 @@ export function omitRecurringOccurrence(
 }
 
 export function fromEventApi(event: EventApi): OFCEvent {
+    if (event.allDay) {
+        throw new Error("All-day events are not supported.");
+    }
     const recurrenceMetadata = event.extendedProps.ofcRecurrence as
         | {
               daysOfWeek: string[];
@@ -402,13 +366,8 @@ export function fromEventApi(event: EventApi): OFCEvent {
         ...(Array.isArray(event.extendedProps.attendingDates)
             ? { attendingDates: [...event.extendedProps.attendingDates] }
             : {}),
-        ...(event.allDay
-            ? { allDay: true }
-            : {
-                  allDay: false,
-                  startTime: getTime(event.start as Date),
-                  endTime: getTime(event.end as Date),
-              }),
+        startTime: getTime(event.start as Date),
+        endTime: getTime(event.end as Date),
 
         ...(isRecurring
             ? {

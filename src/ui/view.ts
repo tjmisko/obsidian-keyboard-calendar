@@ -304,14 +304,12 @@ export class CalendarView extends ItemView {
         const handleSelection = async (
             start: Date,
             end: Date,
-            allDay: boolean,
             viewType: string,
             focusTitle = false
         ): Promise<void> => {
             await handleCalendarSelection({
                 start,
                 end,
-                allDay,
                 viewType,
                 focusTitle,
                 openDay: (date) => {
@@ -490,7 +488,6 @@ export class CalendarView extends ItemView {
                     handleSelection(
                         start,
                         end,
-                        false,
                         this.fullCalendarView?.view.type || "timeGridWeek",
                         true
                     ),
@@ -503,7 +500,6 @@ export class CalendarView extends ItemView {
                 return !!(
                     this.fullCalendarView?.view.type.startsWith("timeGrid") &&
                     event?.type === "single" &&
-                    !event.allDay &&
                     this.plugin.cache.getInfoForFullNoteEvent(eventId)
                 );
             },
@@ -526,7 +522,7 @@ export class CalendarView extends ItemView {
             commitGrabbedEvent: async ({ eventId, start, end }) => {
                 try {
                     const event = this.plugin.cache.getEventById(eventId);
-                    if (event?.type !== "single" || event.allDay) {
+                    if (event?.type !== "single") {
                         return false;
                     }
                     const movedEvent = moveSingleTimedEvent(event, start, end);

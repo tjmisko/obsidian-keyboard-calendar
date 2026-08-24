@@ -5,7 +5,6 @@ const single = parseEvent({
     title: "Single",
     type: "single",
     date: "2026-08-22",
-    allDay: false,
     startTime: "09:00",
     endTime: "10:00",
 });
@@ -13,7 +12,6 @@ const weekly = parseEvent({
     title: "Weekly",
     type: "recurring",
     daysOfWeek: ["S"],
-    allDay: false,
     startTime: "09:00",
     endTime: "10:00",
 });
@@ -23,7 +21,6 @@ const monthly = parseEvent({
     startDate: "1970-01-01",
     rrule: "FREQ=MONTHLY;BYDAY=1SA",
     skipDates: [],
-    allDay: false,
     startTime: "09:00",
     endTime: "10:00",
 });

@@ -8,7 +8,6 @@ import {
 export async function handleCalendarSelection({
     start,
     end,
-    allDay,
     viewType,
     focusTitle = false,
     openDay,
@@ -16,7 +15,6 @@ export async function handleCalendarSelection({
 }: {
     start: Date;
     end: Date;
-    allDay: boolean;
     viewType: string;
     focusTitle?: boolean;
     openDay: (date: Date) => void;
@@ -28,11 +26,11 @@ export async function handleCalendarSelection({
         }
     ) => Promise<void>;
 }): Promise<void> {
-    if (selectionRequiresDayView(viewType, allDay)) {
+    if (selectionRequiresDayView(viewType)) {
         openDay(start);
         return;
     }
-    await createTimedNote(dateEndpointsToFrontmatter(start, end, false), {
+    await createTimedNote(dateEndpointsToFrontmatter(start, end), {
         focusTitle,
         focusEventOnReturn: true,
     });

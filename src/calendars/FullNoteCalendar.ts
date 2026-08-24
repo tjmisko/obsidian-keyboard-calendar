@@ -154,7 +154,6 @@ export function parseFullNoteEvent(
     );
     const common = {
         title: explicitTitle,
-        allDay: false as const,
         startTime,
         endTime,
         ...(categories.length > 0 ? { categories } : {}),
@@ -315,6 +314,11 @@ function replaceFrontmatter(page: string, newFrontmatter: string): string {
 }
 
 type PrintableAtom = Array<number | string> | number | string | boolean | null;
+const REMOVE_FRONTMATTER_PROPERTY = Symbol("remove-frontmatter-property");
+type FrontmatterModification =
+    | PrintableAtom
+    | undefined
+    | typeof REMOVE_FRONTMATTER_PROPERTY;
 
 function stringifyYamlAtom(v: PrintableAtom): string {
     let result = "";
@@ -350,13 +354,15 @@ function stringifyYamlLines(
 
 function modifyFrontmatterString(
     page: string,
-    modifications: Record<string, PrintableAtom | undefined>
+    modifications: Record<string, FrontmatterModification>
 ): string {
     const frontmatter = extractFrontmatter(page)?.split("\n");
     let newFrontmatter: string[] = [];
     if (!frontmatter) {
         newFrontmatter = Object.entries(modifications)
-            .filter(([, v]) => v !== undefined)
+            .filter(
+                ([, v]) => v !== undefined && v !== REMOVE_FRONTMATTER_PROPERTY
+            )
             .flatMap(([k, v]) => stringifyYamlLines(k, v as PrintableAtom));
         page = "\n" + page;
     } else {
@@ -375,7 +381,14 @@ function modifyFrontmatterString(
             const key = keyMatch[1];
             linesAdded.add(key);
             const newVal = modifications[key];
-            if (newVal !== undefined) {
+            if (newVal === REMOVE_FRONTMATTER_PROPERTY) {
+                while (
+                    i + 1 < frontmatter.length &&
+                    /^\s+\S/.test(frontmatter[i + 1])
+                ) {
+                    i += 1;
+                }
+            } else if (newVal !== undefined) {
                 newFrontmatter.push(...stringifyYamlLines(key, newVal));
                 while (
                     i + 1 < frontmatter.length &&
@@ -393,7 +406,11 @@ function modifyFrontmatterString(
         newFrontmatter.push(
             ...Object.keys(modifications)
                 .filter((k) => !linesAdded.has(k))
-                .filter((k) => modifications[k] !== undefined)
+                .filter(
+                    (k) =>
+                        modifications[k] !== undefined &&
+                        modifications[k] !== REMOVE_FRONTMATTER_PROPERTY
+                )
                 .flatMap((k) =>
                     stringifyYamlLines(k, modifications[k] as PrintableAtom)
                 )
@@ -403,12 +420,7 @@ function modifyFrontmatterString(
 }
 
 export function newTimedEventFrontmatter(event: OFCEvent): string {
-    if (
-        event.type !== "single" ||
-        event.allDay ||
-        !event.startTime ||
-        !event.endTime
-    ) {
+    if (event.type !== "single" || !event.startTime || !event.endTime) {
         throw new Error(
             "Full-note events must have a date, start, and end time."
         );
@@ -436,10 +448,7 @@ const isFriendlyFrontmatter = (frontmatter: unknown): boolean => {
 
 const friendlyModifications = (
     event: OFCEvent
-): Record<string, PrintableAtom | undefined> => {
-    if (event.allDay) {
-        throw new Error("Note-first calendar events must remain timed.");
-    }
+): Record<string, FrontmatterModification> => {
     let date: string | undefined;
     let endRecur: string | undefined;
     let skipDates: string[] | undefined;
@@ -457,6 +466,7 @@ const friendlyModifications = (
         endRecur = event.endRecur;
         skipDates = event.skipDates;
         return {
+            allDay: REMOVE_FRONTMATTER_PROPERTY,
             "start-recurrence": recurrenceStart,
             "end-recurrence": endRecur
                 ? exclusiveToInclusiveDate(endRecur)
@@ -467,6 +477,7 @@ const friendlyModifications = (
         };
     }
     return {
+        allDay: REMOVE_FRONTMATTER_PROPERTY,
         date,
         ...(event.type !== "single"
             ? {
@@ -484,10 +495,11 @@ const friendlyModifications = (
 
 const legacyModifications = (
     event: OFCEvent
-): Record<string, PrintableAtom | undefined> => {
+): Record<string, FrontmatterModification> => {
     const modifications = {
         ...event,
-    } as Record<string, PrintableAtom | undefined>;
+        allDay: REMOVE_FRONTMATTER_PROPERTY,
+    } as Record<string, FrontmatterModification>;
     // Categories travel through FullCalendar so cache state survives a
     // drag/resize. Both values are unrelated to timing edits and must retain
     // their original YAML representation; `completed` remains parse-compatible
@@ -590,12 +602,7 @@ export default class FullNoteCalendar implements LocalEventReadAdapter {
         event: OFCEvent,
         plannedPath = this.getNewEventPath()
     ): Promise<PersistedEventWrite> {
-        if (
-            event.type !== "single" ||
-            event.allDay ||
-            !event.startTime ||
-            !event.endTime
-        ) {
+        if (event.type !== "single" || !event.startTime || !event.endTime) {
             throw new Error(
                 "Full-note events must have a date, start, and end time."
             );

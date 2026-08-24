@@ -96,9 +96,10 @@ const compare = async (
 const fixtureEvent = (index: number): OFCEvent => ({
     title: `Sanitized fixture event ${String(index).padStart(3, "0")}`,
     type: "single",
-    allDay: true,
     date: `2026-08-${String((index % 28) + 1).padStart(2, "0")}`,
     endDate: null,
+    startTime: "09:00",
+    endTime: "10:00",
 });
 
 const buildFixture = () => {

@@ -21,7 +21,6 @@ const timedEvent = (
     title,
     date: "2026-08-23",
     endDate: null,
-    allDay: false,
     startTime,
     endTime,
 });

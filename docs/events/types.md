@@ -31,7 +31,7 @@ The rest of the note is yours for descriptions, links, or meeting notes. Extra f
 
 Run **Keyboard Calendar: New Event**, or select a time range in a week or day view. Keyboard Calendar writes the note successfully before indexing it, then opens it as a normal Markdown buffer. Rename the note and edit its frontmatter normally.
 
-Selecting a date in a month view, or an all-day slot, opens that date in the day view so you can choose an exact time.
+Selecting a date in a month view opens that date in the day view so you can choose an exact time. Keyboard Calendar supports timed events only.
 
 ## Open an event
 
