@@ -42,7 +42,7 @@ The complete documentation starts at [docs/index.md](docs/index.md).
 The calendar opens in event-oriented normal mode. The mode chip in the toolbar shows `Normal`, `Insert`, or `Grab`.
 
 - In normal mode, Down/`j` and Up/`k` move to the next and previous event by start time; equal starts follow their rendered order. Left/`h` and Right/`l` continue to move spatially. Counts repeat a move (for example, `3j`), and `Enter` opens the focused event.
-- Press `g` on a focused single timed event in a week or day view to enter grab mode. Arrow keys or `h`, `j`, `k`, and `l` slide the event by 15 minutes or one day while preserving its duration; counts repeat a move. Press `Enter` to save the new position or `Escape` to restore the original one.
+- Press `m` on a focused single timed event in a week or day view to enter grab mode. Arrow keys or `h`, `j`, `k`, and `l` slide the event by 15 minutes or one day while preserving its duration; counts repeat a move. Press `Enter` to save the new position or `Escape` to restore the original one.
 - Press `i` in a week or day view to enter blockwise insert mode at the current quarter-hour. Press `Escape` to return to normal mode and focus the event nearest the selected block.
 
 Insert-mode commands are:

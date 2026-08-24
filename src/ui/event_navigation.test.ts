@@ -198,6 +198,7 @@ describe("calendar event focus", () => {
         expect(navigator.handleKey("i")).toBe(false);
         expect(navigator.handleKey("t")).toBe(false);
         expect(navigator.handleKey("Tab")).toBe(false);
+        expect(navigator.handleKey("g")).toBe(false);
         expect(navigator.isGrabbing()).toBe(false);
     });
 });
@@ -221,7 +222,7 @@ describe("calendar event grab mode", () => {
         expect(original.end).toEqual(new Date(2026, 7, 20, 10, 30));
     });
 
-    it("enters with g, previews counted movement, and commits with Enter", async () => {
+    it("enters with m, previews counted movement, and commits with Enter", async () => {
         const focused = makeEventElement(
             new Date(2026, 7, 20, 9, 0),
             new Date(2026, 7, 20, 10, 0),
@@ -239,7 +240,7 @@ describe("calendar event grab mode", () => {
         });
         navigator.activate(new Date(2026, 7, 20, 9, 0));
 
-        expect(navigator.handleKey("g")).toBe(true);
+        expect(navigator.handleKey("m")).toBe(true);
         expect(navigator.isGrabbing()).toBe(true);
         expect(focused.classList.contains("ofc-grabbed-calendar-event")).toBe(
             true
@@ -281,7 +282,7 @@ describe("calendar event grab mode", () => {
         });
         navigator.activate(start);
 
-        navigator.handleKey("g");
+        navigator.handleKey("m");
         navigator.handleKey("ArrowUp");
         expect(navigator.handleKey("Escape")).toBe(true);
 
@@ -310,7 +311,7 @@ describe("calendar event grab mode", () => {
         } as unknown as HTMLElement;
         const navigator = new CalendarEventNavigator(container);
         navigator.activate(new Date(2026, 7, 20, 9, 0));
-        navigator.handleKey("g");
+        navigator.handleKey("m");
         navigator.handleKey("ArrowDown");
 
         const replacement = makeEventElement(
@@ -340,7 +341,7 @@ describe("calendar event grab mode", () => {
         );
         const navigator = new CalendarEventNavigator(makeContainer([focused]));
         navigator.activate(new Date(2026, 7, 20, 9, 0));
-        navigator.handleKey("g");
+        navigator.handleKey("m");
 
         expect(navigator.handleKey("i")).toBe(true);
         expect(navigator.handleKey("t")).toBe(true);
@@ -350,7 +351,7 @@ describe("calendar event grab mode", () => {
         expect(focused.click).not.toHaveBeenCalled();
     });
 
-    it("consumes g without entering grab mode for an unsupported event", () => {
+    it("consumes m without entering grab mode for an unsupported event", () => {
         const focused = makeEventElement(
             new Date(2026, 7, 20, 9, 0),
             new Date(2026, 7, 20, 10, 0),
@@ -364,7 +365,7 @@ describe("calendar event grab mode", () => {
         });
         navigator.activate(new Date(2026, 7, 20, 9, 0));
 
-        expect(navigator.handleKey("g")).toBe(true);
+        expect(navigator.handleKey("m")).toBe(true);
         expect(navigator.isGrabbing()).toBe(false);
         expect(onGrabUnavailable).toHaveBeenCalledTimes(1);
     });

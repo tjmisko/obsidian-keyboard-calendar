@@ -210,7 +210,7 @@ export class CalendarView extends ItemView {
         this.modeChipEl.setAttribute("aria-label", `Calendar mode: ${label}`);
         this.modeChipEl.title =
             this.navigationMode === "normal"
-                ? "Normal mode — i selects a time block; g grabs the focused event"
+                ? "Normal mode — i selects a time block; m moves the focused event"
                 : this.navigationMode === "insert"
                 ? "Insert mode — Escape returns to event navigation"
                 : "Grab mode — arrows move; Enter confirms; Escape cancels";

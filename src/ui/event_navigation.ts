@@ -428,7 +428,7 @@ export class CalendarEventNavigator {
         if (this.captureCount(key, repeat)) {
             return true;
         }
-        if (key === "g") {
+        if (key === "m") {
             this.pendingCount = "";
             if (!repeat) {
                 this.beginGrab();
