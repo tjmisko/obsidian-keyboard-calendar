@@ -22,6 +22,7 @@ import {
 import { getCalendarEventContextActions } from "./event_context";
 import { handleCalendarSelection } from "./event_creation";
 import { CalendarCellNavigator } from "./cell_navigation";
+import { applyCalendarCacheUpdate } from "./calendar_update";
 
 export { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
 
@@ -369,26 +370,15 @@ export class CalendarView extends ItemView {
             this.callback = null;
         }
         this.callback = this.plugin.cache.on("update", (payload) => {
-            if (payload.type === "resync") {
-                this.fullCalendarView?.removeAllEventSources();
-                const sources = this.translateSources();
-                sources.forEach((source) =>
-                    this.fullCalendarView?.addEventSource(source)
-                );
+            if (!this.fullCalendarView) {
                 return;
-            } else if (payload.type === "events") {
-                const { toRemove, toAdd } = payload;
-                toRemove.forEach((id) => {
-                    const event = this.fullCalendarView?.getEventById(id);
-                    if (event) {
-                        event.remove();
-                    }
-                });
-                toAdd.forEach(({ id, event, sourceId }) => {
-                    const eventInput = toEventInput(id, event);
-                    this.fullCalendarView?.addEvent(eventInput!, sourceId);
-                });
             }
+            applyCalendarCacheUpdate({
+                calendar: this.fullCalendarView,
+                update: payload,
+                getEventSources: () => this.translateSources(),
+                renderSelection: () => this.cellNavigator?.renderSelection(),
+            });
         });
     }
 
