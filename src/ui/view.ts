@@ -21,6 +21,10 @@ import {
 } from "./daily_note_navigation";
 import { getCalendarEventContextActions } from "./event_context";
 import { handleCalendarSelection } from "./event_creation";
+import {
+    CalendarCellNavigator,
+    getCalendarCellDirection,
+} from "./cell_navigation";
 
 export { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
 
@@ -59,6 +63,7 @@ function getCalendarColors(color: string | null | undefined): {
 export class CalendarView extends ItemView {
     plugin: FullCalendarPlugin;
     fullCalendarView: Calendar | null = null;
+    cellNavigator: CalendarCellNavigator | null = null;
     callback: UpdateViewCallback | null = null;
 
     constructor(leaf: WorkspaceLeaf, plugin: FullCalendarPlugin) {
@@ -82,7 +87,6 @@ export class CalendarView extends ItemView {
             !this.fullCalendarView ||
             this.app.workspace.activeLeaf !== this.leaf ||
             event.defaultPrevented ||
-            event.repeat ||
             event.ctrlKey ||
             event.metaKey ||
             event.altKey ||
@@ -91,7 +95,17 @@ export class CalendarView extends ItemView {
             return;
         }
 
+        const cellDirection = getCalendarCellDirection(event.key);
+        if (cellDirection && this.cellNavigator?.move(cellDirection)) {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+        }
+
         if (event.key === "Tab") {
+            if (event.repeat) {
+                return;
+            }
             event.preventDefault();
             event.stopPropagation();
             this.containerEl
@@ -107,6 +121,9 @@ export class CalendarView extends ItemView {
         }
 
         if (event.key.toLowerCase() === "t") {
+            if (event.repeat) {
+                return;
+            }
             event.preventDefault();
             this.fullCalendarView.today();
         }
@@ -172,6 +189,8 @@ export class CalendarView extends ItemView {
         const sources: LocalMaterializedEventSource[] = this.translateSources();
 
         if (this.fullCalendarView) {
+            this.cellNavigator?.destroy();
+            this.cellNavigator = null;
             this.fullCalendarView.destroy();
             this.fullCalendarView = null;
         }
@@ -266,6 +285,7 @@ export class CalendarView extends ItemView {
             firstDay: this.plugin.settings.firstDay,
             initialView: this.plugin.settings.initialView,
             timeFormat24h: this.plugin.settings.timeFormat24h,
+            datesSet: () => this.cellNavigator?.syncToView(true),
             ghostEventTags: () => this.plugin.settings.ghostEventTags,
             dailyNotePath: (date) => this.getDailyNotePath(date),
             openDailyNote: async (date) => {
@@ -329,6 +349,10 @@ export class CalendarView extends ItemView {
                 menu.showAtMouseEvent(mouseEvent);
             },
         });
+        this.cellNavigator = new CalendarCellNavigator(
+            calendarEl,
+            this.fullCalendarView
+        );
         if (this.callback) {
             this.plugin.cache.off("update", this.callback);
             this.callback = null;
@@ -360,10 +384,13 @@ export class CalendarView extends ItemView {
     onResize(): void {
         if (this.fullCalendarView) {
             this.fullCalendarView.render();
+            this.cellNavigator?.renderSelection();
         }
     }
 
     async onunload() {
+        this.cellNavigator?.destroy();
+        this.cellNavigator = null;
         if (this.fullCalendarView) {
             this.fullCalendarView.destroy();
             this.fullCalendarView = null;

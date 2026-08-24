@@ -54,6 +54,7 @@ interface ExtraRenderProps {
     ) => Promise<void>;
     dailyNotePath?: (date: Date) => string;
     openDailyNote?: (date: Date) => Promise<void>;
+    datesSet?: () => void;
 }
 
 /** A local, already-materialized source. URL and callback sources are excluded. */
@@ -203,6 +204,9 @@ export function renderCalendar(
         scrollTimeReset: false,
         dayMaxEvents: true,
         weekNumberCalculation: "ISO",
+        slotDuration: "00:15:00",
+        snapDuration: "00:15:00",
+        slotLabelInterval: "01:00:00",
 
         headerToolbar: {
             left: "prev,next today",
@@ -226,6 +230,7 @@ export function renderCalendar(
             },
         },
         firstDay: settings?.firstDay,
+        datesSet: settings?.datesSet,
         slotLabelContent: ({ date }) => formatTimeLabel(date),
         dayHeaderContent: ({ date, text, view }) => {
             if (!isTimeGridView(view.type)) {

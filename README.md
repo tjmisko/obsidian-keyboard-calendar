@@ -37,6 +37,12 @@ The retained plugin ID matches the historical project for workspace/settings com
 
 The complete documentation starts at [docs/index.md](docs/index.md).
 
+## Keyboard navigation
+
+Week and day views use 15-minute cells and keep one cell selected. Use the arrow keys or `h`, `j`, `k`, and `l` to move left, down, up, and right. Vertical movement stops at the first or last cell of the day; horizontal movement continues into the adjacent date and changes the visible range when necessary.
+
+Cell navigation only captures keys while the calendar is the active Obsidian leaf and no editor, input, or modal is active. `Tab` and `Shift+Tab` cycle calendar views, and `t` returns to today.
+
 ## Development
 
 ```sh

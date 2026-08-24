@@ -58,6 +58,9 @@ describe("calendar renderer", () => {
         expect(options?.headerToolbar).toMatchObject({
             right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
         });
+        expect(options?.slotDuration).toBe("00:15:00");
+        expect(options?.snapDuration).toBe("00:15:00");
+        expect(options?.slotLabelInterval).toBe("01:00:00");
     });
 
     it("uses the same desktop toolbar and initial view without reading viewport width", () => {
