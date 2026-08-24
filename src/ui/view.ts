@@ -12,6 +12,7 @@ import { PLUGIN_SLUG } from "../types";
 import {
     fromEventApi,
     getSingleEventStartDate,
+    moveSingleTimedEvent,
     omitRecurringOccurrence,
     toEventInput,
 } from "./interop";
@@ -34,7 +35,7 @@ import { applyCalendarCacheUpdate } from "./calendar_update";
 
 export { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
 
-type CalendarNavigationMode = "normal" | "insert";
+type CalendarNavigationMode = "normal" | "insert" | "grab";
 
 function getCalendarColors(color: string | null | undefined): {
     color: string;
@@ -198,14 +199,21 @@ export class CalendarView extends ItemView {
         if (!this.modeChipEl) {
             return;
         }
-        const label = this.navigationMode === "normal" ? "Normal" : "Insert";
+        const label =
+            this.navigationMode === "normal"
+                ? "Normal"
+                : this.navigationMode === "insert"
+                ? "Insert"
+                : "Grab";
         this.modeChipEl.dataset.mode = this.navigationMode;
         this.modeChipEl.textContent = label;
         this.modeChipEl.setAttribute("aria-label", `Calendar mode: ${label}`);
         this.modeChipEl.title =
             this.navigationMode === "normal"
-                ? "Normal mode — i selects a time block"
-                : "Insert mode — Escape returns to event navigation";
+                ? "Normal mode — i selects a time block; g grabs the focused event"
+                : this.navigationMode === "insert"
+                ? "Insert mode — Escape returns to event navigation"
+                : "Grab mode — arrows move; Enter confirms; Escape cancels";
     }
 
     getIcon(): string {
@@ -407,7 +415,7 @@ export class CalendarView extends ItemView {
                 }
             },
             eventsSet: () => {
-                if (this.navigationMode === "normal") {
+                if (this.navigationMode !== "insert") {
                     this.eventNavigator?.syncToView();
                 }
             },
@@ -489,7 +497,61 @@ export class CalendarView extends ItemView {
             }
         );
         this.cellNavigator.deactivate();
-        this.eventNavigator = new CalendarEventNavigator(calendarEl);
+        this.eventNavigator = new CalendarEventNavigator(calendarEl, {
+            canGrabEvent: (eventId) => {
+                const event = this.plugin.cache.getEventById(eventId);
+                return !!(
+                    this.fullCalendarView?.view.type.startsWith("timeGrid") &&
+                    event?.type === "single" &&
+                    !event.allDay &&
+                    this.plugin.cache.getInfoForFullNoteEvent(eventId)
+                );
+            },
+            onGrabUnavailable: () =>
+                new Notice(
+                    "Grab mode is available for editable, single timed events in week and day views."
+                ),
+            previewGrabbedEvent: ({ eventId, start, end }) => {
+                const calendar = this.fullCalendarView;
+                const event = calendar?.getEventById(eventId);
+                if (!calendar || !event) {
+                    return;
+                }
+                event.setDates(start, end, { allDay: false });
+                const { activeStart, activeEnd } = calendar.view;
+                if (start < activeStart || start >= activeEnd) {
+                    calendar.gotoDate(start);
+                }
+            },
+            commitGrabbedEvent: async ({ eventId, start, end }) => {
+                try {
+                    const event = this.plugin.cache.getEventById(eventId);
+                    if (event?.type !== "single" || event.allDay) {
+                        return false;
+                    }
+                    const movedEvent = moveSingleTimedEvent(event, start, end);
+                    if (!movedEvent) {
+                        return false;
+                    }
+                    return !!(await this.plugin.cache.updateEventWithId(
+                        eventId,
+                        movedEvent
+                    ));
+                } catch (error) {
+                    console.error(error);
+                    new Notice(
+                        error instanceof Error
+                            ? error.message
+                            : "Could not move the event."
+                    );
+                    return false;
+                }
+            },
+            onGrabModeChange: (active) => {
+                this.navigationMode = active ? "grab" : "normal";
+                this.updateModeChip();
+            },
+        });
         this.navigationMode = "normal";
         this.eventNavigator.activate(
             returnEventDate || undefined,

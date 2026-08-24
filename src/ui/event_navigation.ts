@@ -1,5 +1,6 @@
 import type { WorkspaceLeaf } from "obsidian";
 import {
+    CALENDAR_CELL_MINUTES,
     CalendarCellDirection,
     getCalendarCellDirection,
 } from "./cell_navigation";
@@ -7,6 +8,46 @@ import {
 export const CALENDAR_EVENT_NAVIGATION_SELECTOR = "[data-ofc-event-start]";
 
 const MAX_OPERATION_COUNT = 9999;
+
+export interface CalendarEventGrab {
+    eventId: string;
+    start: Date;
+    end: Date;
+}
+
+interface CalendarEventGrabState {
+    original: CalendarEventGrab;
+    current: CalendarEventGrab;
+}
+
+const copyGrab = (grab: CalendarEventGrab): CalendarEventGrab => ({
+    eventId: grab.eventId,
+    start: new Date(grab.start),
+    end: new Date(grab.end),
+});
+
+/** Moves a grabbed event while preserving both endpoints in local time. */
+export const moveCalendarEventGrab = (
+    grab: CalendarEventGrab,
+    direction: CalendarCellDirection,
+    count = 1
+): CalendarEventGrab => {
+    const next = copyGrab(grab);
+    const distance = Math.max(1, Math.floor(count));
+
+    if (direction === "left" || direction === "right") {
+        const dayOffset = (direction === "left" ? -1 : 1) * distance;
+        next.start.setDate(next.start.getDate() + dayOffset);
+        next.end.setDate(next.end.getDate() + dayOffset);
+        return next;
+    }
+
+    const minuteOffset =
+        (direction === "up" ? -1 : 1) * CALENDAR_CELL_MINUTES * distance;
+    next.start.setMinutes(next.start.getMinutes() + minuteOffset);
+    next.end.setMinutes(next.end.getMinutes() + minuteOffset);
+    return next;
+};
 
 const parseEventDate = (
     element: HTMLElement,
@@ -102,6 +143,11 @@ export const getDirectionalEventIndex = (
 
 export interface CalendarEventNavigatorOptions {
     now?: () => Date;
+    canGrabEvent?: (eventId: string) => boolean;
+    previewGrabbedEvent?: (grab: CalendarEventGrab) => void;
+    commitGrabbedEvent?: (grab: CalendarEventGrab) => Promise<boolean>;
+    onGrabModeChange?: (active: boolean) => void;
+    onGrabUnavailable?: () => void;
 }
 
 /** Owns event focus while the calendar is in normal mode. */
@@ -110,13 +156,27 @@ export class CalendarEventNavigator {
     private focusedEvent: HTMLElement | null = null;
     private anchorDate: Date | null = null;
     private pendingCount = "";
+    private grabState: CalendarEventGrabState | null = null;
+    private committingGrab = false;
     private readonly now: () => Date;
+    private readonly canGrabEvent?: (eventId: string) => boolean;
+    private readonly previewGrabbedEvent?: (grab: CalendarEventGrab) => void;
+    private readonly commitGrabbedEvent?: (
+        grab: CalendarEventGrab
+    ) => Promise<boolean>;
+    private readonly onGrabModeChange?: (active: boolean) => void;
+    private readonly onGrabUnavailable?: () => void;
 
     constructor(
         private readonly containerEl: HTMLElement,
         options: CalendarEventNavigatorOptions = {}
     ) {
         this.now = options.now || (() => new Date());
+        this.canGrabEvent = options.canGrabEvent;
+        this.previewGrabbedEvent = options.previewGrabbedEvent;
+        this.commitGrabbedEvent = options.commitGrabbedEvent;
+        this.onGrabModeChange = options.onGrabModeChange;
+        this.onGrabUnavailable = options.onGrabUnavailable;
     }
 
     activate(
@@ -134,6 +194,7 @@ export class CalendarEventNavigator {
     }
 
     deactivate(): void {
+        this.cancelGrabbedEvent();
         this.enabled = false;
         this.pendingCount = "";
         this.clearFocus();
@@ -149,20 +210,36 @@ export class CalendarEventNavigator {
         return this.enabled;
     }
 
+    isGrabbing(): boolean {
+        return this.grabState !== null;
+    }
+
+    getGrabbedEvent(): CalendarEventGrab | null {
+        return this.grabState ? copyGrab(this.grabState.current) : null;
+    }
+
     getFocusedEvent(): HTMLElement | null {
         return this.focusedEvent;
     }
 
     getFocusedDate(): Date | null {
-        const date = this.focusedEvent
-            ? parseEventDate(this.focusedEvent, "ofcEventStart")
-            : this.anchorDate;
+        const date =
+            this.grabState?.current.start ||
+            (this.focusedEvent
+                ? parseEventDate(this.focusedEvent, "ofcEventStart")
+                : this.anchorDate);
         return date ? new Date(date) : null;
     }
 
     syncToView(preferredDate?: Date): boolean {
         if (!this.enabled) {
             return false;
+        }
+        if (
+            this.grabState &&
+            this.focusEventById(this.grabState.current.eventId)
+        ) {
+            return true;
         }
         const events = this.getEventElements();
         if (
@@ -258,11 +335,104 @@ export class CalendarEventNavigator {
         return true;
     }
 
+    beginGrab(): boolean {
+        if (
+            !this.enabled ||
+            !this.focusedEvent ||
+            this.grabState ||
+            this.committingGrab
+        ) {
+            return false;
+        }
+        const eventId = this.focusedEvent.dataset.ofcEventId;
+        const start = parseEventDate(this.focusedEvent, "ofcEventStart");
+        const end = parseEventDate(this.focusedEvent, "ofcEventEnd");
+        if (!eventId || !start || !end) {
+            return false;
+        }
+        if (this.canGrabEvent && !this.canGrabEvent(eventId)) {
+            this.onGrabUnavailable?.();
+            return false;
+        }
+
+        const original = { eventId, start, end };
+        this.grabState = {
+            original: copyGrab(original),
+            current: copyGrab(original),
+        };
+        this.pendingCount = "";
+        this.containerEl.classList.add("ofc-event-grab-active");
+        this.markFocusedEventAsGrabbed();
+        this.onGrabModeChange?.(true);
+        return true;
+    }
+
+    moveGrabbedEvent(direction: CalendarCellDirection, count = 1): boolean {
+        if (!this.grabState || this.committingGrab) {
+            return false;
+        }
+        this.grabState.current = moveCalendarEventGrab(
+            this.grabState.current,
+            direction,
+            count
+        );
+        this.anchorDate = new Date(this.grabState.current.start);
+        this.previewGrabbedEvent?.(copyGrab(this.grabState.current));
+        this.focusEventById(this.grabState.current.eventId);
+        return true;
+    }
+
+    cancelGrabbedEvent(): boolean {
+        if (!this.grabState || this.committingGrab) {
+            return false;
+        }
+        const original = copyGrab(this.grabState.original);
+        this.previewGrabbedEvent?.(original);
+        this.finishGrab(original);
+        return true;
+    }
+
+    async confirmGrabbedEvent(): Promise<boolean> {
+        if (!this.grabState || this.committingGrab) {
+            return false;
+        }
+        const current = copyGrab(this.grabState.current);
+        const original = copyGrab(this.grabState.original);
+        this.committingGrab = true;
+        let didCommit = true;
+        try {
+            didCommit = this.commitGrabbedEvent
+                ? await this.commitGrabbedEvent(current)
+                : true;
+        } catch (error) {
+            console.error(error);
+            didCommit = false;
+        } finally {
+            this.committingGrab = false;
+        }
+
+        if (!didCommit) {
+            this.previewGrabbedEvent?.(original);
+        }
+        this.finishGrab(didCommit ? current : original);
+        return true;
+    }
+
     handleKey(key: string, repeat = false): boolean {
         if (!this.enabled) {
             return false;
         }
+        if (this.grabState) {
+            return this.handleGrabKey(key, repeat);
+        }
         if (this.captureCount(key, repeat)) {
+            return true;
+        }
+        if (key === "g") {
+            this.pendingCount = "";
+            if (!repeat) {
+                this.beginGrab();
+            }
             return true;
         }
         const direction = getCalendarCellDirection(key);
@@ -274,6 +444,35 @@ export class CalendarEventNavigator {
             return this.openFocusedEvent(repeat);
         }
         return this.discardCount();
+    }
+
+    private handleGrabKey(key: string, repeat: boolean): boolean {
+        if (this.committingGrab) {
+            return true;
+        }
+        if (this.captureCount(key, repeat)) {
+            return true;
+        }
+        if (key === "Escape") {
+            this.pendingCount = "";
+            return this.cancelGrabbedEvent();
+        }
+        if (key === "Enter") {
+            this.pendingCount = "";
+            if (!repeat) {
+                void this.confirmGrabbedEvent();
+            }
+            return true;
+        }
+        const direction = getCalendarCellDirection(key);
+        if (direction) {
+            return this.moveGrabbedEvent(direction, this.takeCount());
+        }
+
+        // Grab mode is modal: unrelated unmodified keys must not trigger
+        // normal-mode commands such as insert, today, or view cycling.
+        this.pendingCount = "";
+        return true;
     }
 
     private getEventElements(): HTMLElement[] {
@@ -338,13 +537,19 @@ export class CalendarEventNavigator {
             this.clearFocus();
         }
         this.focusedEvent = element;
-        const start = parseEventDate(element, "ofcEventStart");
+        const grabbedStart =
+            this.grabState &&
+            element.dataset.ofcEventId === this.grabState.current.eventId
+                ? this.grabState.current.start
+                : null;
+        const start = grabbedStart || parseEventDate(element, "ofcEventStart");
         if (start) {
             this.anchorDate = start;
         }
         element.classList.add("ofc-focused-calendar-event");
         element.setAttribute("aria-current", "true");
         element.tabIndex = 0;
+        this.markFocusedEventAsGrabbed();
         element.focus?.({ preventScroll: true });
         element.scrollIntoView?.({ block: "nearest", inline: "nearest" });
     }
@@ -356,9 +561,38 @@ export class CalendarEventNavigator {
         const focusedEvent = this.focusedEvent;
         this.focusedEvent = null;
         focusedEvent.classList.remove("ofc-focused-calendar-event");
+        focusedEvent.classList.remove("ofc-grabbed-calendar-event");
         focusedEvent.removeAttribute("aria-current");
+        focusedEvent.removeAttribute("aria-grabbed");
         focusedEvent.tabIndex = -1;
         focusedEvent.blur();
+    }
+
+    private markFocusedEventAsGrabbed(): void {
+        if (
+            !this.focusedEvent ||
+            this.focusedEvent.dataset.ofcEventId !==
+                this.grabState?.current.eventId
+        ) {
+            return;
+        }
+        this.focusedEvent.classList.add("ofc-grabbed-calendar-event");
+        this.focusedEvent.setAttribute("aria-grabbed", "true");
+    }
+
+    private finishGrab(focusTarget: CalendarEventGrab): void {
+        this.grabState = null;
+        this.pendingCount = "";
+        this.containerEl.classList.remove("ofc-event-grab-active");
+        this.focusedEvent?.classList.remove("ofc-grabbed-calendar-event");
+        this.focusedEvent?.removeAttribute("aria-grabbed");
+        if (!this.focusEventById(focusTarget.eventId)) {
+            this.syncToView(focusTarget.start);
+        }
+        // A reused FullCalendar element can briefly retain its old dataset
+        // during a render, so keep the committed/cancelled target authoritative.
+        this.anchorDate = new Date(focusTarget.start);
+        this.onGrabModeChange?.(false);
     }
 
     private captureCount(key: string, repeat: boolean): boolean {

@@ -3,6 +3,7 @@ import { parseEvent } from "../types/schema";
 import {
     fromEventApi,
     getSingleEventStartDate,
+    moveSingleTimedEvent,
     omitRecurringOccurrence,
     selectionRequiresDayView,
     toEventInput,
@@ -40,6 +41,59 @@ describe("single-event navigation date", () => {
             start!.getHours(),
             start!.getMinutes(),
         ]).toEqual([2026, 7, 22, 9, 30]);
+    });
+});
+
+describe("grabbed single-event persistence", () => {
+    it("updates both date endpoints while retaining note metadata", () => {
+        const event = parseEvent({
+            title: "Planning",
+            type: "single",
+            date: "2026-08-22",
+            categories: ["work"],
+            allDay: false,
+            startTime: "23:30",
+            endTime: "23:45",
+        });
+
+        const moved = moveSingleTimedEvent(
+            event,
+            new Date(2026, 7, 24, 23, 45),
+            new Date(2026, 7, 25, 0, 0)
+        );
+
+        expect(moved).toMatchObject({
+            title: "Planning",
+            categories: ["work"],
+            type: "single",
+            date: "2026-08-24",
+            endDate: "2026-08-25",
+            allDay: false,
+            startTime: "23:45",
+            endTime: "00:00",
+        });
+    });
+
+    it("does not collapse recurring or all-day events into timed singles", () => {
+        const recurring = parseEvent({
+            title: "Weekly",
+            type: "recurring",
+            daysOfWeek: ["M"],
+            allDay: false,
+            startTime: "09:00",
+            endTime: "10:00",
+        });
+        const allDay = parseEvent({
+            title: "Holiday",
+            type: "single",
+            date: "2026-08-24",
+            allDay: true,
+        });
+        const start = new Date(2026, 7, 24, 9, 0);
+        const end = new Date(2026, 7, 24, 10, 0);
+
+        expect(moveSingleTimedEvent(recurring, start, end)).toBeNull();
+        expect(moveSingleTimedEvent(allDay, start, end)).toBeNull();
     });
 });
 

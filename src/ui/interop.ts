@@ -1,5 +1,5 @@
 import { EventApi, EventInput } from "@fullcalendar/core";
-import { OFCEvent } from "../types";
+import { OFCEvent, parseEvent } from "../types";
 
 import { DateTime, Duration } from "luxon";
 import { rrulestr } from "rrule";
@@ -166,6 +166,21 @@ export function dateEndpointsToFrontmatter(
                   endTime: getTime(end),
               }),
     };
+}
+
+/** Builds the persisted form of a single timed event after a grab move. */
+export function moveSingleTimedEvent(
+    event: OFCEvent,
+    start: Date,
+    end: Date
+): OFCEvent | null {
+    if (event.type !== "single" || event.allDay) {
+        return null;
+    }
+    return parseEvent({
+        ...event,
+        ...dateEndpointsToFrontmatter(start, end, false),
+    });
 }
 
 /** Resolve the current local start of a concrete event for view navigation. */

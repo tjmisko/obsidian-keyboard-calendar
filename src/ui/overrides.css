@@ -135,6 +135,12 @@
 		0 7px 20px rgba(0, 0, 0, 0.24);
 }
 
+.fc .fc-event.ofc-grabbed-calendar-event {
+	outline-style: dashed;
+	cursor: grabbing;
+	filter: saturate(1.15);
+}
+
 .fc .fc-timegrid-event .fc-event-time {
 	display: none !important;
 }
@@ -300,6 +306,12 @@
 	color: var(--text-accent);
 	background: color-mix(in srgb, var(--interactive-accent) 14%, var(--background-primary));
 	border-color: color-mix(in srgb, var(--interactive-accent) 54%, var(--background-modifier-border));
+}
+
+.fc .ofc-mode-chip[data-mode="grab"] {
+	color: var(--text-on-accent);
+	background: var(--interactive-accent);
+	border-color: var(--interactive-accent);
 }
 
 .fc .fc-toolbar-title {

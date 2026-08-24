@@ -2,6 +2,7 @@ import type { WorkspaceLeaf } from "obsidian";
 import {
     CalendarEventNavigator,
     getDirectionalEventIndex,
+    moveCalendarEventGrab,
     navigateFromCalendarEvent,
 } from "./event_navigation";
 
@@ -182,6 +183,190 @@ describe("calendar event focus", () => {
         expect(focused.blur).toHaveBeenCalledTimes(1);
         expect(focused.tabIndex).toBe(-1);
         expect(navigator.getFocusedEvent()).toBeNull();
+    });
+
+    it("leaves non-grab normal-mode keys available to the view router", () => {
+        const focused = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        const navigator = new CalendarEventNavigator(makeContainer([focused]));
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+
+        expect(navigator.handleKey("i")).toBe(false);
+        expect(navigator.handleKey("t")).toBe(false);
+        expect(navigator.handleKey("Tab")).toBe(false);
+        expect(navigator.isGrabbing()).toBe(false);
+    });
+});
+
+describe("calendar event grab mode", () => {
+    it("moves by quarter-hours and local calendar days without mutating its input", () => {
+        const original = {
+            eventId: "event-id",
+            start: new Date(2026, 7, 20, 9, 0),
+            end: new Date(2026, 7, 20, 10, 30),
+        };
+
+        const later = moveCalendarEventGrab(original, "down", 2);
+        const nextDay = moveCalendarEventGrab(later, "right");
+
+        expect(later.start).toEqual(new Date(2026, 7, 20, 9, 30));
+        expect(later.end).toEqual(new Date(2026, 7, 20, 11, 0));
+        expect(nextDay.start).toEqual(new Date(2026, 7, 21, 9, 30));
+        expect(nextDay.end).toEqual(new Date(2026, 7, 21, 11, 0));
+        expect(original.start).toEqual(new Date(2026, 7, 20, 9, 0));
+        expect(original.end).toEqual(new Date(2026, 7, 20, 10, 30));
+    });
+
+    it("enters with g, previews counted movement, and commits with Enter", async () => {
+        const focused = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        const previewGrabbedEvent = jest.fn();
+        const commitGrabbedEvent = jest.fn(async () => true);
+        const onGrabModeChange = jest.fn();
+        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
+            canGrabEvent: () => true,
+            previewGrabbedEvent,
+            commitGrabbedEvent,
+            onGrabModeChange,
+        });
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+
+        expect(navigator.handleKey("g")).toBe(true);
+        expect(navigator.isGrabbing()).toBe(true);
+        expect(focused.classList.contains("ofc-grabbed-calendar-event")).toBe(
+            true
+        );
+        expect(focused.getAttribute("aria-grabbed")).toBe("true");
+
+        navigator.handleKey("2");
+        navigator.handleKey("ArrowDown");
+        navigator.handleKey("l");
+        expect(navigator.getGrabbedEvent()).toEqual({
+            eventId: "event-id",
+            start: new Date(2026, 7, 21, 9, 30),
+            end: new Date(2026, 7, 21, 10, 30),
+        });
+        expect(previewGrabbedEvent).toHaveBeenCalledTimes(2);
+
+        await expect(navigator.confirmGrabbedEvent()).resolves.toBe(true);
+        expect(commitGrabbedEvent).toHaveBeenCalledWith({
+            eventId: "event-id",
+            start: new Date(2026, 7, 21, 9, 30),
+            end: new Date(2026, 7, 21, 10, 30),
+        });
+        expect(navigator.isGrabbing()).toBe(false);
+        expect(onGrabModeChange.mock.calls).toEqual([[true], [false]]);
+    });
+
+    it("restores the original position with Escape", () => {
+        const start = new Date(2026, 7, 20, 9, 0);
+        const end = new Date(2026, 7, 20, 10, 0);
+        const focused = makeEventElement(
+            start,
+            end,
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        const previewGrabbedEvent = jest.fn();
+        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
+            previewGrabbedEvent,
+        });
+        navigator.activate(start);
+
+        navigator.handleKey("g");
+        navigator.handleKey("ArrowUp");
+        expect(navigator.handleKey("Escape")).toBe(true);
+
+        expect(previewGrabbedEvent).toHaveBeenLastCalledWith({
+            eventId: "event-id",
+            start,
+            end,
+        });
+        expect(navigator.isGrabbing()).toBe(false);
+        expect(focused.classList.contains("ofc-grabbed-calendar-event")).toBe(
+            false
+        );
+    });
+
+    it("reattaches grab focus when FullCalendar replaces the event element", () => {
+        const original = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        let renderedEvents = [original];
+        const container = {
+            classList: { add: jest.fn(), remove: jest.fn() },
+            querySelectorAll: jest.fn(() => renderedEvents),
+        } as unknown as HTMLElement;
+        const navigator = new CalendarEventNavigator(container);
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+        navigator.handleKey("g");
+        navigator.handleKey("ArrowDown");
+
+        const replacement = makeEventElement(
+            new Date(2026, 7, 20, 9, 15),
+            new Date(2026, 7, 20, 10, 15),
+            { top: 25, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        renderedEvents = [replacement];
+
+        expect(navigator.syncToView()).toBe(true);
+        expect(navigator.getFocusedEvent()).toBe(replacement);
+        expect(
+            replacement.classList.contains("ofc-grabbed-calendar-event")
+        ).toBe(true);
+        expect(navigator.getFocusedDate()).toEqual(
+            new Date(2026, 7, 20, 9, 15)
+        );
+    });
+
+    it("keeps insert, today, and view-cycle keys from escaping grab mode", () => {
+        const focused = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        const navigator = new CalendarEventNavigator(makeContainer([focused]));
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+        navigator.handleKey("g");
+
+        expect(navigator.handleKey("i")).toBe(true);
+        expect(navigator.handleKey("t")).toBe(true);
+        expect(navigator.handleKey("Tab")).toBe(true);
+        expect(navigator.handleKey("g")).toBe(true);
+        expect(navigator.isGrabbing()).toBe(true);
+        expect(focused.click).not.toHaveBeenCalled();
+    });
+
+    it("consumes g without entering grab mode for an unsupported event", () => {
+        const focused = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 },
+            "recurring-id"
+        );
+        const onGrabUnavailable = jest.fn();
+        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
+            canGrabEvent: () => false,
+            onGrabUnavailable,
+        });
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+
+        expect(navigator.handleKey("g")).toBe(true);
+        expect(navigator.isGrabbing()).toBe(false);
+        expect(onGrabUnavailable).toHaveBeenCalledTimes(1);
     });
 });
 
