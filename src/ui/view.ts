@@ -20,7 +20,10 @@ import {
 import { renderOnboarding } from "./onboard";
 import { openFullNoteForEvent } from "./actions";
 import { UpdateViewCallback } from "src/core/EventCache";
-import { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
+import {
+    DAY_CALENDAR_VIEW_TYPE,
+    FULL_CALENDAR_VIEW_TYPE,
+} from "../plugin_registration";
 import {
     CalendarEventGrab,
     CalendarEventNavigator,
@@ -44,9 +47,13 @@ import {
 } from "./event_clipboard";
 import { refreshTimeGridLayout, TimeGridZoom } from "./calendar_zoom";
 
-export { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
+export {
+    DAY_CALENDAR_VIEW_TYPE,
+    FULL_CALENDAR_VIEW_TYPE,
+} from "../plugin_registration";
 
 type CalendarNavigationMode = "normal" | "insert" | "grab" | "scale";
+export type CalendarViewSurface = "primary" | "day-sidebar";
 
 function getCalendarColors(color: string | null | undefined): {
     color: string;
@@ -92,11 +99,15 @@ export class CalendarView extends ItemView {
     private readonly timeGridZoom = new TimeGridZoom();
     private calendarEl: HTMLElement | null = null;
 
-    constructor(leaf: WorkspaceLeaf, plugin: FullCalendarPlugin) {
+    constructor(
+        leaf: WorkspaceLeaf,
+        plugin: FullCalendarPlugin,
+        private readonly surface: CalendarViewSurface = "primary"
+    ) {
         super(leaf);
         // Preserve this view in the leaf's Back/Forward history when an event
         // note replaces it as a normal Markdown buffer.
-        this.navigation = true;
+        this.navigation = surface === "primary";
         this.plugin = plugin;
         // FullCalendar's focused event elements can activate Enter at the
         // target phase, so modal shortcuts must intercept keydown first.
@@ -185,7 +196,7 @@ export class CalendarView extends ItemView {
             }
         }
 
-        if (event.key === "Tab") {
+        if (event.key === "Tab" && this.surface === "primary") {
             if (event.repeat) {
                 return;
             }
@@ -370,11 +381,17 @@ export class CalendarView extends ItemView {
     }
 
     getViewType() {
-        return FULL_CALENDAR_VIEW_TYPE;
+        return this.surface === "day-sidebar"
+            ? DAY_CALENDAR_VIEW_TYPE
+            : FULL_CALENDAR_VIEW_TYPE;
     }
 
     getDisplayText() {
-        return "Calendar";
+        return this.surface === "day-sidebar" ? "Day Calendar" : "Calendar";
+    }
+
+    goToDate(date: Date): void {
+        this.fullCalendarView?.gotoDate(date);
     }
 
     getDailyNotePath(date: Date): string {
@@ -430,7 +447,12 @@ export class CalendarView extends ItemView {
         const container = this.containerEl.children[1];
         container.empty();
         const calendarEl = container.createEl("div", {
-            cls: "ofc-calendar-root",
+            cls: [
+                "ofc-calendar-root",
+                ...(this.surface === "day-sidebar"
+                    ? ["ofc-day-calendar-root"]
+                    : []),
+            ],
         });
         this.calendarEl = calendarEl;
         this.timeGridZoom.applyTo(calendarEl);
@@ -441,9 +463,11 @@ export class CalendarView extends ItemView {
         }
 
         const returnTarget =
-            this.plugin.eventNoteEditor?.consumeCalendarReturnTarget(
-                this.leaf
-            ) || null;
+            this.surface === "primary"
+                ? this.plugin.eventNoteEditor?.consumeCalendarReturnTarget(
+                      this.leaf
+                  ) || null
+                : null;
         const returnEventId = returnTarget
             ? this.plugin.cache.getEventIdForPath(returnTarget.path)
             : null;
@@ -478,14 +502,22 @@ export class CalendarView extends ItemView {
                 viewType,
                 focusTitle,
                 openDay: (date) => {
-                    this.fullCalendarView?.changeView("timeGridDay");
-                    this.fullCalendarView?.gotoDate(date);
+                    void this.plugin.activateDayView(date).catch((error) => {
+                        console.error(error);
+                        new Notice("Could not open the day calendar.");
+                    });
                 },
                 createTimedNote: async (partialEvent, options) => {
                     try {
+                        const targetLeaf =
+                            this.surface === "day-sidebar"
+                                ? this.app.workspace.getMostRecentLeaf(
+                                      this.app.workspace.rootSplit
+                                  ) || this.app.workspace.getLeaf(false)
+                                : this.leaf;
                         await this.plugin.createTimedEventNote(
                             partialEvent,
-                            this.leaf,
+                            targetLeaf,
                             options
                         );
                     } catch (e) {
@@ -520,7 +552,13 @@ export class CalendarView extends ItemView {
                                 eventId
                             ),
                         openInOriginatingLeaf: async (eventId, leaf) =>
-                            this.plugin.openEventNote(eventId, leaf),
+                            this.surface === "day-sidebar"
+                                ? openFullNoteForEvent(
+                                      this.plugin.cache,
+                                      this.app,
+                                      eventId
+                                  )
+                                : this.plugin.openEventNote(eventId, leaf),
                     });
                     return openedNote;
                 } catch (e) {
@@ -571,6 +609,7 @@ export class CalendarView extends ItemView {
             firstDay: this.plugin.settings.firstDay,
             initialView: this.plugin.settings.initialView,
             initialDate: returnEventDate || undefined,
+            variant: this.surface,
             timeFormat24h: this.plugin.settings.timeFormat24h,
             datesSet: () => {
                 if (

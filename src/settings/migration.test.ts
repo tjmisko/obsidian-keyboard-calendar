@@ -200,10 +200,15 @@ describe("settings decoder", () => {
                 jest.fn()
             ).settings.initialView
         ).toBe("timeGridWeek");
-        expect(
-            decodeSettings({ initialView: "listWeek" }, undefined, jest.fn())
-                .settings.initialView
-        ).toBe("listWeek");
+        for (const retiredView of ["timeGridDay", "listWeek"]) {
+            expect(
+                decodeSettings(
+                    { initialView: retiredView },
+                    undefined,
+                    jest.fn()
+                ).settings.initialView
+            ).toBe("timeGridWeek");
+        }
     });
 
     it("defaults and normalizes the ghost-event tag list", () => {
@@ -365,7 +370,7 @@ describe("active removed-source migration", () => {
             );
 
             expect(migrated.settings.settingsVersion).toBe(settingsVersion);
-            expect(migrated.settings.initialView).toBe("listWeek");
+            expect(migrated.settings.initialView).toBe("timeGridWeek");
             expect(migrated.settings.legacySidebarMigrationVersion).toBe(17);
             expect(migrated.settings.redactedLegacySources).toEqual([
                 { legacyType: "ical", removedAtVersion: 12 },
@@ -1212,7 +1217,7 @@ describe("production persistence after migration", () => {
 
         const first = prepareSettingsSave(input, baseline, current);
         current.calendarSources = [local("Personal")];
-        current.initialView = "listWeek";
+        current.initialView = "timeGridWeek";
         const second = prepareSettingsSave(
             first.persisted,
             first.runtimeBaseline,
@@ -1228,7 +1233,7 @@ describe("production persistence after migration", () => {
         expect((second.persisted.calendarSources as CalendarInfo[])[0]).toEqual(
             local("Personal")
         );
-        expect(second.persisted.initialView).toBe("listWeek");
+        expect(second.persisted.initialView).toBe("timeGridWeek");
     });
 });
 

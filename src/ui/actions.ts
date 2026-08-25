@@ -18,7 +18,7 @@ export async function openFullNoteForEvent(
         return false;
     }
     const { path } = details.location;
-    let leaf = workspace.getMostRecentLeaf();
+    let leaf = workspace.getMostRecentLeaf(workspace.rootSplit);
     const file = vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile)) {
         return false;

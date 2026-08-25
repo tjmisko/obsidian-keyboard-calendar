@@ -1,5 +1,6 @@
 import { Command, Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import { CalendarView, FULL_CALENDAR_VIEW_TYPE } from "./ui/view";
+import { DayCalendarView } from "./ui/DayCalendarView";
 import { dateEndpointsToFrontmatter } from "./ui/interop";
 import {
     DEFAULT_SETTINGS,
@@ -18,6 +19,7 @@ import {
     loadMigratedSettingsBeforeRuntime,
 } from "./settings/migration";
 import {
+    DAY_CALENDAR_VIEW_TYPE,
     registerCalendarCommands,
     registerCalendarViews,
     reportEventNoteCreationFailure,
@@ -29,6 +31,7 @@ import {
 } from "./legacy_sidebar_bridge";
 import { LegacySidebarCompatibilityView } from "./ui/LegacySidebarCompatibilityView";
 import type { CalendarEventClipboard } from "./ui/event_clipboard";
+import { activateDayCalendarSidebar } from "./ui/day_sidebar";
 
 export default class FullCalendarPlugin extends Plugin {
     settings: FullCalendarSettings = DEFAULT_SETTINGS;
@@ -113,6 +116,22 @@ export default class FullCalendarPlugin extends Plugin {
         this.app.workspace.revealLeaf(leaf);
     }
 
+    async activateDayView(date: Date = new Date()): Promise<void> {
+        await activateDayCalendarSidebar(date, {
+            getExistingLeaves: () =>
+                this.app.workspace.getLeavesOfType(DAY_CALENDAR_VIEW_TYPE),
+            getRightLeaf: () => this.app.workspace.getRightLeaf(false),
+            setDayView: (leaf) =>
+                leaf.setViewState({
+                    type: DAY_CALENDAR_VIEW_TYPE,
+                    active: true,
+                }),
+            getDayView: (leaf) =>
+                leaf.view instanceof DayCalendarView ? leaf.view : null,
+            revealLeaf: (leaf) => this.app.workspace.revealLeaf(leaf),
+        });
+    }
+
     private configureLegacySidebarMigration(): void {
         this.requestLegacySidebarMigration = createLegacySidebarMigrationRunner(
             () => this.settingsLoaded && this.app.workspace.layoutReady,
@@ -149,12 +168,15 @@ export default class FullCalendarPlugin extends Plugin {
 
     async onload() {
         this.configureLegacySidebarMigration();
-        // Register both the active view and the decoder-only legacy view before
+        // Register the active views and decoder-only legacy view before
         // the first await so restored workspaces never encounter an unknown
         // persisted view type.
-        registerCalendarViews<WorkspaceLeaf, CalendarView>(
+        registerCalendarViews<WorkspaceLeaf, CalendarView | DayCalendarView>(
             (type, creator) => this.registerView(type, creator),
-            (leaf) => new CalendarView(leaf, this)
+            (leaf, spec) =>
+                spec.surface === "day-sidebar"
+                    ? new DayCalendarView(leaf, this)
+                    : new CalendarView(leaf, this)
         );
         registerLegacySidebarCompatibilityView<
             WorkspaceLeaf,
@@ -261,10 +283,16 @@ export default class FullCalendarPlugin extends Plugin {
                             this.app.workspace.detachLeavesOfType(
                                 FULL_CALENDAR_VIEW_TYPE
                             );
+                            this.app.workspace.detachLeavesOfType(
+                                DAY_CALENDAR_VIEW_TYPE
+                            );
                             new Notice("Keyboard Calendar has been reset.");
                             return;
                         case "full-calendar-open":
                             void this.activateView();
+                            return;
+                        case "full-calendar-open-day":
+                            void this.activateDayView();
                             return;
                     }
                 },
@@ -281,6 +309,7 @@ export default class FullCalendarPlugin extends Plugin {
         this.eventNoteEditor = null;
         this.eventClipboard = null;
         this.app.workspace.detachLeavesOfType(FULL_CALENDAR_VIEW_TYPE);
+        this.app.workspace.detachLeavesOfType(DAY_CALENDAR_VIEW_TYPE);
     }
 
     async loadSettings(

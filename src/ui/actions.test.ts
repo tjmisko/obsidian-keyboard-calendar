@@ -32,7 +32,9 @@ describe("modifier-click full-note routing", () => {
             getViewState: () => ({ pinned: false }),
             openFile: jest.fn(async () => undefined),
         } as unknown as WorkspaceLeaf;
+        const rootSplit = {} as Workspace["rootSplit"];
         const workspace = {
+            rootSplit,
             getMostRecentLeaf: jest.fn(() => leaf),
             getLeaf: jest.fn(),
         } as unknown as Workspace;
@@ -44,6 +46,7 @@ describe("modifier-click full-note routing", () => {
             openFullNoteForEvent(cache, { workspace, vault }, "local-event")
         ).resolves.toBe(true);
         expect(vault.getAbstractFileByPath).toHaveBeenCalledWith(file.path);
+        expect(workspace.getMostRecentLeaf).toHaveBeenCalledWith(rootSplit);
         expect(leaf.openFile).toHaveBeenCalledWith(file);
     });
 });

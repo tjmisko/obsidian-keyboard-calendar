@@ -8,7 +8,7 @@ The first day of the week defaults to Sunday, but you can change it to Monday, o
 
 ## Default calendar view
 
-Choose Month, Week, Day, or List as the initial desktop view. The fork has no mobile or three-day preference.
+Choose Month or Week as the initial main-calendar view. Day is a separate, fixed view in Obsidian's right sidebar. The fork has no List, mobile, or three-day preference.
 
 ## 24-hour time
 

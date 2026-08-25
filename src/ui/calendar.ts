@@ -11,7 +11,6 @@ import {
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import rrulePlugin from "@fullcalendar/rrule";
-import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
 import { eventHasGhostTag } from "../settings/tag_settings";
 
@@ -33,6 +32,8 @@ rrulePlugin.recurringTypes[0].expand = function (errd, fr, de) {
             );
         });
 };
+
+export type CalendarVariant = "primary" | "day-sidebar";
 
 interface ExtraRenderProps {
     eventClick?: (info: EventClickArg) => void;
@@ -56,6 +57,7 @@ interface ExtraRenderProps {
     openDailyNote?: (date: Date) => Promise<void>;
     datesSet?: () => void;
     eventsSet?: () => void;
+    variant?: CalendarVariant;
 }
 
 /** A local, already-materialized source. URL and callback sources are excluded. */
@@ -138,12 +140,7 @@ export const getRenderedEventTitle = (
     return match?.[1] === eventDateLabel ? match[2] : title;
 };
 
-export const CALENDAR_VIEW_SEQUENCE = [
-    "dayGridMonth",
-    "timeGridWeek",
-    "timeGridDay",
-    "listWeek",
-] as const;
+export const CALENDAR_VIEW_SEQUENCE = ["dayGridMonth", "timeGridWeek"] as const;
 
 export const getAdjacentCalendarView = (
     currentView: string,
@@ -182,6 +179,7 @@ export function renderCalendar(
         openDailyNote,
         ghostEventTags,
     } = settings || {};
+    const isDaySidebar = settings?.variant === "day-sidebar";
     const modifyEventCallback =
         modifyEvent &&
         (async ({
@@ -201,15 +199,14 @@ export function renderCalendar(
 
     const cal = new Calendar(containerEl, {
         plugins: [
-            // View plugins
-            dayGridPlugin,
+            ...(isDaySidebar ? [] : [dayGridPlugin]),
             timeGridPlugin,
-            listPlugin,
-            // Drag + drop and editing
             interactionPlugin,
             rrulePlugin,
         ],
-        initialView: settings?.initialView || "timeGridWeek",
+        initialView: isDaySidebar
+            ? "timeGridDay"
+            : settings?.initialView || "timeGridWeek",
         initialDate: settings?.initialDate,
         nowIndicator: true,
         scrollTimeReset: false,
@@ -219,11 +216,17 @@ export function renderCalendar(
         snapDuration: "00:15:00",
         slotLabelInterval: "00:15:00",
 
-        headerToolbar: {
-            left: "prev,next today",
-            center: "title",
-            right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
-        },
+        headerToolbar: isDaySidebar
+            ? {
+                  left: "prev,next today",
+                  center: "title",
+                  right: "",
+              }
+            : {
+                  left: "prev,next today",
+                  center: "title",
+                  right: "dayGridMonth,timeGridWeek",
+              },
         footerToolbar: false,
 
         views: {
@@ -232,17 +235,18 @@ export function renderCalendar(
                 displayEventTime: false,
                 titleFormat: { week: "long" },
             },
-            timeGridDay: {
-                type: "timeGrid",
-                duration: { days: 1 },
-                buttonText: "day",
-                titleFormat: ({ start }) =>
-                    formatLongDateParts(start.year, start.month, start.day),
-            },
-            listWeek: {
-                listDaySideFormat: ({ date }) =>
-                    formatDatePartsLabel(date.year, date.month, date.day),
-            },
+            ...(isDaySidebar && {
+                timeGridDay: {
+                    type: "timeGrid",
+                    duration: { days: 1 },
+                    titleFormat: ({ start }) =>
+                        formatDatePartsLabel(
+                            start.year,
+                            start.month,
+                            start.day
+                        ),
+                },
+            }),
         },
         firstDay: settings?.firstDay,
         datesSet: settings?.datesSet,
@@ -262,11 +266,6 @@ export function renderCalendar(
                 ? ["ofc-time-slot-major"]
                 : ["ofc-time-slot-minor"],
         dayHeaderContent: ({ date, text, view }) => {
-            if (view.type.startsWith("list")) {
-                // Preserve ListView's native two-part header so its weekday
-                // and side date can be styled independently.
-                return undefined;
-            }
             if (!isTimeGridView(view.type)) {
                 return text;
             }
@@ -339,11 +338,8 @@ export function renderCalendar(
         eventClick,
         // Build the shortened title inside FullCalendar's render lifecycle.
         // Mutating its title node after mount causes text to duplicate on rerender.
-        eventContent: ({ event, isStart, view }) => {
-            if (
-                view.type.startsWith("list") ||
-                event.display.includes("background")
-            ) {
+        eventContent: ({ event, isStart }) => {
+            if (event.display.includes("background")) {
                 return undefined;
             }
 

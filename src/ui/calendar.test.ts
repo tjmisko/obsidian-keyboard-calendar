@@ -6,7 +6,6 @@ jest.mock("@fullcalendar/core", () => ({
 import { Calendar, CalendarOptions } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import listPlugin from "@fullcalendar/list";
 import rrulePlugin from "@fullcalendar/rrule";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import {
@@ -52,12 +51,11 @@ describe("calendar renderer", () => {
         expect(options?.plugins).toEqual([
             dayGridPlugin,
             timeGridPlugin,
-            listPlugin,
             interactionPlugin,
             rrulePlugin,
         ]);
         expect(options?.headerToolbar).toMatchObject({
-            right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
+            right: "dayGridMonth,timeGridWeek",
         });
         expect(options?.slotDuration).toBe("00:15:00");
         expect(options?.snapDuration).toBe("00:15:00");
@@ -84,7 +82,7 @@ describe("calendar renderer", () => {
         ).toEqual(["ofc-time-slot-minor"]);
     });
 
-    it("uses the same desktop toolbar and initial view without reading viewport width", () => {
+    it("limits the primary toolbar to month and week without reading viewport width", () => {
         Object.defineProperty(global, "window", {
             configurable: true,
             value: Object.defineProperty({}, "innerWidth", {
@@ -102,28 +100,41 @@ describe("calendar renderer", () => {
         expect(options.headerToolbar).toEqual({
             left: "prev,next today",
             center: "title",
-            right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
+            right: "dayGridMonth,timeGridWeek",
         });
         expect(options.footerToolbar).toBe(false);
         expect(options.views).not.toHaveProperty("timeGrid3Days");
+        expect(options.views).not.toHaveProperty("timeGridDay");
+        expect(options.views).not.toHaveProperty("listWeek");
+    });
+
+    it("renders the sidebar as one fixed day with compact navigation", () => {
+        renderCalendar({} as HTMLElement, [], {
+            initialView: "dayGridMonth",
+            variant: "day-sidebar",
+        });
+
+        const calls = (Calendar as unknown as jest.Mock).mock.calls;
+        const options = calls[calls.length - 1][1] as CalendarOptions;
+        expect(options.plugins).toEqual([
+            timeGridPlugin,
+            interactionPlugin,
+            rrulePlugin,
+        ]);
+        expect(options.initialView).toBe("timeGridDay");
+        expect(options.headerToolbar).toEqual({
+            left: "prev,next today",
+            center: "title",
+            right: "",
+        });
         expect(options.views?.timeGridDay).toMatchObject({
             duration: { days: 1 },
-            buttonText: "day",
         });
-        const listDaySideFormat = (options.views?.listWeek as any)
-            ?.listDaySideFormat;
         expect(
-            listDaySideFormat?.({
-                date: { year: 2026, month: 7, day: 23 },
+            (options.views?.timeGridDay?.titleFormat as any)?.({
+                start: { year: 2026, month: 7, day: 23 },
             })
         ).toBe("2026-08-23");
-        expect(
-            (options.dayHeaderContent as any)?.({
-                date: new Date(2026, 7, 23),
-                text: "Sunday",
-                view: { type: "listWeek" },
-            })
-        ).toBeUndefined();
     });
 
     it("retains daily-note links and click navigation on time-grid headers", () => {
@@ -429,7 +440,9 @@ describe("calendar labels", () => {
 
     it("cycles calendar views in both directions", () => {
         expect(getAdjacentCalendarView("dayGridMonth")).toBe("timeGridWeek");
-        expect(getAdjacentCalendarView("listWeek")).toBe("dayGridMonth");
-        expect(getAdjacentCalendarView("dayGridMonth", true)).toBe("listWeek");
+        expect(getAdjacentCalendarView("timeGridWeek")).toBe("dayGridMonth");
+        expect(getAdjacentCalendarView("dayGridMonth", true)).toBe(
+            "timeGridWeek"
+        );
     });
 });

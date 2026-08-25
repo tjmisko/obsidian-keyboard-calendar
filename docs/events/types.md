@@ -29,9 +29,9 @@ The rest of the note is yours for descriptions, links, or meeting notes. Extra f
 
 ## Create a timed event
 
-Run **Keyboard Calendar: New Event**, or select a time range in a week or day view. Keyboard Calendar writes the note successfully before indexing it, then opens it as a normal Markdown buffer. Rename the note and edit its frontmatter normally.
+Run **Keyboard Calendar: New Event**, or select a time range in the Week view or Day Calendar sidebar. Keyboard Calendar writes the note successfully before indexing it, then opens it as a normal Markdown buffer. Rename the note and edit its frontmatter normally.
 
-Selecting a date in a month view opens that date in the day view so you can choose an exact time. Keyboard Calendar supports timed events only.
+Selecting a date in Month opens that date in the Day Calendar sidebar so you can choose an exact time. Keyboard Calendar supports timed events only.
 
 ## Open an event
 

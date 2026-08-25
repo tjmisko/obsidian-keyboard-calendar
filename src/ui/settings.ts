@@ -28,10 +28,8 @@ const WEEKDAYS = [
 ];
 
 const INITIAL_VIEW_OPTIONS = {
-    timeGridDay: "Day",
     timeGridWeek: "Week",
     dayGridMonth: "Month",
-    listWeek: "List",
 };
 
 type SubmitLocalSource = (directory: string, color: string) => Promise<boolean>;
@@ -172,8 +170,8 @@ export class FullCalendarSettingTab extends PluginSettingTab {
 
         containerEl.createEl("h2", { text: "Calendar Preferences" });
         new Setting(containerEl)
-            .setName("Desktop Initial View")
-            .setDesc("Choose the initial view range on desktop devices.")
+            .setName("Main Calendar Initial View")
+            .setDesc("Choose Month or Week for the main calendar tab.")
             .addDropdown((dropdown) => {
                 Object.entries(INITIAL_VIEW_OPTIONS).forEach(
                     ([value, display]) => dropdown.addOption(value, display)

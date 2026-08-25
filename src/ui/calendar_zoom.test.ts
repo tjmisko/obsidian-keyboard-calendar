@@ -40,7 +40,6 @@ describe("time-grid zoom", () => {
         expect(isTimeGridZoomView("timeGridWeek")).toBe(true);
         expect(isTimeGridZoomView("timeGridDay")).toBe(true);
         expect(isTimeGridZoomView("dayGridMonth")).toBe(false);
-        expect(isTimeGridZoomView("listWeek")).toBe(false);
     });
 
     it("shares one level across week and day and reduces label density", () => {
@@ -105,7 +104,7 @@ describe("time-grid zoom", () => {
         });
     });
 
-    it("does not change levels in month or list views", () => {
+    it("does not change levels in the month view", () => {
         const container = makeContainer();
         const zoom = new TimeGridZoom();
 

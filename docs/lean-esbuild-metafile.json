@@ -1,7 +1,7 @@
 {
   "inputs": {
     "src/ui/overrides.css": {
-      "bytes": 8579,
+      "bytes": 14120,
       "imports": []
     },
     "node_modules/tslib/tslib.js": {
@@ -721,27 +721,6 @@
         }
       ]
     },
-    "node_modules/@fullcalendar/list/main.css": {
-      "bytes": 3442,
-      "imports": []
-    },
-    "node_modules/@fullcalendar/list/main.js": {
-      "bytes": 16783,
-      "imports": [
-        {
-          "path": "node_modules/@fullcalendar/list/main.css",
-          "kind": "import-statement"
-        },
-        {
-          "path": "node_modules/@fullcalendar/common/main.js",
-          "kind": "import-statement"
-        },
-        {
-          "path": "node_modules/tslib/modules/index.js",
-          "kind": "import-statement"
-        }
-      ]
-    },
     "node_modules/@fullcalendar/interaction/main.js": {
       "bytes": 96835,
       "imports": [
@@ -755,8 +734,12 @@
         }
       ]
     },
+    "src/settings/tag_settings.ts": {
+      "bytes": 2562,
+      "imports": []
+    },
     "src/ui/calendar.ts": {
-      "bytes": 10250,
+      "bytes": 13378,
       "imports": [
         {
           "path": "node_modules/@fullcalendar/core/main.js",
@@ -775,11 +758,11 @@
           "kind": "import-statement"
         },
         {
-          "path": "node_modules/@fullcalendar/list/main.js",
+          "path": "node_modules/@fullcalendar/interaction/main.js",
           "kind": "import-statement"
         },
         {
-          "path": "node_modules/@fullcalendar/interaction/main.js",
+          "path": "src/settings/tag_settings.ts",
           "kind": "import-statement"
         }
       ]
@@ -789,7 +772,7 @@
       "imports": []
     },
     "src/types/schema.ts": {
-      "bytes": 2207,
+      "bytes": 2258,
       "imports": [
         {
           "path": "node_modules/zod/lib/index.mjs",
@@ -1280,8 +1263,12 @@
       ]
     },
     "src/ui/interop.ts": {
-      "bytes": 12543,
+      "bytes": 12707,
       "imports": [
+        {
+          "path": "src/types/index.ts",
+          "kind": "import-statement"
+        },
         {
           "path": "node_modules/luxon/src/luxon.js",
           "kind": "import-statement"
@@ -1297,19 +1284,27 @@
       "imports": []
     },
     "src/settings/migration.ts": {
-      "bytes": 15389,
+      "bytes": 15894,
       "imports": [
         {
           "path": "src/types/calendar_settings.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/settings/tag_settings.ts",
           "kind": "import-statement"
         }
       ]
     },
     "src/ui/settings.ts": {
-      "bytes": 8912,
+      "bytes": 13340,
       "imports": [
         {
           "path": "src/ui/source_settings.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/settings/tag_settings.ts",
           "kind": "import-statement"
         },
         {
@@ -1332,16 +1327,25 @@
       ]
     },
     "src/ui/actions.ts": {
-      "bytes": 879,
+      "bytes": 898,
       "imports": []
     },
     "src/plugin_registration.ts": {
-      "bytes": 1299,
+      "bytes": 1610,
+      "imports": []
+    },
+    "src/ui/cell_navigation.ts": {
+      "bytes": 23409,
       "imports": []
     },
     "src/ui/event_navigation.ts": {
-      "bytes": 731,
-      "imports": []
+      "bytes": 34176,
+      "imports": [
+        {
+          "path": "src/ui/cell_navigation.ts",
+          "kind": "import-statement"
+        }
+      ]
     },
     "node_modules/moment/moment.js": {
       "bytes": 174604,
@@ -1365,11 +1369,16 @@
       ]
     },
     "src/ui/event_context.ts": {
-      "bytes": 960,
-      "imports": []
+      "bytes": 1885,
+      "imports": [
+        {
+          "path": "src/settings/tag_settings.ts",
+          "kind": "import-statement"
+        }
+      ]
     },
     "src/ui/event_creation.ts": {
-      "bytes": 704,
+      "bytes": 887,
       "imports": [
         {
           "path": "src/ui/interop.ts",
@@ -1377,8 +1386,42 @@
         }
       ]
     },
+    "src/ui/calendar_update.ts": {
+      "bytes": 4168,
+      "imports": [
+        {
+          "path": "src/ui/interop.ts",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/ui/event_deletion.ts": {
+      "bytes": 2118,
+      "imports": []
+    },
+    "src/ui/event_clipboard.ts": {
+      "bytes": 1529,
+      "imports": [
+        {
+          "path": "src/types/index.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/cell_navigation.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/interop.ts",
+          "kind": "import-statement"
+        }
+      ]
+    },
+    "src/ui/calendar_zoom.ts": {
+      "bytes": 3280,
+      "imports": []
+    },
     "src/ui/view.ts": {
-      "bytes": 13285,
+      "bytes": 31391,
       "imports": [
         {
           "path": "src/ui/overrides.css",
@@ -1425,17 +1468,50 @@
           "kind": "import-statement"
         },
         {
+          "path": "src/ui/cell_navigation.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/calendar_update.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/event_deletion.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/settings/tag_settings.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/event_clipboard.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/calendar_zoom.ts",
+          "kind": "import-statement"
+        },
+        {
           "path": "src/plugin_registration.ts",
           "kind": "import-statement"
         }
       ]
     },
+    "src/ui/DayCalendarView.ts": {
+      "bytes": 387,
+      "imports": [
+        {
+          "path": "src/ui/view.ts",
+          "kind": "import-statement"
+        }
+      ]
+    },
     "src/core/LocalEventIndex.ts": {
-      "bytes": 15841,
+      "bytes": 16007,
       "imports": []
     },
     "src/core/EventCache.ts": {
-      "bytes": 19685,
+      "bytes": 24975,
       "imports": [
         {
           "path": "src/core/LocalEventIndex.ts",
@@ -1444,11 +1520,11 @@
       ]
     },
     "src/ObsidianAdapter.ts": {
-      "bytes": 4488,
+      "bytes": 4675,
       "imports": []
     },
     "src/calendars/FullNoteCalendar.ts": {
-      "bytes": 21079,
+      "bytes": 24680,
       "imports": [
         {
           "path": "node_modules/luxon/src/luxon.js",
@@ -1469,7 +1545,7 @@
       ]
     },
     "src/ui/EventNoteEditor.ts": {
-      "bytes": 618,
+      "bytes": 2168,
       "imports": []
     },
     "src/legacy_sidebar_bridge.ts": {
@@ -1477,7 +1553,7 @@
       "imports": []
     },
     "src/ui/LegacySidebarCompatibilityView.ts": {
-      "bytes": 952,
+      "bytes": 956,
       "imports": [
         {
           "path": "src/legacy_sidebar_bridge.ts",
@@ -1485,11 +1561,19 @@
         }
       ]
     },
+    "src/ui/day_sidebar.ts": {
+      "bytes": 790,
+      "imports": []
+    },
     "src/main.ts": {
-      "bytes": 11886,
+      "bytes": 13939,
       "imports": [
         {
           "path": "src/ui/view.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/DayCalendarView.ts",
           "kind": "import-statement"
         },
         {
@@ -1535,6 +1619,10 @@
         {
           "path": "src/ui/LegacySidebarCompatibilityView.ts",
           "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/day_sidebar.ts",
+          "kind": "import-statement"
         }
       ]
     }
@@ -1558,13 +1646,13 @@
           "bytesInOutput": 27179
         },
         "src/main.ts": {
-          "bytesInOutput": 8400
+          "bytesInOutput": 9670
         },
         "src/ui/overrides.css": {
           "bytesInOutput": 0
         },
         "src/ui/view.ts": {
-          "bytesInOutput": 10020
+          "bytesInOutput": 24199
         },
         "node_modules/tslib/modules/index.js": {
           "bytesInOutput": 464
@@ -1588,7 +1676,7 @@
           "bytesInOutput": 593
         },
         "node_modules/@fullcalendar/common/main.js": {
-          "bytesInOutput": 305981
+          "bytesInOutput": 305830
         },
         "node_modules/@fullcalendar/core/main.js": {
           "bytesInOutput": 3848
@@ -1695,23 +1783,20 @@
         "node_modules/@fullcalendar/rrule/main.js": {
           "bytesInOutput": 4741
         },
-        "node_modules/@fullcalendar/list/main.css": {
-          "bytesInOutput": 0
-        },
-        "node_modules/@fullcalendar/list/main.js": {
-          "bytesInOutput": 13647
-        },
         "node_modules/@fullcalendar/interaction/main.js": {
           "bytesInOutput": 70086
         },
+        "src/settings/tag_settings.ts": {
+          "bytesInOutput": 1860
+        },
         "src/ui/calendar.ts": {
-          "bytesInOutput": 6459
+          "bytesInOutput": 8393
         },
         "node_modules/zod/lib/index.mjs": {
           "bytesInOutput": 107688
         },
         "src/types/schema.ts": {
-          "bytesInOutput": 1737
+          "bytesInOutput": 1761
         },
         "src/types/index.ts": {
           "bytesInOutput": 42
@@ -1789,67 +1874,88 @@
           "bytesInOutput": 30363
         },
         "src/ui/interop.ts": {
-          "bytesInOutput": 8708
+          "bytesInOutput": 9150
         },
         "src/ui/onboard.ts": {
           "bytesInOutput": 1710
         },
         "src/ui/settings.ts": {
-          "bytesInOutput": 6458
+          "bytesInOutput": 9638
         },
         "src/ui/source_settings.ts": {
           "bytesInOutput": 1820
         },
         "src/settings/migration.ts": {
-          "bytesInOutput": 9485
+          "bytesInOutput": 9681
         },
         "src/ui/actions.ts": {
-          "bytesInOutput": 680
+          "bytesInOutput": 699
         },
         "src/plugin_registration.ts": {
-          "bytesInOutput": 888
+          "bytesInOutput": 1112
+        },
+        "src/ui/cell_navigation.ts": {
+          "bytesInOutput": 17644
         },
         "src/ui/event_navigation.ts": {
-          "bytesInOutput": 317
+          "bytesInOutput": 25691
         },
         "src/ui/daily_note_navigation.ts": {
           "bytesInOutput": 1961
         },
         "src/ui/event_context.ts": {
-          "bytesInOutput": 402
+          "bytesInOutput": 1152
         },
         "src/ui/event_creation.ts": {
-          "bytesInOutput": 350
+          "bytesInOutput": 405
+        },
+        "src/ui/calendar_update.ts": {
+          "bytesInOutput": 2537
+        },
+        "src/ui/event_deletion.ts": {
+          "bytesInOutput": 1592
+        },
+        "src/ui/event_clipboard.ts": {
+          "bytesInOutput": 891
+        },
+        "src/ui/calendar_zoom.ts": {
+          "bytesInOutput": 1980
+        },
+        "src/ui/DayCalendarView.ts": {
+          "bytesInOutput": 128
         },
         "src/core/LocalEventIndex.ts": {
-          "bytesInOutput": 11094
+          "bytesInOutput": 11257
         },
         "src/core/EventCache.ts": {
-          "bytesInOutput": 14522
+          "bytesInOutput": 18492
         },
         "src/ObsidianAdapter.ts": {
-          "bytesInOutput": 1314
+          "bytesInOutput": 1375
         },
         "src/calendars/FullNoteCalendar.ts": {
-          "bytesInOutput": 15427
+          "bytesInOutput": 18254
         },
         "src/ui/EventNoteEditor.ts": {
-          "bytesInOutput": 297
+          "bytesInOutput": 1390
         },
         "src/legacy_sidebar_bridge.ts": {
           "bytesInOutput": 2348
         },
         "src/ui/LegacySidebarCompatibilityView.ts": {
-          "bytesInOutput": 686
+          "bytesInOutput": 690
+        },
+        "src/ui/day_sidebar.ts": {
+          "bytesInOutput": 401
         }
       },
-      "bytes": 1155694
+      "bytes": 1224886
     },
     "main.css": {
       "imports": [],
       "inputs": {
         "src/ui/overrides.css": {
-          "bytesInOutput": 8699
+          "bytesInOutput": 13893
         },
         "node_modules/@fullcalendar/common/main.css": {
           "bytesInOutput": 16811
@@ -1859,12 +1965,9 @@
         },
         "node_modules/@fullcalendar/timegrid/main.css": {
           "bytesInOutput": 6924
-        },
-        "node_modules/@fullcalendar/list/main.css": {
-          "bytesInOutput": 2407
         }
       },
-      "bytes": 39258
+      "bytes": 41997
     }
   }
 }

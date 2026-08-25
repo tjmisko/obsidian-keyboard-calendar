@@ -95,12 +95,7 @@ const SOURCE_TYPES: readonly PersistedSourceType[] = [
 ];
 const RUNTIME_SOURCE_TYPES: readonly PersistedSourceType[] = ["local"];
 
-const DESKTOP_VIEWS = new Set([
-    "timeGridDay",
-    "timeGridWeek",
-    "dayGridMonth",
-    "listWeek",
-]);
+const DESKTOP_VIEWS = new Set(["timeGridWeek", "dayGridMonth"]);
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null && !Array.isArray(value);
 

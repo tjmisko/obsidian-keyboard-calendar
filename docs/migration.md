@@ -10,7 +10,8 @@ Back up Obsidian's plugin data and workspace layout before installing Keyboard C
 - Settings v5 retains one writable local folder. It prefers the previously selected local source and otherwise the first valid local source. Notes belonging to discarded folder configurations are not moved.
 - Settings v6 retains one desktop initial view and discards the retired mobile/three-day preference.
 - Settings v7 adds a configurable ghost-event tag list, initially containing the neutral `ghost` tag.
-- A saved legacy sidebar leaf is redirected into the normal main-tab calendar view. The decoder-only compatibility view and its completion marker remain until a separately approved removal gate.
+- A saved legacy full-calendar sidebar leaf is redirected into the normal main-tab calendar view. The decoder-only compatibility view and its completion marker remain until a separately approved removal gate; the new Day Calendar sidebar uses a distinct view type.
+- Saved Day or List initial-view values now normalize to Week. Day remains available only through the dedicated right-sidebar view, and List is removed.
 - The old public Dataview `renderCalendar`/`processFrontmatter` hooks are removed. Arbitrary URL and callback event sources are no longer accepted; the internal renderer receives materialized local events only.
 
 Only direct-child Markdown files in the selected folder are indexed after migration. Nested notes remain untouched but are not shown.
