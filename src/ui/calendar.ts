@@ -240,10 +240,15 @@ export function renderCalendar(
         datesSet: settings?.datesSet,
         eventsSet: settings?.eventsSet,
         slotLabelContent: ({ date }) => formatTimeGridSlotLabel(date),
-        slotLabelClassNames: ({ date }) =>
-            date.getMinutes() === 0
-                ? ["ofc-time-label-major"]
-                : ["ofc-time-label-minor"],
+        slotLabelClassNames: ({ date }) => {
+            const minutes = date.getMinutes();
+            if (minutes === 0) {
+                return ["ofc-time-label-major"];
+            }
+            return minutes === 30
+                ? ["ofc-time-label-minor", "ofc-time-label-half"]
+                : ["ofc-time-label-minor", "ofc-time-label-quarter"];
+        },
         slotLaneClassNames: ({ date }) =>
             date?.getMinutes() === 0
                 ? ["ofc-time-slot-major"]

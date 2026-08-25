@@ -58,7 +58,7 @@ Insert-mode commands are:
 - `p`: paste the yanked event starting at the selected cell.
 - `Enter`: start a 15-minute event draft. Counted up/down (or `k`/`j`) resizes it, counted left/right (or `h`/`l`) moves it by days, and a second `Enter` creates the event note. `Escape` cancels the draft and returns to normal mode.
 
-Calendar navigation only captures keys while the calendar is the active Obsidian leaf and no editor, input, or modal is active. `Tab` and `Shift+Tab` cycle calendar views, and `t` returns to today.
+Calendar navigation only captures keys while the calendar is the active Obsidian leaf and no editor, input, or modal is active. `Tab` and `Shift+Tab` cycle calendar views, and `t` returns to today. In week and day views, `+` (or `=`) expands the 15-minute rows and `-` contracts them. Both views share the same zoom level; quarter-hour and then half-hour gutter labels disappear automatically at compact levels.
 
 Right-click any event for a context menu with confirmed deletion. Recurring occurrences also offer omission; unattended events matching a configured ghost tag offer an attendance action. Recurring blocks carry a small repeat badge. Settings can assign ordered colors to tags; the first matching tag-color rule overrides the event-folder color.
 

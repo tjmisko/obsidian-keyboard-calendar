@@ -68,6 +68,16 @@ describe("calendar renderer", () => {
             })
         ).toEqual(["ofc-time-label-major"]);
         expect(
+            (options?.slotLabelClassNames as any)?.({
+                date: new Date(2026, 7, 23, 9, 15),
+            })
+        ).toEqual(["ofc-time-label-minor", "ofc-time-label-quarter"]);
+        expect(
+            (options?.slotLabelClassNames as any)?.({
+                date: new Date(2026, 7, 23, 9, 30),
+            })
+        ).toEqual(["ofc-time-label-minor", "ofc-time-label-half"]);
+        expect(
             (options?.slotLaneClassNames as any)?.({
                 date: new Date(2026, 7, 23, 9, 15),
             })

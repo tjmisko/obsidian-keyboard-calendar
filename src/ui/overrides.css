@@ -26,7 +26,7 @@
 	--fc-more-link-bg-color: var(--background-primary-alt);
 	--fc-more-link-text-color: var(--text-accent);
 
-	--fc-today-bg-color: var(--background-modifier-cover);
+	--fc-today-bg-color: transparent;
 
 	--fc-neutral-text-color: var(--text-muted);
 	--fc-neutral-bg-color: var(--interactive-normal);
@@ -243,8 +243,22 @@
 	white-space: nowrap;
 }
 
-.fc .fc-timegrid-slot {
-	height: 0.85rem;
+/* `.fc.fc` intentionally outranks FullCalendar's fixed `1.5em` rule, which
+ * is bundled after this stylesheet. The label frame height and empty-cell
+ * override prevent their intrinsic line boxes from imposing a larger row. */
+.fc.fc .fc-timegrid-slot,
+.fc.fc .fc-timegrid-slot-label-frame {
+	height: var(--ofc-timegrid-slot-height, 0.85rem);
+}
+
+.fc.fc .fc-timegrid-slot-label-frame {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.fc.fc .fc-timegrid-slot:empty::before {
+	content: none;
 }
 
 .fc .fc-timegrid-slot.ofc-time-slot-major {
@@ -267,6 +281,17 @@
 	color: var(--text-faint);
 	font-size: 0.56rem;
 	font-weight: var(--font-normal, 400);
+}
+
+/* Keep the gutter legible as zoomed-out rows become too short for every
+ * quarter-hour label. Visibility preserves the gutter width between levels. */
+.fc[data-ofc-time-label-density="half-hour"]
+	.ofc-time-label-quarter
+	.fc-timegrid-slot-label-cushion,
+.fc[data-ofc-time-label-density="hour"]
+	.ofc-time-label-minor
+	.fc-timegrid-slot-label-cushion {
+	visibility: hidden;
 }
 
 .fc .ofc-selected-calendar-cell {
@@ -347,6 +372,11 @@
 .fc .ofc-daily-note-link:hover .ofc-day-header-date {
 	color: var(--text-accent-hover);
 	text-decoration: underline;
+}
+
+.fc .fc-col-header-cell.fc-day-today .ofc-day-header-weekday,
+.fc .fc-col-header-cell.fc-day-today .ofc-day-header-date {
+	color: var(--fc-now-indicator-color);
 }
 
 .fc .fc-toolbar.fc-header-toolbar {

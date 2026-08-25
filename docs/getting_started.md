@@ -14,7 +14,7 @@ Either click on the ribbon icon, or run the "Keyboard Calendar: Open Calendar" c
 
 Keyboard Calendar opens as a desktop-only normal tab. The retained compatibility bridge redirects workspace leaves saved with the retired sidebar view into a normal calendar tab; the sidebar is not an active feature.
 
-Use Tab and Shift-Tab to cycle Month, Week, Day, and List. Press `T` for Today. Click an event to replace the calendar tab with its ordinary Markdown note; Obsidian Back returns to the calendar.
+Use Tab and Shift-Tab to cycle Month, Week, Day, and List. Press `T` for Today. In Week and Day, use `+` (or `=`) and `-` to expand and contract the shared time-row height. Minute labels thin out automatically at compact zoom levels. Click an event to replace the calendar tab with its ordinary Markdown note; Obsidian Back returns to the calendar.
 
 ## Troubleshooting
 

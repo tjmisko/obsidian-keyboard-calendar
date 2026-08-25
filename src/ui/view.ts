@@ -42,6 +42,7 @@ import {
     createCalendarEventClipboard,
     pasteCalendarEvent,
 } from "./event_clipboard";
+import { TimeGridZoom } from "./calendar_zoom";
 
 export { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
 
@@ -88,6 +89,8 @@ export class CalendarView extends ItemView {
     private navigationMode: CalendarNavigationMode = "normal";
     private modeChipEl: HTMLElement | null = null;
     private deleteConfirmationModal: EventDeleteConfirmationModal | null = null;
+    private readonly timeGridZoom = new TimeGridZoom();
+    private calendarEl: HTMLElement | null = null;
 
     constructor(leaf: WorkspaceLeaf, plugin: FullCalendarPlugin) {
         super(leaf);
@@ -156,6 +159,27 @@ export class CalendarView extends ItemView {
             event.preventDefault();
             event.stopPropagation();
             return;
+        }
+
+        if (this.calendarEl) {
+            const zoom = this.timeGridZoom.handleKey(
+                event.key,
+                this.fullCalendarView.view.type,
+                this.calendarEl
+            );
+            if (zoom.handled) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (zoom.changed) {
+                    this.fullCalendarView.updateSize();
+                    if (this.navigationMode === "insert") {
+                        this.cellNavigator?.renderSelection();
+                    } else {
+                        this.eventNavigator?.syncToView();
+                    }
+                }
+                return;
+            }
         }
 
         if (event.key === "Tab") {
@@ -403,6 +427,8 @@ export class CalendarView extends ItemView {
         const container = this.containerEl.children[1];
         container.empty();
         let calendarEl = container.createEl("div");
+        this.calendarEl = calendarEl;
+        this.timeGridZoom.applyTo(calendarEl);
 
         if (this.plugin.settings.calendarSources.length === 0) {
             renderOnboarding(this.app, this.plugin, calendarEl);
@@ -772,6 +798,7 @@ export class CalendarView extends ItemView {
         this.eventNavigator = null;
         this.modeChipEl?.remove();
         this.modeChipEl = null;
+        this.calendarEl = null;
         if (this.fullCalendarView) {
             this.fullCalendarView.destroy();
             this.fullCalendarView = null;
