@@ -16,4 +16,4 @@ If a disk write fails, the requested change is not published as successful. Reop
 
 ## Rename or remove the note
 
-Use Obsidian's ordinary file controls. A rename changes the event's path-derived internal ID while preserving the note as the same visible event. There is no calendar action that deletes an entire note.
+Use Obsidian's ordinary file controls to rename or remove a note. A rename changes the event's path-derived internal ID while preserving the note as the same visible event. To remove an event from the calendar, focus it in normal mode and press `x` or `Delete`; after confirmation, the backing note is moved to trash. Deleting a recurring event removes its entire series.

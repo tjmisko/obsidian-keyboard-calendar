@@ -8,8 +8,8 @@ export interface CalendarEventContextAction {
 
 /**
  * The complete lean context-menu surface. Only recurring, local full-note
- * events expose an action; opening stays on ordinary click and deletion has no
- * calendar route.
+ * events expose an action; opening stays on ordinary click and confirmed
+ * deletion remains a normal-mode keyboard route rather than a context action.
  */
 export function getCalendarEventContextActions({
     event,

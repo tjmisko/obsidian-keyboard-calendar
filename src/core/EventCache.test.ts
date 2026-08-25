@@ -76,6 +76,10 @@ class TestFullNoteCalendar extends FullNoteCalendar {
             };
         }
     );
+    deleteEvent = jest.fn(async (location: FullNoteEventPath) => {
+        this.existing.delete(location.path);
+        this.events.delete(location.path);
+    });
 
     constructor(
         directory = "events",
@@ -277,6 +281,7 @@ describe("single local EventCache runtime", () => {
             create: jest.fn(),
             rewrite: jest.fn(),
             rename: jest.fn(),
+            trash: jest.fn(),
         };
         const calendar = new FullNoteCalendar(io, "#123456", "");
         const cache = new EventCache(() => calendar);
@@ -612,6 +617,55 @@ describe("single local EventCache runtime", () => {
         expect(eventPayloads(callback)[0].toAdd[0].event.title).toBe(
             "Actual disk event"
         );
+    });
+
+    it("commits a confirmed delete after trashing the note and suppresses its listener", async () => {
+        const calendar = new TestFullNoteCalendar("events", {
+            "events/A.md": event("Delete me"),
+        });
+        const cache = makeCache(calendar);
+        await cache.populate();
+        const id = sourceEvents(cache)[0].id;
+        const callback = jest.fn();
+        cache.on("update", callback);
+        calendar.deleteEvent.mockImplementationOnce(async ({ path }) => {
+            calendar.existing.delete(path);
+            calendar.events.delete(path);
+            cache.fileDeleted(path);
+            expect(cache.getEventById(id)?.title).toBe("Delete me");
+        });
+
+        await expect(cache.deleteEventWithId(id)).resolves.toBe(true);
+
+        expect(calendar.deleteEvent).toHaveBeenCalledWith({
+            path: "events/A.md",
+        });
+        expect(cache.getEventById(id)).toBeNull();
+        expect(sourceEvents(cache)).toHaveLength(0);
+        expect(eventPayloads(callback)).toHaveLength(1);
+        expect(eventPayloads(callback)[0]).toMatchObject({
+            toRemove: [id],
+            toAdd: [],
+        });
+    });
+
+    it("keeps the disk event indexed when trashing fails", async () => {
+        const calendar = new TestFullNoteCalendar("events", {
+            "events/A.md": event("Keep me"),
+        });
+        const cache = makeCache(calendar);
+        await cache.populate();
+        const id = sourceEvents(cache)[0].id;
+        const callback = jest.fn();
+        cache.on("update", callback);
+        calendar.deleteEvent.mockRejectedValueOnce(new Error("trash failed"));
+
+        await expect(cache.deleteEventWithId(id)).rejects.toThrow(
+            "trash failed"
+        );
+
+        expect(cache.getEventById(id)?.title).toBe("Keep me");
+        expect(callback).not.toHaveBeenCalled();
     });
 
     it("commits same-path writes after success and preserves stored metadata", async () => {

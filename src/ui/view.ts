@@ -22,6 +22,7 @@ import { UpdateViewCallback } from "src/core/EventCache";
 import { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
 import {
     CalendarEventNavigator,
+    CALENDAR_KEYDOWN_CAPTURE_OPTIONS,
     isCalendarMoveRedoShortcut,
     navigateFromCalendarEvent,
 } from "./event_navigation";
@@ -33,6 +34,7 @@ import { getCalendarEventContextActions } from "./event_context";
 import { handleCalendarSelection } from "./event_creation";
 import { CalendarCellNavigator } from "./cell_navigation";
 import { applyCalendarCacheUpdate } from "./calendar_update";
+import { EventDeleteConfirmationModal } from "./event_deletion";
 
 export { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
 
@@ -78,6 +80,7 @@ export class CalendarView extends ItemView {
     callback: UpdateViewCallback | null = null;
     private navigationMode: CalendarNavigationMode = "normal";
     private modeChipEl: HTMLElement | null = null;
+    private deleteConfirmationModal: EventDeleteConfirmationModal | null = null;
 
     constructor(leaf: WorkspaceLeaf, plugin: FullCalendarPlugin) {
         super(leaf);
@@ -85,8 +88,13 @@ export class CalendarView extends ItemView {
         // note replaces it as a normal Markdown buffer.
         this.navigation = true;
         this.plugin = plugin;
-        this.registerDomEvent(document, "keydown", (event) =>
-            this.handleCalendarShortcut(event)
+        // FullCalendar's focused event elements can activate Enter at the
+        // target phase, so modal shortcuts must intercept keydown first.
+        this.registerDomEvent(
+            document,
+            "keydown",
+            (event) => this.handleCalendarShortcut(event),
+            CALENDAR_KEYDOWN_CAPTURE_OPTIONS
         );
     }
 
@@ -192,6 +200,50 @@ export class CalendarView extends ItemView {
         this.updateModeChip();
     }
 
+    private requestEventDeletion(eventId: string): void {
+        const event = this.plugin.cache.getEventById(eventId);
+        if (!event) {
+            new Notice("Could not find that event note.");
+            return;
+        }
+
+        this.deleteConfirmationModal?.close();
+        let modal: EventDeleteConfirmationModal;
+        modal = new EventDeleteConfirmationModal(this.app, {
+            title: event.title,
+            recurring: event.type === "recurring" || event.type === "rrule",
+            confirm: async () => {
+                try {
+                    const deleted = await this.plugin.cache.deleteEventWithId(
+                        eventId
+                    );
+                    if (deleted) {
+                        this.eventNavigator?.forgetEvent(eventId);
+                    }
+                    return deleted;
+                } catch (error) {
+                    console.error(error);
+                    new Notice(
+                        error instanceof Error
+                            ? error.message
+                            : "Could not delete the event."
+                    );
+                    return false;
+                }
+            },
+            onClose: () => {
+                if (this.deleteConfirmationModal === modal) {
+                    this.deleteConfirmationModal = null;
+                }
+                if (this.navigationMode !== "insert") {
+                    this.eventNavigator?.syncToView();
+                }
+            },
+        });
+        this.deleteConfirmationModal = modal;
+        modal.open();
+    }
+
     private createModeChip(calendarEl: HTMLElement): void {
         this.modeChipEl?.remove();
         const chip = calendarEl.ownerDocument.createElement("span");
@@ -221,10 +273,10 @@ export class CalendarView extends ItemView {
         this.modeChipEl.setAttribute("aria-label", `Calendar mode: ${label}`);
         this.modeChipEl.title =
             this.navigationMode === "normal"
-                ? "Normal mode — i selects a time block; m moves the focused event"
+                ? "Normal mode — i inserts; m moves; x/Delete removes; zt/zz/zb align"
                 : this.navigationMode === "insert"
-                ? "Insert mode — Escape returns to event navigation"
-                : "Grab mode — arrows move; Enter or Escape keeps the move";
+                ? "Insert mode — Escape returns; zt/zz/zb align the selected cell"
+                : "Grab mode — arrows move; Enter/Escape keep; zt/zz/zb align";
     }
 
     getIcon(): string {
@@ -345,6 +397,10 @@ export class CalendarView extends ItemView {
         };
         this.fullCalendarView = renderCalendar(calendarEl, sources, {
             eventClick: async (info) => {
+                if (this.navigationMode === "grab") {
+                    info.jsEvent.preventDefault();
+                    return false;
+                }
                 try {
                     const openedNote = await navigateFromCalendarEvent({
                         eventId: info.event.id,
@@ -554,6 +610,7 @@ export class CalendarView extends ItemView {
                     return false;
                 }
             },
+            requestDeleteEvent: (eventId) => this.requestEventDeletion(eventId),
             onGrabModeChange: (active) => {
                 this.navigationMode = active ? "grab" : "normal";
                 this.updateModeChip();
@@ -600,6 +657,8 @@ export class CalendarView extends ItemView {
     }
 
     async onunload() {
+        this.deleteConfirmationModal?.close();
+        this.deleteConfirmationModal = null;
         this.cellNavigator?.destroy();
         this.cellNavigator = null;
         this.eventNavigator?.destroy();

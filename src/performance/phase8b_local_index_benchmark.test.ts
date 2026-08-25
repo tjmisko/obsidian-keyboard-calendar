@@ -403,6 +403,7 @@ describe("Phase 8B local-index benchmark", () => {
             create: jest.fn(),
             rewrite: jest.fn(),
             rename: jest.fn(),
+            trash: jest.fn(),
         };
         const io: ObsidianInterface = {
             getAbstractFileByPath: (path) =>
@@ -417,6 +418,7 @@ describe("Phase 8B local-index benchmark", () => {
             create: forbidden.create,
             rewrite: forbidden.rewrite,
             rename: forbidden.rename,
+            trash: forbidden.trash,
         };
         const calendar = new FullNoteCalendar(
             io,

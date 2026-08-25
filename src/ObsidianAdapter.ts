@@ -82,6 +82,9 @@ export interface ObsidianInterface {
      * @param newPath new path for this file.
      */
     rename(file: TFile, newPath: string): Promise<void>;
+
+    /** Move a file to Obsidian's configured trash. */
+    trash(file: TFile): Promise<void>;
 }
 
 /**
@@ -101,6 +104,10 @@ export class ObsidianIO implements ObsidianInterface {
 
     rename(file: TFile, newPath: string): Promise<void> {
         return this.fileManager.renameFile(file, newPath);
+    }
+
+    trash(file: TFile): Promise<void> {
+        return this.vault.trash(file, true);
     }
 
     async rewrite<T>(

@@ -295,6 +295,45 @@ export default class EventCache {
         }
     }
 
+    async deleteEventWithId(eventId: string): Promise<boolean> {
+        const info = this.getInfoForFullNoteEvent(eventId);
+        const calendar = this.calendar;
+        if (!info || !calendar || !this.index.getRecord(eventId)) {
+            throw new Error("Event does not exist");
+        }
+        const path = info.location.path;
+        const mutation = this.acquireMutationPaths([path]);
+        const mutationEpoch = this.index.epoch;
+        let released = false;
+        try {
+            await calendar.deleteEvent(info.location);
+            if (calendar.hasFile(path)) {
+                throw new Error(`Deleted event note still exists at ${path}.`);
+            }
+            if (mutationEpoch !== this.index.epoch) {
+                this.releaseMutation(mutation);
+                released = true;
+                await this.reconcileMutationPaths([...mutation.paths, path]);
+                return true;
+            }
+            this.index.commit(path, null);
+            this.publishTouched([path]);
+            if (mutation.queuedCallbacks.length > 0) {
+                this.releaseMutation(mutation);
+                released = true;
+                await this.drainSuppressedCallbacks(mutation);
+            }
+            return true;
+        } catch (error) {
+            this.releaseMutation(mutation);
+            released = true;
+            await this.reconcileMutationPaths([...mutation.paths, path]);
+            throw error;
+        } finally {
+            if (!released) this.releaseMutation(mutation);
+        }
+    }
+
     processEvent(
         id: string,
         process: (event: OFCEvent) => OFCEvent

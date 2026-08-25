@@ -36,6 +36,7 @@ const makeApp = (
         return Array.isArray(result) ? result[1] : undefined;
     }) as unknown as ObsidianInterface["rewrite"],
     rename: jest.fn(),
+    trash: jest.fn((file: TFile) => app.vault.trash(file, true)),
 });
 
 const dirName = "events";
@@ -817,6 +818,32 @@ describe("Note Calendar Tests", () => {
                 "",
             ].join("\n")
         );
+    });
+
+    it("moves a direct event note to trash", async () => {
+        const filename = "Planning.md";
+        const app = MockAppBuilder.make()
+            .folder(
+                new MockAppBuilder("events").file(
+                    filename,
+                    new FileBuilder().frontmatter({
+                        date: "2026-08-24",
+                        start: "09:00",
+                        end: "10:00",
+                        tags: ["event"],
+                    })
+                )
+            )
+            .done();
+        const obsidian = makeApp(app);
+        const calendar = new FullNoteCalendar(obsidian, color, dirName);
+
+        await calendar.deleteEvent({ path: `events/${filename}` });
+
+        expect(obsidian.trash).toHaveBeenCalledWith(
+            expect.objectContaining({ path: `events/${filename}` })
+        );
+        expect(obsidian.getFileByPath(`events/${filename}`)).toBeNull();
     });
 
     it("updates friendly timing without rewriting unknown properties or body", async () => {

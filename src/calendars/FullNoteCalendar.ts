@@ -720,6 +720,23 @@ export default class FullNoteCalendar implements LocalEventReadAdapter {
         return { location: newLocation, event: persistedEvent };
     }
 
+    async deleteEvent(location: FullNoteEventPath): Promise<void> {
+        const { path } = location;
+        if (!isDirectChildMarkdownPath(this.directory, path)) {
+            throw new Error(
+                `Event path ${path} is outside the configured folder.`
+            );
+        }
+        const file = this.app.getFileByPath(path);
+        if (!file) {
+            throw new Error(
+                `File ${path} either doesn't exist or is a folder.`
+            );
+        }
+        await this.app.trash(file);
+        this.friendlyPaths.delete(path);
+    }
+
     private basenameForPath(path: string): string {
         return path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/i, "");
     }

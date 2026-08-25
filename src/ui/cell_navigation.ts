@@ -498,25 +498,6 @@ export class CalendarCellNavigator {
             return true;
         }
 
-        if (this.eventDraft) {
-            if (key === "Escape") {
-                this.pendingCount = "";
-                return this.cancelEventDraft();
-            }
-            if (key === "Enter") {
-                this.pendingCount = "";
-                if (!repeat) {
-                    void this.confirmEventDraft();
-                }
-                return true;
-            }
-            const draftDirection = getCalendarCellDirection(key);
-            if (draftDirection) {
-                return this.resizeEventDraft(draftDirection, this.takeCount());
-            }
-            return this.discardCount();
-        }
-
         if (this.pendingPrefix) {
             if (repeat) {
                 return true;
@@ -532,19 +513,50 @@ export class CalendarCellNavigator {
                 this.pendingCount = "";
                 switch (key.toLowerCase()) {
                     case "z":
-                        return this.alignSelection("center");
+                        this.alignSelection("center");
+                        return true;
                     case "t":
-                        return this.alignSelection("start");
+                        this.alignSelection("start");
+                        return true;
                     case "b":
-                        return this.alignSelection("end");
+                        this.alignSelection("end");
+                        return true;
                     case "h":
-                        return this.scrollHorizontally("left");
+                        this.scrollHorizontally("left");
+                        return true;
                     case "l":
-                        return this.scrollHorizontally("right");
+                        this.scrollHorizontally("right");
+                        return true;
                 }
             }
             this.pendingCount = "";
             return true;
+        }
+
+        if (this.eventDraft) {
+            if (key === "Escape") {
+                this.pendingCount = "";
+                return this.cancelEventDraft();
+            }
+            if (key === "Enter") {
+                this.pendingCount = "";
+                if (!repeat) {
+                    void this.confirmEventDraft();
+                }
+                return true;
+            }
+            if (key.toLowerCase() === "z") {
+                this.pendingCount = "";
+                if (!repeat) {
+                    this.pendingPrefix = "z";
+                }
+                return true;
+            }
+            const draftDirection = getCalendarCellDirection(key);
+            if (draftDirection) {
+                return this.resizeEventDraft(draftDirection, this.takeCount());
+            }
+            return this.discardCount();
         }
 
         if (key === "g" || key.toLowerCase() === "z") {

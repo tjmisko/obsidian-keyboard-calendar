@@ -113,7 +113,14 @@ export class MockVault implements Vault {
         file: TAbstractFile,
         force?: boolean | undefined
     ): Promise<void> {
-        file.parent.children.remove(file);
+        const childIndex = file.parent?.children.indexOf(file) ?? -1;
+        if (childIndex >= 0) {
+            file.parent?.children.splice(childIndex, 1);
+        }
+        if (file instanceof TFile) {
+            this.contents.delete(join("/", file.path));
+            this.contents.delete(file.path);
+        }
     }
     trash(file: TAbstractFile, system: boolean): Promise<void> {
         return this.delete(file);

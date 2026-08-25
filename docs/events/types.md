@@ -39,4 +39,4 @@ Click an event to open its backing Markdown note. There is no separate calendar 
 
 ## Removal and completion
 
-To remove an event, move or delete its note with Obsidian's ordinary file controls. The calendar has no delete-note action and no task checkbox UI. A legacy `completed` property remains parse-compatible and is preserved by supported edits, but it is not rendered as a task control.
+In normal mode, focus an event and press `x` or `Delete`. After confirmation, Keyboard Calendar moves the backing note to trash; deleting a recurring event removes the entire series. You can also move or delete the note with Obsidian's ordinary file controls. There is no task checkbox UI. A legacy `completed` property remains parse-compatible and is preserved by supported edits, but it is not rendered as a task control.

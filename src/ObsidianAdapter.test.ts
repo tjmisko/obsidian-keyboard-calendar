@@ -91,3 +91,15 @@ describe("ObsidianIO.rewrite", () => {
         expect(persistedBytes).toBe("after");
     });
 });
+
+describe("ObsidianIO.trash", () => {
+    it("uses system trash with Obsidian's local-trash fallback", async () => {
+        const { app, file, io } = setup();
+        const trash = jest.spyOn(app.vault, "trash");
+
+        await io.trash(file);
+
+        expect(trash).toHaveBeenCalledWith(file, true);
+        expect(app.vault.getAbstractFileByPath("Event.md")).toBeNull();
+    });
+});

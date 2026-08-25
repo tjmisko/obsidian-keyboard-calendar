@@ -4,4 +4,4 @@ Right-click a recurring local event to omit that displayed occurrence. The backi
 
 Single events have no calendar context action. Click any local event normally to open its backing note.
 
-To remove an event, manage its Markdown note through Obsidian's ordinary file controls.
+To remove an event, focus it in normal mode and press `x` or `Delete`, then confirm moving its backing note to trash. Deletion is intentionally not duplicated in the right-click menu.

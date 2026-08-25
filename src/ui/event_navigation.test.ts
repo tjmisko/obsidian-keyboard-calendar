@@ -1,5 +1,6 @@
 import type { WorkspaceLeaf } from "obsidian";
 import {
+    CALENDAR_KEYDOWN_CAPTURE_OPTIONS,
     CalendarEventNavigator,
     getDirectionalEventIndex,
     isCalendarMoveRedoShortcut,
@@ -48,6 +49,11 @@ const makeContainer = (events: HTMLElement[]): HTMLElement =>
     } as unknown as HTMLElement);
 
 describe("calendar event focus", () => {
+    it("captures calendar keydown before focused FullCalendar events", () => {
+        expect(CALENDAR_KEYDOWN_CAPTURE_OPTIONS).toEqual({ capture: true });
+        expect(Object.isFrozen(CALENDAR_KEYDOWN_CAPTURE_OPTIONS)).toBe(true);
+    });
+
     it("chooses the nearest spatial event in each direction", () => {
         const rects = [
             { top: 0, left: 0, width: 50, height: 30 },
@@ -266,6 +272,7 @@ describe("calendar event grab mode", () => {
             start: new Date(2026, 7, 21, 9, 30),
             end: new Date(2026, 7, 21, 10, 30),
         });
+        expect(focused.click).not.toHaveBeenCalled();
         expect(navigator.isGrabbing()).toBe(false);
         expect(onGrabModeChange.mock.calls).toEqual([[true], [false]]);
     });
@@ -364,6 +371,10 @@ describe("calendar event grab mode", () => {
         expect(commitGrabbedEvent).toHaveBeenLastCalledWith(moved);
         expect(navigator.canUndoMove()).toBe(true);
         expect(navigator.canRedoMove()).toBe(false);
+
+        navigator.forgetEvent("event-id");
+        expect(navigator.canUndoMove()).toBe(false);
+        expect(navigator.canRedoMove()).toBe(false);
     });
 
     it("routes u and U to move history with counts", () => {
@@ -389,6 +400,67 @@ describe("calendar event grab mode", () => {
 
         expect(undoMove).toHaveBeenCalledWith(2);
         expect(redoMove).toHaveBeenCalledWith(3);
+    });
+
+    it("aligns the focused block with zz, zt, and zb in normal and grab modes", () => {
+        const focused = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        const navigator = new CalendarEventNavigator(makeContainer([focused]));
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+        (focused.scrollIntoView as jest.Mock).mockClear();
+
+        navigator.handleKey("z");
+        navigator.handleKey("z");
+        navigator.handleKey("z");
+        navigator.handleKey("t");
+        navigator.handleKey("m");
+        navigator.handleKey("z");
+        navigator.handleKey("b");
+
+        expect(focused.scrollIntoView).toHaveBeenNthCalledWith(1, {
+            block: "center",
+            inline: "nearest",
+        });
+        expect(focused.scrollIntoView).toHaveBeenNthCalledWith(2, {
+            block: "start",
+            inline: "nearest",
+        });
+        expect(focused.scrollIntoView).toHaveBeenNthCalledWith(3, {
+            block: "end",
+            inline: "nearest",
+        });
+        expect(navigator.isGrabbing()).toBe(true);
+    });
+
+    it("requests confirmed deletion with Delete or x only in normal mode", () => {
+        const focused = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        const requestDeleteEvent = jest.fn();
+        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
+            requestDeleteEvent,
+        });
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+
+        expect(navigator.handleKey("Delete")).toBe(true);
+        expect(navigator.handleKey("x")).toBe(true);
+        expect(navigator.handleKey("Delete", true)).toBe(true);
+        expect(requestDeleteEvent.mock.calls).toEqual([
+            ["event-id"],
+            ["event-id"],
+        ]);
+
+        navigator.handleKey("m");
+        expect(navigator.handleKey("x")).toBe(true);
+        expect(requestDeleteEvent).toHaveBeenCalledTimes(2);
+        expect(navigator.isGrabbing()).toBe(true);
     });
 
     it("keeps failed undo history and restores the moved preview", async () => {

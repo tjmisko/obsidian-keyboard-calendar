@@ -288,11 +288,16 @@ describe("cell navigator", () => {
         navigator.handleKey("b");
         navigator.handleKey("z");
         navigator.handleKey("l");
+        navigator.handleKey("Enter");
+        navigator.handleKey("z");
+        navigator.handleKey("t");
 
         expect(align).toHaveBeenNthCalledWith(1, "center");
         expect(align).toHaveBeenNthCalledWith(2, "start");
         expect(align).toHaveBeenNthCalledWith(3, "end");
+        expect(align).toHaveBeenNthCalledWith(4, "start");
         expect(horizontal).toHaveBeenCalledWith("right");
+        expect(navigator.getEventDraft()).not.toBeNull();
     });
 
     it("creates, resizes, moves, and confirms a keyboard event draft", async () => {
