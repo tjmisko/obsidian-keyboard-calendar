@@ -110,6 +110,20 @@ describe("calendar renderer", () => {
             duration: { days: 1 },
             buttonText: "day",
         });
+        const listDaySideFormat = (options.views?.listWeek as any)
+            ?.listDaySideFormat;
+        expect(
+            listDaySideFormat?.({
+                date: { year: 2026, month: 7, day: 23 },
+            })
+        ).toBe("2026-08-23");
+        expect(
+            (options.dayHeaderContent as any)?.({
+                date: new Date(2026, 7, 23),
+                text: "Sunday",
+                view: { type: "listWeek" },
+            })
+        ).toBeUndefined();
     });
 
     it("retains daily-note links and click navigation on time-grid headers", () => {

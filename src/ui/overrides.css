@@ -45,45 +45,194 @@
 	font-weight: var(--font-normal, 400) !important;
 }
 
-.fc .fc-list-event-title {
-	font-weight: var(--font-normal, 400) !important;
+/* FullCalendar renders list view as a table, while Obsidian themes are free to
+ * impose their own table layout. A grid row keeps the three columns stable
+ * across pane resizes without replacing FullCalendar's semantic markup. */
+.fc.fc .fc-list {
+	overflow: hidden;
+	background: var(--background-primary);
+	border-color: color-mix(in srgb, var(--background-modifier-border) 82%, transparent);
+	border-radius: var(--radius-m, 8px);
 }
 
-/* Obsidian themes can impose fixed table layouts that make FullCalendar's
- * one-pixel time/dot columns expand and crush the event title. Keep the list
- * view's native three-column contract explicit. */
-.fc.fc .fc-list-table {
+.fc.fc .fc-list-table,
+.fc.fc .fc-list-table > tbody {
+	display: block;
 	width: 100% !important;
-	table-layout: auto !important;
+	min-width: 0;
 }
 
-.fc.fc .fc-list-event-time,
-.fc.fc .fc-list-event-graphic {
-	width: 1px !important;
+.fc.fc .fc-list-table {
+	table-layout: auto !important;
+	border-collapse: separate;
+	border-spacing: 0;
+}
+
+.fc.fc .fc-list-table .fc-list-day {
+	display: block;
+	width: 100%;
+}
+
+.fc.fc .fc-list-sticky .fc-list-day {
+	position: sticky;
+	top: 0;
+	z-index: 3;
+}
+
+.fc.fc .fc-list-sticky .fc-list-day > * {
+	position: static;
+}
+
+.fc.fc .fc-list-day > th {
+	display: block;
+	width: 100%;
+	border: 0;
+}
+
+.fc.fc .fc-list-day-cushion {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	min-height: 2.1rem;
+	padding: 0.45rem 0.7rem;
+	background: color-mix(in srgb, var(--background-secondary) 88%, var(--background-primary));
+	border-top: 1px solid color-mix(in srgb, var(--background-modifier-border) 72%, transparent);
+	border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 72%, transparent);
+}
+
+.fc.fc .fc-list-table > tbody > .fc-list-day:first-child .fc-list-day-cushion {
+	border-top: 0;
+}
+
+.fc.fc .fc-list-day-cushion::after {
+	display: none;
+}
+
+.fc.fc .fc-list-day-text,
+.fc.fc .fc-list-day-side-text {
+	float: none !important;
+	white-space: nowrap;
+}
+
+.fc.fc .fc-list-day-text {
+	color: var(--text-faint);
+	font-size: 0.68rem;
+	font-variant-caps: all-small-caps;
+	font-weight: var(--font-semibold, 600);
+	letter-spacing: 0.06em;
+}
+
+.fc.fc .fc-list-day-side-text {
+	color: color-mix(in srgb, var(--text-normal) 72%, transparent);
+	font-size: 0.68rem;
+	font-variant-numeric: tabular-nums;
+	font-weight: var(--font-normal, 400);
+}
+
+.fc.fc .fc-list-day.fc-day-today .fc-list-day-text,
+.fc.fc .fc-list-day.fc-day-today .fc-list-day-side-text {
+	color: var(--fc-now-indicator-color);
+}
+
+.fc.fc .fc-list-event {
+	display: grid;
+	grid-template-columns: clamp(8rem, 24%, 10.5rem) 1.1rem minmax(0, 1fr);
+	align-items: stretch;
+	width: 100%;
+	min-height: 2.25rem;
+	color: var(--text-muted);
+	background: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 6%, var(--background-primary));
+	border: 0;
+	border-left: 2px solid color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 46%, var(--background-modifier-border));
+	border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 68%, transparent);
+	cursor: pointer;
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease,
+		box-shadow 120ms ease;
+}
+
+.fc.fc .fc-list-event > td {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	border: 0;
+	background: transparent !important;
+}
+
+.fc.fc .fc-list-event-time {
+	grid-column: 1;
+	width: auto !important;
+	padding: 0.45rem 0.35rem 0.45rem 0.65rem;
+	overflow: hidden;
+	color: var(--text-faint);
+	font-size: 0.72rem;
+	font-variant-numeric: tabular-nums;
+	text-overflow: ellipsis;
 	white-space: nowrap !important;
 }
 
+.fc.fc .fc-list-event-graphic {
+	grid-column: 2;
+	justify-content: center;
+	width: auto !important;
+	padding: 0.45rem 0.2rem;
+	white-space: nowrap !important;
+}
+
+.fc.fc .fc-list-event-dot {
+	flex: none;
+	box-sizing: border-box;
+	width: 0.42rem;
+	height: 0.42rem;
+	background: var(--ofc-event-color, var(--interactive-accent));
+	border: 0;
+	border-radius: 999px;
+}
+
 .fc.fc .fc-list-event-title {
-	width: 100% !important;
+	grid-column: 3;
+	width: auto !important;
 	min-width: 0;
-	overflow-wrap: anywhere;
+	padding: 0.45rem 0.7rem 0.45rem 0.35rem;
+	overflow: hidden;
+	font-size: 0.86em;
+	font-weight: var(--font-normal, 400) !important;
+	line-height: 1.3;
+	overflow-wrap: break-word;
+	word-break: normal;
 }
 
-.fc .fc-list-event {
-	cursor: pointer;
+.fc.fc .fc-list-event-title > a {
+	display: -webkit-box;
+	min-width: 0;
+	overflow: hidden;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
 }
 
-.fc .fc-list-event.ofc-focused-calendar-event > td {
-	background: color-mix(in srgb, var(--interactive-accent) 18%, var(--background-primary)) !important;
+.fc.fc .fc-list-event:hover {
+	background: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 12%, var(--background-secondary));
+	border-left-color: color-mix(in srgb, var(--ofc-event-color, var(--interactive-accent)) 72%, var(--background-modifier-border));
 }
 
-.fc .fc-list-event.ofc-focused-calendar-event {
-	outline: 0;
-	box-shadow: none;
+.fc.fc .fc-list-event:hover > td,
+.fc.fc .fc-list-event.ofc-focused-calendar-event > td {
+	background: transparent !important;
 }
 
-.fc .fc-list-event.ofc-focused-calendar-event > td:first-child {
-	box-shadow: inset 3px 0 0 var(--interactive-accent);
+.fc.fc .fc-list-event.ofc-focused-calendar-event {
+	background: color-mix(in srgb, var(--interactive-accent) 18%, var(--background-primary));
+	border-left-color: var(--interactive-accent);
+	outline: 0 !important;
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, var(--interactive-accent) 48%, transparent),
+		inset 0 -1px 0 color-mix(in srgb, var(--interactive-accent) 48%, transparent);
+}
+
+.fc.fc .fc-list-empty {
+	color: var(--text-faint);
+	background: color-mix(in srgb, var(--background-secondary) 52%, transparent);
 }
 
 .fc .ofc-event-card-content {
@@ -119,6 +268,14 @@
 .fc .fc-list-event.ofc-event-recurring .fc-list-event-title {
 	position: relative;
 	padding-right: 2rem;
+}
+
+.fc.fc .fc-list-event.ofc-event-recurring .fc-list-event-title::after {
+	top: 50%;
+	right: auto;
+	bottom: auto;
+	inset-inline-end: 0.65rem;
+	transform: translateY(-50%);
 }
 
 .fc .fc-daygrid-event-dot {
@@ -226,15 +383,27 @@
 	color: color-mix(in srgb, var(--text-on-accent) 76%, transparent) !important;
 }
 
-.fc .ofc-event-ghost {
+.fc .ofc-event-ghost:not(.fc-list-event) {
 	opacity: 0.32;
 	filter: grayscale(0.35) saturate(0.75);
 }
 
-.fc .ofc-event-ghost:hover,
-.fc .ofc-event-ghost:focus-within {
+.fc .ofc-event-ghost:not(.fc-list-event):hover,
+.fc .ofc-event-ghost:not(.fc-list-event):focus-within {
 	opacity: 0.52;
 	filter: grayscale(0.2) saturate(0.85);
+}
+
+/* Filtering a table row can intermittently corrupt its compositor geometry in
+ * Chromium. Dim list cells individually and leave the grid row unfiltered. */
+.fc.fc .fc-list-event.ofc-event-ghost > td {
+	opacity: 0.32;
+}
+
+.fc.fc .fc-list-event.ofc-event-ghost:hover > td,
+.fc.fc .fc-list-event.ofc-event-ghost:focus-within > td,
+.fc.fc .fc-list-event.ofc-event-ghost.ofc-focused-calendar-event > td {
+	opacity: 0.52;
 }
 
 .fc .fc-timegrid-slot-label-cushion {

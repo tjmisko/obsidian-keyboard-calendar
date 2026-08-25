@@ -70,6 +70,12 @@ export interface LocalMaterializedEventSource {
 const padTimePart = (value: number): string =>
     value.toString().padStart(2, "0");
 
+const formatDatePartsLabel = (
+    year: number,
+    monthIndex: number,
+    day: number
+): string => `${year}-${padTimePart(monthIndex + 1)}-${padTimePart(day)}`;
+
 export const formatTimeLabel = (date: Date): string =>
     `${padTimePart(date.getHours())}:${padTimePart(date.getMinutes())}`;
 
@@ -79,9 +85,7 @@ export const formatTimeGridSlotLabel = (date: Date): string =>
         : `:${padTimePart(date.getMinutes())}`;
 
 export const formatDateLabel = (date: Date): string =>
-    `${date.getFullYear()}-${padTimePart(date.getMonth() + 1)}-${padTimePart(
-        date.getDate()
-    )}`;
+    formatDatePartsLabel(date.getFullYear(), date.getMonth(), date.getDate());
 
 const COMPACT_MONTH_LABELS = [
     "Jan",
@@ -235,6 +239,10 @@ export function renderCalendar(
                 titleFormat: ({ start }) =>
                     formatLongDateParts(start.year, start.month, start.day),
             },
+            listWeek: {
+                listDaySideFormat: ({ date }) =>
+                    formatDatePartsLabel(date.year, date.month, date.day),
+            },
         },
         firstDay: settings?.firstDay,
         datesSet: settings?.datesSet,
@@ -254,6 +262,11 @@ export function renderCalendar(
                 ? ["ofc-time-slot-major"]
                 : ["ofc-time-slot-minor"],
         dayHeaderContent: ({ date, text, view }) => {
+            if (view.type.startsWith("list")) {
+                // Preserve ListView's native two-part header so its weekday
+                // and side date can be styled independently.
+                return undefined;
+            }
             if (!isTimeGridView(view.type)) {
                 return text;
             }
