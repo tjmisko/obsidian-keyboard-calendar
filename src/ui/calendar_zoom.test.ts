@@ -2,6 +2,7 @@ import {
     DEFAULT_TIME_GRID_ZOOM_LEVEL,
     getTimeGridZoomDirection,
     isTimeGridZoomView,
+    refreshTimeGridLayout,
     TIME_GRID_ZOOM_LEVELS,
     TimeGridZoom,
 } from "./calendar_zoom";
@@ -67,6 +68,25 @@ describe("time-grid zoom", () => {
             "--ofc-timegrid-slot-height",
             "0.5rem"
         );
+    });
+
+    it("rebuilds FullCalendar slats before updating container sizing", () => {
+        const calls: string[] = [];
+        const calendar = {
+            setOption: jest.fn(() => calls.push("slats")),
+            updateSize: jest.fn(() => calls.push("size")),
+        };
+
+        refreshTimeGridLayout(
+            calendar as Parameters<typeof refreshTimeGridLayout>[0],
+            TIME_GRID_ZOOM_LEVELS[2]
+        );
+
+        expect(calendar.setOption).toHaveBeenCalledWith("slotLabelInterval", {
+            minutes: 30,
+        });
+        expect(calendar.updateSize).toHaveBeenCalledTimes(1);
+        expect(calls).toEqual(["slats", "size"]);
     });
 
     it("clamps at both ends while continuing to claim zoom keys", () => {

@@ -1,3 +1,5 @@
+import type { Calendar } from "@fullcalendar/core";
+
 export type TimeGridZoomDirection = "in" | "out";
 export type TimeGridLabelDensity = "quarter-hour" | "half-hour" | "hour";
 
@@ -37,6 +39,24 @@ export const isTimeGridZoomView = (viewType: string): boolean =>
 
 const clampZoomLevel = (level: number): number =>
     Math.max(0, Math.min(TIME_GRID_ZOOM_LEVELS.length - 1, level));
+
+const getSlotLabelIntervalMinutes = (density: TimeGridLabelDensity): number =>
+    density === "quarter-hour" ? 15 : density === "half-hour" ? 30 : 60;
+
+/**
+ * Changing FullCalendar's label interval rebuilds its slat metadata. This is
+ * required after CSS changes a row's height because updateSize() alone keeps
+ * the old vertical coordinate cache when the calendar width is unchanged.
+ */
+export const refreshTimeGridLayout = (
+    calendar: Pick<Calendar, "setOption" | "updateSize">,
+    level: TimeGridZoomLevel
+): void => {
+    calendar.setOption("slotLabelInterval", {
+        minutes: getSlotLabelIntervalMinutes(level.labelDensity),
+    });
+    calendar.updateSize();
+};
 
 /** Keeps one zoom level that both the week and day time-grid views use. */
 export class TimeGridZoom {

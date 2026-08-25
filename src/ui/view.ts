@@ -42,7 +42,7 @@ import {
     createCalendarEventClipboard,
     pasteCalendarEvent,
 } from "./event_clipboard";
-import { TimeGridZoom } from "./calendar_zoom";
+import { refreshTimeGridLayout, TimeGridZoom } from "./calendar_zoom";
 
 export { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
 
@@ -171,7 +171,10 @@ export class CalendarView extends ItemView {
                 event.preventDefault();
                 event.stopPropagation();
                 if (zoom.changed) {
-                    this.fullCalendarView.updateSize();
+                    refreshTimeGridLayout(
+                        this.fullCalendarView,
+                        this.timeGridZoom.level
+                    );
                     if (this.navigationMode === "insert") {
                         this.cellNavigator?.renderSelection();
                     } else {
