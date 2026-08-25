@@ -28,6 +28,7 @@ import {
     registerLegacySidebarCompatibilityView,
 } from "./legacy_sidebar_bridge";
 import { LegacySidebarCompatibilityView } from "./ui/LegacySidebarCompatibilityView";
+import type { CalendarEventClipboard } from "./ui/event_clipboard";
 
 export default class FullCalendarPlugin extends Plugin {
     settings: FullCalendarSettings = DEFAULT_SETTINGS;
@@ -47,6 +48,7 @@ export default class FullCalendarPlugin extends Plugin {
     );
 
     eventNoteEditor: EventNoteEditor | null = null;
+    eventClipboard: CalendarEventClipboard | null = null;
 
     async createTimedEventNote(
         partialEvent: Partial<OFCEvent>,
@@ -277,6 +279,7 @@ export default class FullCalendarPlugin extends Plugin {
 
     onunload() {
         this.eventNoteEditor = null;
+        this.eventClipboard = null;
         this.app.workspace.detachLeavesOfType(FULL_CALENDAR_VIEW_TYPE);
     }
 

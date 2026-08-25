@@ -235,6 +235,30 @@ describe("calendar renderer", () => {
         expect(addClass).toHaveBeenCalledWith("ofc-event-ghost");
     });
 
+    it("marks recurring instances for their visual badge", () => {
+        renderCalendar({} as HTMLElement, []);
+        const calls = (Calendar as unknown as jest.Mock).mock.calls;
+        const options = calls[calls.length - 1][1] as any;
+        const addClass = jest.fn();
+
+        options.eventDidMount({
+            event: {
+                display: "auto",
+                extendedProps: { categories: [], ofcRecurring: true },
+            },
+            el: {
+                dataset: {},
+                style: { setProperty: jest.fn() },
+                addClass,
+                addEventListener: jest.fn(),
+            },
+            backgroundColor: "",
+            textColor: "black",
+        });
+
+        expect(addClass).toHaveBeenCalledWith("ofc-event-recurring");
+    });
+
     it("annotates foreground events for normal-mode focus", () => {
         const eventsSet = jest.fn();
         renderCalendar({} as HTMLElement, [], { eventsSet });

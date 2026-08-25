@@ -4,7 +4,12 @@ import {
     parseCalendarInfo,
     resolveDefaultFullNoteCalendar,
 } from "../types/calendar_settings";
-import { decodeGhostEventTags, DEFAULT_GHOST_EVENT_TAGS } from "./tag_settings";
+import {
+    decodeEventTagColors,
+    decodeGhostEventTags,
+    DEFAULT_GHOST_EVENT_TAGS,
+    EventTagColor,
+} from "./tag_settings";
 
 export type PersistedSourceType = "local" | "ical" | "caldav" | "dailynote";
 export type SourceTypeBucket = PersistedSourceType | "unknown";
@@ -15,7 +20,8 @@ export const DAILY_NOTE_REMOVAL_VERSION = 4;
 export const SINGLE_LOCAL_SOURCE_VERSION = 5;
 export const DESKTOP_ONLY_SETTINGS_VERSION = 6;
 export const GHOST_EVENT_TAGS_SETTINGS_VERSION = 7;
-export const SETTINGS_VERSION = GHOST_EVENT_TAGS_SETTINGS_VERSION;
+export const TAG_COLORS_SETTINGS_VERSION = 8;
+export const SETTINGS_VERSION = TAG_COLORS_SETTINGS_VERSION;
 
 export const REMOVED_SOURCE_VERSIONS: Readonly<
     Partial<Record<PersistedSourceType, number>>
@@ -31,6 +37,7 @@ export interface FullCalendarSettings {
     initialView: string;
     timeFormat24h: boolean;
     ghostEventTags: string[];
+    eventTagColors: EventTagColor[];
     legacySidebarMigrationVersion?: number;
 }
 
@@ -40,6 +47,7 @@ export const DEFAULT_SETTINGS: FullCalendarSettings = {
     initialView: "timeGridWeek",
     timeFormat24h: false,
     ghostEventTags: [...DEFAULT_GHOST_EVENT_TAGS],
+    eventTagColors: [],
 };
 
 export type SourceCounts = Record<
@@ -235,6 +243,7 @@ export function decodeSettings(
                 ? root.timeFormat24h
                 : DEFAULT_SETTINGS.timeFormat24h,
         ghostEventTags: decodeGhostEventTags(root.ghostEventTags),
+        eventTagColors: decodeEventTagColors(root.eventTagColors),
         ...(legacySidebarMigrationVersion !== undefined && {
             legacySidebarMigrationVersion,
         }),
@@ -260,6 +269,7 @@ const RUNTIME_SETTING_KEYS = [
     "initialView",
     "timeFormat24h",
     "ghostEventTags",
+    "eventTagColors",
     "legacySidebarMigrationVersion",
 ] as const;
 

@@ -656,6 +656,7 @@ describe("Note Calendar Tests", () => {
             endDate: null,
             startTime: "11:00",
             endTime: "12:30",
+            categories: ["work", "planning"],
         };
 
         (obsidian.create as jest.Mock).mockReturnValue({
@@ -669,6 +670,7 @@ describe("Note Calendar Tests", () => {
             date: "2022-01-01",
             startTime: "11:00",
             endTime: "12:30",
+            categories: ["work", "planning"],
         });
         expect(obsidian.create).toHaveBeenCalledTimes(1);
         const returns = (obsidian.create as jest.Mock).mock.calls[0];
@@ -681,6 +683,8 @@ describe("Note Calendar Tests", () => {
             end: 12:30
             tags:
               - event
+              - work
+              - planning
             ---
             ",
             ]
@@ -729,6 +733,27 @@ describe("Note Calendar Tests", () => {
         expect(persistedEvent).not.toHaveProperty("completed");
     });
 
+    it("uses a collision-safe preferred filename for pasted events", () => {
+        const obsidian = makeApp(
+            MockAppBuilder.make()
+                .folder(
+                    new MockAppBuilder("events").file(
+                        "Planning (copied event).md",
+                        new FileBuilder()
+                    )
+                )
+                .done()
+        );
+        const calendar = new FullNoteCalendar(obsidian, color, dirName);
+
+        expect(calendar.getNewEventPath("Planning (copied event)")).toBe(
+            "events/Planning (copied event) 1.md"
+        );
+        expect(() => calendar.getNewEventPath("nested/Event")).toThrow(
+            "plain Markdown basename"
+        );
+    });
+
     it("modify an existing event and keeping the same day and title", async () => {
         const event = parseEvent({
             title: "Test Event",
@@ -738,6 +763,7 @@ describe("Note Calendar Tests", () => {
             endTime: "12:30",
             categories: ["work", "planning"],
             completed: "2021-01-01T10:30:00.000Z",
+            attendingDates: ["2022-01-01"],
         });
         const filename = "2022-01-01 Test Event.md";
         const app = MockAppBuilder.make()
@@ -791,6 +817,7 @@ describe("Note Calendar Tests", () => {
             endTime: "13:30",
             categories: ["work", "planning"],
             completed: "2021-01-01T10:30:00.000Z",
+            attendingDates: ["2022-01-01"],
         });
 
         expect(obsidian.rewrite).toHaveReturnedTimes(1);
@@ -813,6 +840,7 @@ describe("Note Calendar Tests", () => {
                 "completed: 2021-01-01T10:30:00.000Z",
                 "unknown:",
                 "  nested: true",
+                "attending: 2022-01-01",
                 "---",
                 "Legacy body stays intact",
                 "",
@@ -901,7 +929,10 @@ describe("Note Calendar Tests", () => {
 
         const { event: persistedEvent } = await calendar.modifyEvent(
             { path: file.path },
-            movedEvent
+            parseEvent({
+                ...movedEvent,
+                attendingDates: ["2026-08-22"],
+            })
         );
 
         expect(persistedEvent).toMatchObject({
@@ -910,6 +941,7 @@ describe("Note Calendar Tests", () => {
             date: "2026-08-22",
             startTime: "23:00",
             endTime: "01:00",
+            attendingDates: ["2026-08-22"],
         });
 
         expect(obsidian.rename).not.toHaveBeenCalled();
@@ -928,6 +960,7 @@ describe("Note Calendar Tests", () => {
                 "completed: false",
                 "unknown:",
                 "  nested: true",
+                "attending: 2026-08-22",
                 "---",
                 "Body stays intact",
                 "",

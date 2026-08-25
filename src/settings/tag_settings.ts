@@ -1,6 +1,11 @@
 export const DEFAULT_GHOST_EVENT_TAGS = ["ghost"] as const;
 
-const normalizeEventTag = (value: unknown): string | null => {
+export interface EventTagColor {
+    tag: string;
+    color: string;
+}
+
+export const normalizeEventTag = (value: unknown): string | null => {
     if (typeof value !== "string") {
         return null;
     }
@@ -24,6 +29,47 @@ export function decodeGhostEventTags(value: unknown): string[] {
 
 export const parseGhostEventTagsInput = (value: string): string[] =>
     normalizeEventTags(value.split(/[,\n]/));
+
+export const parseEventTagInput = (value: string): string | null =>
+    normalizeEventTag(value);
+
+const normalizeEventColor = (value: unknown): string | null =>
+    typeof value === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(value)
+        ? value.toLowerCase()
+        : null;
+
+export function decodeEventTagColors(value: unknown): EventTagColor[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    const seen = new Set<string>();
+    return value.flatMap((entry) => {
+        if (typeof entry !== "object" || entry === null) {
+            return [];
+        }
+        const tag = normalizeEventTag((entry as Record<string, unknown>).tag);
+        const color = normalizeEventColor(
+            (entry as Record<string, unknown>).color
+        );
+        if (!tag || !color || seen.has(tag)) {
+            return [];
+        }
+        seen.add(tag);
+        return [{ tag, color }];
+    });
+}
+
+/** Resolves the first configured rule matching any event tag. */
+export function resolveEventTagColor(
+    eventTags: unknown,
+    rules: readonly EventTagColor[]
+): string | null {
+    if (!Array.isArray(eventTags)) {
+        return null;
+    }
+    const tags = new Set(normalizeEventTags(eventTags));
+    return rules.find((rule) => tags.has(rule.tag))?.color || null;
+}
 
 export function eventHasGhostTag(
     eventTags: unknown,

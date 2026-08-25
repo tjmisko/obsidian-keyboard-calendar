@@ -1,6 +1,7 @@
 import { createDuration } from "@fullcalendar/core";
 import { parseEvent } from "../types/schema";
 import {
+    attendEventOccurrence,
     fromEventApi,
     getSingleEventStartDate,
     moveSingleTimedEvent,
@@ -224,6 +225,32 @@ describe("task-free event metadata", () => {
 });
 
 describe("recurring event rendering", () => {
+    it("marks both recurrence formats for renderer-only decoration", () => {
+        const weekly = parseEvent({
+            title: "Weekly",
+            type: "recurring",
+            daysOfWeek: ["M"],
+            startTime: "09:00",
+            endTime: "10:00",
+        });
+        const monthly = parseEvent({
+            title: "Monthly",
+            type: "rrule",
+            startDate: "2026-08-01",
+            rrule: "FREQ=MONTHLY;BYDAY=1SA",
+            skipDates: [],
+            startTime: "09:00",
+            endTime: "10:00",
+        });
+
+        expect(toEventInput("weekly", weekly)?.extendedProps).toMatchObject({
+            ofcRecurring: true,
+        });
+        expect(toEventInput("monthly", monthly)?.extendedProps).toMatchObject({
+            ofcRecurring: true,
+        });
+    });
+
     it("returns mutable recurrence metadata arrays for frozen input", () => {
         const event = parseEvent({
             title: "Weekly review",
@@ -413,6 +440,23 @@ describe("recurring event rendering", () => {
         const twice = omitRecurringOccurrence(once, "2026-08-17");
         expect(twice).toMatchObject({
             skipDates: ["2026-08-17", "2026-08-24"],
+        });
+    });
+
+    it("adds, sorts, and de-duplicates attended occurrence dates", () => {
+        const event = parseEvent({
+            title: "Weekly review",
+            type: "recurring",
+            daysOfWeek: ["M"],
+            attendingDates: ["2026-08-24"],
+            startTime: "09:00",
+            endTime: "10:00",
+        });
+
+        const once = attendEventOccurrence(event, "2026-08-17");
+        const twice = attendEventOccurrence(once, "2026-08-17");
+        expect(twice).toMatchObject({
+            attendingDates: ["2026-08-17", "2026-08-24"],
         });
     });
 });

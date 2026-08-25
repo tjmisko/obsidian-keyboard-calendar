@@ -425,6 +425,9 @@ export function newTimedEventFrontmatter(event: OFCEvent): string {
             "Full-note events must have a date, start, and end time."
         );
     }
+    const categories = (event.categories || []).filter(
+        (category) => !["event", "recurring"].includes(category.toLowerCase())
+    );
     return [
         "---",
         `date: ${event.date}`,
@@ -432,6 +435,7 @@ export function newTimedEventFrontmatter(event: OFCEvent): string {
         `end: ${event.endTime}`,
         "tags:",
         "  - event",
+        ...categories.map((category) => `  - ${category}`),
         "---",
         "",
     ].join("\n");
@@ -452,6 +456,14 @@ const friendlyModifications = (
     let date: string | undefined;
     let endRecur: string | undefined;
     let skipDates: string[] | undefined;
+    const attending =
+        event.attendingDates === undefined
+            ? undefined
+            : event.attendingDates.length === 0
+            ? REMOVE_FRONTMATTER_PROPERTY
+            : event.type === "single"
+            ? event.attendingDates[0]
+            : [...event.attendingDates];
     if (event.type === "single") {
         date = event.date;
     } else if (event.type === "recurring") {
@@ -472,6 +484,7 @@ const friendlyModifications = (
                 ? exclusiveToInclusiveDate(endRecur)
                 : undefined,
             omit: skipDates?.length ? skipDates : undefined,
+            attending,
             start: event.startTime,
             end: event.endTime || undefined,
         };
@@ -490,6 +503,7 @@ const friendlyModifications = (
             : {}),
         start: event.startTime,
         end: event.endTime || undefined,
+        attending,
     };
 };
 
@@ -506,6 +520,15 @@ const legacyModifications = (
     // only.
     delete modifications.categories;
     delete modifications.completed;
+    delete modifications.attendingDates;
+    modifications.attending =
+        event.attendingDates === undefined
+            ? undefined
+            : event.attendingDates.length === 0
+            ? REMOVE_FRONTMATTER_PROPERTY
+            : event.type === "single"
+            ? event.attendingDates[0]
+            : [...event.attendingDates];
     return modifications;
 };
 
@@ -585,12 +608,26 @@ export default class FullNoteCalendar implements LocalEventReadAdapter {
         return this.app.getFileByPath(path) !== null;
     }
 
-    getNewEventPath(): string {
+    getNewEventPath(preferredBasename = "Untitled event"): string {
+        const requestedBasename = preferredBasename
+            .trim()
+            .replace(/\.md$/i, "");
+        if (
+            !requestedBasename ||
+            requestedBasename.includes("/") ||
+            requestedBasename.includes("\\")
+        ) {
+            throw new Error(
+                "Event filename must be a plain Markdown basename."
+            );
+        }
         let suffix = 0;
         let path: string;
         const directory = this.directory.replace(/\/+$/, "");
         do {
-            const basename = `Untitled event${suffix ? ` ${suffix}` : ""}.md`;
+            const basename = `${requestedBasename}${
+                suffix ? ` ${suffix}` : ""
+            }.md`;
             path = directory ? `${directory}/${basename}` : basename;
             suffix += 1;
         } while (this.app.getAbstractFileByPath(path));

@@ -41,7 +41,7 @@ The `core` directory's runtime consists of `LocalEventIndex` and `EventCache`.
 `EventCache` coordinates that index with the view layer and `FullNoteCalendar`, which reads and writes event notes. Its main hooks are:
 
 -   Vault and metadata hooks for direct-note create/update/rename/delete events.
--   A disk-first mutation path for create, rename/rewrite, delete, and recurrence omission.
+-   A disk-first mutation path for create/copy, rename/rewrite, delete, recurrence omission, and occurrence attendance.
 -   Incremental materialized event updates to the active view.
 
 Notably, while the `core` components have some knowledge of Obsidian APIs (mostly the `TFile` type), they do not hold references to the `App`, `Vault`, `MetadataCache` or any other API that deals with file I/O. File I/O is handled entirely by the narrow `FullNoteCalendar` adapter. This simplifies testing dramatically, since the Obsidian API does not need to be mocked out when testing the `EventCache` logic.

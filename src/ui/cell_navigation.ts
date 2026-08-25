@@ -17,6 +17,7 @@ export interface CalendarEventDraft {
 export interface CalendarCellNavigatorOptions {
     now?: () => Date;
     createEvent?: (start: Date, end: Date) => Promise<void>;
+    pasteEvent?: (start: Date) => Promise<void>;
 }
 
 export type CalendarScrollAlignment = "start" | "center" | "end";
@@ -187,8 +188,10 @@ export class CalendarCellNavigator {
     private pendingPrefix: "g" | "z" | null = null;
     private pendingCount = "";
     private creatingEvent = false;
+    private pastingEvent = false;
     private readonly now: () => Date;
     private readonly createEvent?: (start: Date, end: Date) => Promise<void>;
+    private readonly pasteEvent?: (start: Date) => Promise<void>;
 
     constructor(
         private readonly containerEl: HTMLElement,
@@ -197,6 +200,7 @@ export class CalendarCellNavigator {
     ) {
         this.now = options.now || (() => new Date());
         this.createEvent = options.createEvent;
+        this.pasteEvent = options.pasteEvent;
         this.activate();
     }
 
@@ -489,6 +493,22 @@ export class CalendarCellNavigator {
         return true;
     }
 
+    async pasteAtSelectedCell(): Promise<boolean> {
+        if (!this.isActive() || !this.selectedCell || this.pastingEvent) {
+            return false;
+        }
+        const start = new Date(this.selectedCell.start);
+        this.pastingEvent = true;
+        try {
+            await this.pasteEvent?.(start);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            this.pastingEvent = false;
+        }
+        return true;
+    }
+
     handleKey(key: string, repeat = false): boolean {
         if (!this.isActive()) {
             return false;
@@ -587,6 +607,13 @@ export class CalendarCellNavigator {
         if (key === "Enter") {
             this.pendingCount = "";
             return repeat ? true : this.beginEventDraft();
+        }
+        if (key === "p") {
+            this.pendingCount = "";
+            if (!repeat) {
+                void this.pasteAtSelectedCell();
+            }
+            return true;
         }
         if (key === "Escape") {
             this.pendingCount = "";

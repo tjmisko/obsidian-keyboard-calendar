@@ -193,6 +193,7 @@ export function toEventInput(
     const commonExtendedProps = {
         categories,
         ...(attendingDates ? { attendingDates } : {}),
+        ...(frontmatter.type !== "single" ? { ofcRecurring: true } : {}),
     };
     let event: EventInput = {
         id,
@@ -341,6 +342,13 @@ export function omitRecurringOccurrence(
     }
     const skipDates = [...new Set([...(event.skipDates || []), date])].sort();
     return { ...event, skipDates };
+}
+
+export function attendEventOccurrence(event: OFCEvent, date: string): OFCEvent {
+    const attendingDates = [
+        ...new Set([...(event.attendingDates || []), date]),
+    ].sort();
+    return { ...event, attendingDates };
 }
 
 export function fromEventApi(event: EventApi): OFCEvent {

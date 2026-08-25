@@ -360,6 +360,9 @@ export function renderCalendar(
             if (backgroundColor) {
                 el.style.setProperty("--ofc-event-color", backgroundColor);
             }
+            if (event.extendedProps.ofcRecurring === true) {
+                el.addClass("ofc-event-recurring");
+            }
             if (textColor !== "black") {
                 el.addClass("ofc-event-muted-light-text");
             }

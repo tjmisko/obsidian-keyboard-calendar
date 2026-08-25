@@ -1,6 +1,6 @@
 import "./overrides.css";
 import { ItemView, Menu, Notice, WorkspaceLeaf } from "obsidian";
-import { Calendar } from "@fullcalendar/core";
+import { Calendar, EventInput } from "@fullcalendar/core";
 import {
     formatDateLabel,
     getAdjacentCalendarView,
@@ -8,8 +8,9 @@ import {
     renderCalendar,
 } from "./calendar";
 import FullCalendarPlugin from "../main";
-import { PLUGIN_SLUG } from "../types";
+import { OFCEvent, PLUGIN_SLUG } from "../types";
 import {
+    attendEventOccurrence,
     fromEventApi,
     getSingleEventStartDate,
     moveSingleTimedEvent,
@@ -21,6 +22,7 @@ import { openFullNoteForEvent } from "./actions";
 import { UpdateViewCallback } from "src/core/EventCache";
 import { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
 import {
+    CalendarEventGrab,
     CalendarEventNavigator,
     CALENDAR_KEYDOWN_CAPTURE_OPTIONS,
     isCalendarMoveRedoShortcut,
@@ -35,10 +37,15 @@ import { handleCalendarSelection } from "./event_creation";
 import { CalendarCellNavigator } from "./cell_navigation";
 import { applyCalendarCacheUpdate } from "./calendar_update";
 import { EventDeleteConfirmationModal } from "./event_deletion";
+import { resolveEventTagColor } from "../settings/tag_settings";
+import {
+    createCalendarEventClipboard,
+    pasteCalendarEvent,
+} from "./event_clipboard";
 
 export { FULL_CALENDAR_VIEW_TYPE } from "../plugin_registration";
 
-type CalendarNavigationMode = "normal" | "insert" | "grab";
+type CalendarNavigationMode = "normal" | "insert" | "grab" | "scale";
 
 function getCalendarColors(color: string | null | undefined): {
     color: string;
@@ -244,6 +251,54 @@ export class CalendarView extends ItemView {
         modal.open();
     }
 
+    private yankCalendarEvent({
+        eventId,
+        start,
+        end,
+    }: CalendarEventGrab): void {
+        const event = this.plugin.cache.getEventById(eventId);
+        const info = this.plugin.cache.getInfoForFullNoteEvent(eventId);
+        if (!event || !info) {
+            new Notice("Only local event notes can be yanked.");
+            return;
+        }
+        this.plugin.eventClipboard = createCalendarEventClipboard(
+            event,
+            info.location.path,
+            start,
+            end
+        );
+        new Notice(`Yanked “${event.title}”.`);
+    }
+
+    private async pasteYankedEvent(start: Date): Promise<void> {
+        const clipboard = this.plugin.eventClipboard;
+        if (!clipboard) {
+            new Notice("Yank an event with yy before pasting.");
+            return;
+        }
+        try {
+            const location = await this.plugin.cache.createEvent(
+                pasteCalendarEvent(clipboard, start),
+                clipboard.copiedBasename
+            );
+            const pastedEventId = this.plugin.cache.getEventIdForPath(
+                location.file.path
+            );
+            new Notice(`Pasted ${location.file.path}.`);
+            if (this.navigationMode === "normal" && pastedEventId) {
+                this.eventNavigator?.activate(start, pastedEventId);
+            }
+        } catch (error) {
+            console.error(error);
+            new Notice(
+                error instanceof Error
+                    ? error.message
+                    : "Could not paste the yanked event."
+            );
+        }
+    }
+
     private createModeChip(calendarEl: HTMLElement): void {
         this.modeChipEl?.remove();
         const chip = calendarEl.ownerDocument.createElement("span");
@@ -267,16 +322,20 @@ export class CalendarView extends ItemView {
                 ? "Normal"
                 : this.navigationMode === "insert"
                 ? "Insert"
-                : "Grab";
+                : this.navigationMode === "grab"
+                ? "Grab"
+                : "Scale";
         this.modeChipEl.dataset.mode = this.navigationMode;
         this.modeChipEl.textContent = label;
         this.modeChipEl.setAttribute("aria-label", `Calendar mode: ${label}`);
         this.modeChipEl.title =
             this.navigationMode === "normal"
-                ? "Normal mode — i inserts; m moves; x/Delete removes; zt/zz/zb align"
+                ? "Normal mode — i inserts; m moves; s scales; yy/p copy/paste; x/Delete removes; zt/zz/zb align"
                 : this.navigationMode === "insert"
-                ? "Insert mode — Escape returns; zt/zz/zb align the selected cell"
-                : "Grab mode — arrows move; Enter/Escape keep; zt/zz/zb align";
+                ? "Insert mode — p pastes; Escape returns; zt/zz/zb align the selected cell"
+                : this.navigationMode === "grab"
+                ? "Grab mode — arrows move; Enter/Escape keep; zt/zz/zb align"
+                : "Scale mode — up/down resize the bottom; Enter/Escape keep; zt/zz/zb align";
     }
 
     getIcon(): string {
@@ -309,12 +368,24 @@ export class CalendarView extends ItemView {
             }): LocalMaterializedEventSource => ({
                 id,
                 events: events.flatMap(
-                    (e) => toEventInput(e.id, e.event) || []
+                    (e) => this.translateEvent(e.id, e.event) || []
                 ),
                 editable,
                 ...getCalendarColors(color),
             })
         );
+    }
+
+    private translateEvent(id: string, event: OFCEvent): EventInput | null {
+        const input = toEventInput(id, event);
+        if (!input) {
+            return null;
+        }
+        const tagColor = resolveEventTagColor(
+            event.categories,
+            this.plugin.settings.eventTagColors
+        );
+        return tagColor ? { ...input, ...getCalendarColors(tagColor) } : input;
     }
 
     async onOpen() {
@@ -397,7 +468,10 @@ export class CalendarView extends ItemView {
         };
         this.fullCalendarView = renderCalendar(calendarEl, sources, {
             eventClick: async (info) => {
-                if (this.navigationMode === "grab") {
+                if (
+                    this.navigationMode === "grab" ||
+                    this.navigationMode === "scale"
+                ) {
                     info.jsEvent.preventDefault();
                     return false;
                 }
@@ -515,6 +589,7 @@ export class CalendarView extends ItemView {
                         this.plugin.cache.getInfoForFullNoteEvent(e.id) !==
                         null,
                     occurrenceDate,
+                    ghostEventTags: this.plugin.settings.ghostEventTags,
                     omit: async (date) => {
                         try {
                             await this.plugin.cache.processEvent(
@@ -531,19 +606,37 @@ export class CalendarView extends ItemView {
                             );
                         }
                     },
+                    attend: async (date) => {
+                        try {
+                            await this.plugin.cache.processEvent(
+                                e.id,
+                                (event) => attendEventOccurrence(event, date)
+                            );
+                            new Notice(`Attending occurrence on ${date}.`);
+                        } catch (error) {
+                            console.error(error);
+                            new Notice(
+                                error instanceof Error
+                                    ? error.message
+                                    : "Could not mark this occurrence as attending."
+                            );
+                        }
+                    },
+                    deleteEvent: () => this.requestEventDeletion(e.id),
                 });
-                if (actions.length === 0) {
-                    return;
-                }
                 const menu = new Menu();
-                actions.forEach((action) =>
+                actions.forEach((action) => {
+                    if (action.separatorBefore) {
+                        menu.addSeparator();
+                    }
                     menu.addItem((item) =>
                         item
                             .setTitle(action.title)
+                            .setIcon(action.icon)
                             .setDisabled(action.disabled)
                             .onClick(action.run)
-                    )
-                );
+                    );
+                });
                 menu.showAtMouseEvent(mouseEvent);
             },
         });
@@ -558,18 +651,21 @@ export class CalendarView extends ItemView {
                         this.fullCalendarView?.view.type || "timeGridWeek",
                         true
                     ),
+                pasteEvent: (start) => this.pasteYankedEvent(start),
             }
         );
         this.cellNavigator.deactivate();
+        const canTransformEvent = (eventId: string): boolean => {
+            const event = this.plugin.cache.getEventById(eventId);
+            return !!(
+                this.fullCalendarView?.view.type.startsWith("timeGrid") &&
+                event?.type === "single" &&
+                this.plugin.cache.getInfoForFullNoteEvent(eventId)
+            );
+        };
         this.eventNavigator = new CalendarEventNavigator(calendarEl, {
-            canGrabEvent: (eventId) => {
-                const event = this.plugin.cache.getEventById(eventId);
-                return !!(
-                    this.fullCalendarView?.view.type.startsWith("timeGrid") &&
-                    event?.type === "single" &&
-                    this.plugin.cache.getInfoForFullNoteEvent(eventId)
-                );
-            },
+            canGrabEvent: canTransformEvent,
+            canScaleEvent: canTransformEvent,
             onGrabUnavailable: () =>
                 new Notice(
                     "Grab mode is available for editable, single timed events in week and day views."
@@ -605,14 +701,24 @@ export class CalendarView extends ItemView {
                     new Notice(
                         error instanceof Error
                             ? error.message
-                            : "Could not move the event."
+                            : "Could not update the event timing."
                     );
                     return false;
                 }
             },
             requestDeleteEvent: (eventId) => this.requestEventDeletion(eventId),
+            yankEvent: (event) => this.yankCalendarEvent(event),
+            pasteEvent: (start) => this.pasteYankedEvent(start),
             onGrabModeChange: (active) => {
                 this.navigationMode = active ? "grab" : "normal";
+                this.updateModeChip();
+            },
+            onScaleUnavailable: () =>
+                new Notice(
+                    "Scale mode is available for editable, single timed events in week and day views."
+                ),
+            onScaleModeChange: (active) => {
+                this.navigationMode = active ? "scale" : "normal";
                 this.updateModeChip();
             },
         });
@@ -634,6 +740,7 @@ export class CalendarView extends ItemView {
                 calendar: this.fullCalendarView,
                 update: payload,
                 getEventSources: () => this.translateSources(),
+                convertEvent: (id, event) => this.translateEvent(id, event),
                 renderSelection: () => {
                     if (this.navigationMode === "insert") {
                         this.cellNavigator?.renderSelection();

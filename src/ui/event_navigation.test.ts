@@ -6,6 +6,7 @@ import {
     isCalendarMoveRedoShortcut,
     moveCalendarEventGrab,
     navigateFromCalendarEvent,
+    scaleCalendarEventGrab,
 } from "./event_navigation";
 
 const makeEventElement = (
@@ -207,6 +208,39 @@ describe("calendar event focus", () => {
         expect(navigator.handleKey("Tab")).toBe(false);
         expect(navigator.handleKey("g")).toBe(false);
         expect(navigator.isGrabbing()).toBe(false);
+    });
+
+    it("yanks with yy and pastes at the focused event time with p", async () => {
+        const start = new Date(2026, 7, 20, 9, 0);
+        const end = new Date(2026, 7, 20, 10, 0);
+        const focused = makeEventElement(
+            start,
+            end,
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        const yankEvent = jest.fn();
+        const pasteEvent = jest.fn(async () => undefined);
+        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
+            yankEvent,
+            pasteEvent,
+        });
+        navigator.activate(start);
+
+        expect(navigator.handleKey("y")).toBe(true);
+        expect(yankEvent).not.toHaveBeenCalled();
+        expect(navigator.handleKey("y")).toBe(true);
+        expect(yankEvent).toHaveBeenCalledWith({
+            eventId: "event-id",
+            start,
+            end,
+        });
+
+        const paste = jest.spyOn(navigator, "pasteAtFocusedEvent");
+        expect(navigator.handleKey("p")).toBe(true);
+        await expect(paste.mock.results[0].value).resolves.toBe(true);
+        expect(pasteEvent).toHaveBeenCalledWith(start);
+        expect(focused.click).not.toHaveBeenCalled();
     });
 });
 
@@ -589,6 +623,152 @@ describe("calendar event grab mode", () => {
         expect(navigator.handleKey("m")).toBe(true);
         expect(navigator.isGrabbing()).toBe(false);
         expect(onGrabUnavailable).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe("calendar event scale mode", () => {
+    it("resizes only the bottom edge in quarter-hours and clamps to one cell", () => {
+        const original = {
+            eventId: "event-id",
+            start: new Date(2026, 7, 20, 9, 0),
+            end: new Date(2026, 7, 20, 10, 0),
+        };
+
+        const grown = scaleCalendarEventGrab(original, "down", 2);
+        const shrunk = scaleCalendarEventGrab(grown, "up", 9);
+
+        expect(grown).toEqual({
+            eventId: "event-id",
+            start: new Date(2026, 7, 20, 9, 0),
+            end: new Date(2026, 7, 20, 10, 30),
+        });
+        expect(shrunk).toEqual({
+            eventId: "event-id",
+            start: new Date(2026, 7, 20, 9, 0),
+            end: new Date(2026, 7, 20, 9, 15),
+        });
+        expect(original.end).toEqual(new Date(2026, 7, 20, 10, 0));
+    });
+
+    it("enters with s, consumes horizontal keys, and commits with Enter", async () => {
+        const focused = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        const previewGrabbedEvent = jest.fn();
+        const commitGrabbedEvent = jest.fn(async () => true);
+        const onScaleModeChange = jest.fn();
+        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
+            canScaleEvent: () => true,
+            previewGrabbedEvent,
+            commitGrabbedEvent,
+            onScaleModeChange,
+        });
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+
+        expect(navigator.handleKey("s")).toBe(true);
+        expect(navigator.isScaling()).toBe(true);
+        expect(focused.classList.contains("ofc-scaled-calendar-event")).toBe(
+            true
+        );
+
+        navigator.handleKey("2");
+        navigator.handleKey("j");
+        navigator.handleKey("l");
+        navigator.handleKey("k");
+        expect(navigator.getScaledEvent()).toEqual({
+            eventId: "event-id",
+            start: new Date(2026, 7, 20, 9, 0),
+            end: new Date(2026, 7, 20, 10, 15),
+        });
+        expect(previewGrabbedEvent).toHaveBeenCalledTimes(2);
+
+        const confirmation = jest.spyOn(navigator, "confirmScaledEvent");
+        expect(navigator.handleKey("Enter")).toBe(true);
+        await expect(confirmation.mock.results[0].value).resolves.toBe(true);
+        expect(commitGrabbedEvent).toHaveBeenCalledWith({
+            eventId: "event-id",
+            start: new Date(2026, 7, 20, 9, 0),
+            end: new Date(2026, 7, 20, 10, 15),
+        });
+        expect(focused.click).not.toHaveBeenCalled();
+        expect(navigator.isScaling()).toBe(false);
+        expect(onScaleModeChange.mock.calls).toEqual([[true], [false]]);
+    });
+
+    it("persists with Escape and shares move undo and redo history", async () => {
+        const start = new Date(2026, 7, 20, 9, 0);
+        const end = new Date(2026, 7, 20, 10, 0);
+        const focused = makeEventElement(
+            start,
+            end,
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        const commitGrabbedEvent = jest.fn(async () => true);
+        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
+            commitGrabbedEvent,
+        });
+        navigator.activate(start);
+        navigator.handleKey("s");
+        navigator.handleKey("ArrowDown");
+
+        const confirmation = jest.spyOn(navigator, "confirmScaledEvent");
+        expect(navigator.handleKey("Escape")).toBe(true);
+        await expect(confirmation.mock.results[0].value).resolves.toBe(true);
+        expect(navigator.canUndoMove()).toBe(true);
+
+        await expect(navigator.undoMove()).resolves.toBe(true);
+        expect(commitGrabbedEvent).toHaveBeenLastCalledWith({
+            eventId: "event-id",
+            start,
+            end,
+        });
+        await expect(navigator.redoMove()).resolves.toBe(true);
+        expect(commitGrabbedEvent).toHaveBeenLastCalledWith({
+            eventId: "event-id",
+            start,
+            end: new Date(2026, 7, 20, 10, 15),
+        });
+    });
+
+    it("keeps unrelated modal keys from escaping scale mode", () => {
+        const focused = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        const navigator = new CalendarEventNavigator(makeContainer([focused]));
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+        navigator.handleKey("s");
+
+        for (const key of ["i", "t", "Tab", "m", "x"]) {
+            expect(navigator.handleKey(key)).toBe(true);
+        }
+        expect(navigator.isScaling()).toBe(true);
+        expect(focused.click).not.toHaveBeenCalled();
+    });
+
+    it("reports unsupported scale requests without changing mode", () => {
+        const focused = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 },
+            "recurring-id"
+        );
+        const onScaleUnavailable = jest.fn();
+        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
+            canScaleEvent: () => false,
+            onScaleUnavailable,
+        });
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+
+        expect(navigator.handleKey("s")).toBe(true);
+        expect(navigator.isScaling()).toBe(false);
+        expect(onScaleUnavailable).toHaveBeenCalledTimes(1);
     });
 });
 

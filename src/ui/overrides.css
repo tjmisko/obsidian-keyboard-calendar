@@ -49,9 +49,76 @@
 	font-weight: var(--font-normal, 400) !important;
 }
 
+/* Obsidian themes can impose fixed table layouts that make FullCalendar's
+ * one-pixel time/dot columns expand and crush the event title. Keep the list
+ * view's native three-column contract explicit. */
+.fc.fc .fc-list-table {
+	width: 100% !important;
+	table-layout: auto !important;
+}
+
+.fc.fc .fc-list-event-time,
+.fc.fc .fc-list-event-graphic {
+	width: 1px !important;
+	white-space: nowrap !important;
+}
+
+.fc.fc .fc-list-event-title {
+	width: 100% !important;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.fc .fc-list-event {
+	cursor: pointer;
+}
+
+.fc .fc-list-event.ofc-focused-calendar-event > td {
+	background: color-mix(in srgb, var(--interactive-accent) 18%, var(--background-primary)) !important;
+}
+
+.fc .fc-list-event.ofc-focused-calendar-event {
+	outline: 0;
+	box-shadow: none;
+}
+
+.fc .fc-list-event.ofc-focused-calendar-event > td:first-child {
+	box-shadow: inset 3px 0 0 var(--interactive-accent);
+}
+
 .fc .ofc-event-card-content {
 	height: 100%;
 	min-width: 0;
+}
+
+.fc .fc-event.ofc-event-recurring:not(.fc-list-event) .fc-event-main::after,
+.fc .fc-list-event.ofc-event-recurring .fc-list-event-title::after {
+	content: "↻";
+	position: absolute;
+	right: 0.2rem;
+	bottom: 0.12rem;
+	display: inline-grid;
+	place-items: center;
+	width: 0.78rem;
+	height: 0.62rem;
+	box-sizing: border-box;
+	color: color-mix(in srgb, currentColor 86%, transparent);
+	background: color-mix(in srgb, var(--background-primary) 58%, transparent);
+	border: 1px solid color-mix(in srgb, currentColor 34%, transparent);
+	border-radius: 999px;
+	font-size: 0.5rem;
+	font-weight: var(--font-semibold, 600);
+	line-height: 1;
+	pointer-events: none;
+}
+
+.fc .fc-event.ofc-event-recurring:not(.fc-list-event) .fc-event-main {
+	position: relative;
+}
+
+.fc .fc-list-event.ofc-event-recurring .fc-list-event-title {
+	position: relative;
+	padding-right: 2rem;
 }
 
 .fc .fc-daygrid-event-dot {
@@ -138,6 +205,12 @@
 .fc .fc-event.ofc-grabbed-calendar-event {
 	outline-style: dashed;
 	cursor: grabbing;
+	filter: saturate(1.15);
+}
+
+.fc .fc-event.ofc-scaled-calendar-event {
+	outline-style: dotted;
+	cursor: ns-resize;
 	filter: saturate(1.15);
 }
 
@@ -312,6 +385,12 @@
 	color: var(--text-on-accent);
 	background: var(--interactive-accent);
 	border-color: var(--interactive-accent);
+}
+
+.fc .ofc-mode-chip[data-mode="scale"] {
+	color: var(--text-on-accent);
+	background: color-mix(in srgb, var(--interactive-accent) 78%, var(--color-orange, #e9973f));
+	border-color: color-mix(in srgb, var(--interactive-accent) 62%, var(--color-orange, #e9973f));
 }
 
 .fc .fc-toolbar-title {

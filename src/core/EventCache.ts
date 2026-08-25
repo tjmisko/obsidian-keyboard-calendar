@@ -191,10 +191,13 @@ export default class EventCache {
         if (index >= 0) this.updateViewCallbacks.splice(index, 1);
     }
 
-    async createEvent(event: OFCEvent): Promise<FullNoteEventLocation> {
+    async createEvent(
+        event: OFCEvent,
+        preferredBasename?: string
+    ): Promise<FullNoteEventLocation> {
         const calendar = this.calendar;
         if (!calendar) throw new Error("Local event source is not registered.");
-        const plannedPath = calendar.getNewEventPath();
+        const plannedPath = calendar.getNewEventPath(preferredBasename);
         const mutation = this.acquireMutationPaths([plannedPath]);
         const mutationEpoch = this.index.epoch;
         let released = false;

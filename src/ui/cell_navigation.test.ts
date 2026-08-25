@@ -300,6 +300,32 @@ describe("cell navigator", () => {
         expect(navigator.getEventDraft()).not.toBeNull();
     });
 
+    it("pastes a yanked event at the selected insert-mode cell", async () => {
+        const pasteEvent = jest.fn(async () => undefined);
+        const navigator = new CalendarCellNavigator(
+            makeContainer(),
+            makeCalendar(
+                "timeGridWeek",
+                new Date(2026, 7, 17),
+                new Date(2026, 7, 24)
+            ),
+            {
+                now: () => new Date(2026, 7, 20, 10, 7),
+                pasteEvent,
+            }
+        );
+        navigator.select(new Date(2026, 7, 22, 14, 30), false);
+
+        const paste = jest.spyOn(navigator, "pasteAtSelectedCell");
+        expect(navigator.handleKey("p")).toBe(true);
+        await expect(paste.mock.results[0].value).resolves.toBe(true);
+
+        expect(pasteEvent).toHaveBeenCalledWith(new Date(2026, 7, 22, 14, 30));
+        expect(navigator.getSelectedCell()?.start).toEqual(
+            new Date(2026, 7, 22, 14, 30)
+        );
+    });
+
     it("creates, resizes, moves, and confirms a keyboard event draft", async () => {
         const createEvent = jest.fn(async () => undefined);
         const calendar = makeCalendar(

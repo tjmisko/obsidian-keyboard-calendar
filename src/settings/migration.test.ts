@@ -223,6 +223,25 @@ describe("settings decoder", () => {
         ).toEqual([]);
     });
 
+    it("defaults and normalizes event tag color rules", () => {
+        expect(
+            decodeSettings({}, undefined, jest.fn()).settings.eventTagColors
+        ).toEqual([]);
+        expect(
+            decodeSettings(
+                {
+                    eventTagColors: [
+                        { tag: " #Work ", color: "#AABBCC" },
+                        { tag: "work", color: "#000000" },
+                        { tag: "broken", color: "red" },
+                    ],
+                },
+                undefined,
+                jest.fn()
+            ).settings.eventTagColors
+        ).toEqual([{ tag: "work", color: "#aabbcc" }]);
+    });
+
     it("resolves old string and numeric local defaults", () => {
         const calendarSources = [legacyIcs, local("Work"), local("Home")];
         expect(
@@ -284,7 +303,7 @@ describe("settings decoder", () => {
 });
 
 describe("active removed-source migration", () => {
-    it("adds the neutral ghost tag at v7 and remains idempotent", () => {
+    it("adds current tag defaults and remains idempotent", () => {
         const input = {
             settingsVersion: DESKTOP_ONLY_SETTINGS_VERSION,
             calendarSources: [local("Events")],
@@ -295,6 +314,7 @@ describe("active removed-source migration", () => {
 
         expect(first.settings.settingsVersion).toBe(SETTINGS_VERSION);
         expect(first.settings.ghostEventTags).toEqual(["ghost"]);
+        expect(first.settings.eventTagColors).toEqual([]);
         expect(first.saveRequested).toBe(true);
 
         const second = migrateSettings(first.settings, jest.fn());

@@ -19,7 +19,10 @@ export interface CalendarEventGrab {
     end: Date;
 }
 
-interface CalendarEventGrabState {
+export type CalendarEventTransformMode = "move" | "scale";
+
+interface CalendarEventTransformState {
+    mode: CalendarEventTransformMode;
     original: CalendarEventGrab;
     current: CalendarEventGrab;
 }
@@ -80,6 +83,25 @@ export const moveCalendarEventGrab = (
         (direction === "up" ? -1 : 1) * CALENDAR_CELL_MINUTES * distance;
     next.start.setMinutes(next.start.getMinutes() + minuteOffset);
     next.end.setMinutes(next.end.getMinutes() + minuteOffset);
+    return next;
+};
+
+/** Scales an event from its bottom edge, keeping its start fixed. */
+export const scaleCalendarEventGrab = (
+    grab: CalendarEventGrab,
+    direction: "up" | "down",
+    count = 1
+): CalendarEventGrab => {
+    const next = copyGrab(grab);
+    const distance = Math.max(1, Math.floor(count));
+    const candidateEnd = new Date(next.end);
+    candidateEnd.setMinutes(
+        candidateEnd.getMinutes() +
+            (direction === "up" ? -1 : 1) * CALENDAR_CELL_MINUTES * distance
+    );
+    const minimumEnd = new Date(next.start);
+    minimumEnd.setMinutes(minimumEnd.getMinutes() + CALENDAR_CELL_MINUTES);
+    next.end = new Date(Math.max(candidateEnd.getTime(), minimumEnd.getTime()));
     return next;
 };
 
@@ -181,8 +203,13 @@ export interface CalendarEventNavigatorOptions {
     previewGrabbedEvent?: (grab: CalendarEventGrab) => void;
     commitGrabbedEvent?: (grab: CalendarEventGrab) => Promise<boolean>;
     requestDeleteEvent?: (eventId: string) => void;
+    yankEvent?: (event: CalendarEventGrab) => void;
+    pasteEvent?: (start: Date) => Promise<void>;
+    canScaleEvent?: (eventId: string) => boolean;
     onGrabModeChange?: (active: boolean) => void;
     onGrabUnavailable?: () => void;
+    onScaleModeChange?: (active: boolean) => void;
+    onScaleUnavailable?: () => void;
 }
 
 /** Owns event focus while the calendar is in normal mode. */
@@ -190,10 +217,11 @@ export class CalendarEventNavigator {
     private enabled = false;
     private focusedEvent: HTMLElement | null = null;
     private anchorDate: Date | null = null;
-    private pendingPrefix: "z" | null = null;
+    private pendingPrefix: "y" | "z" | null = null;
     private pendingCount = "";
-    private grabState: CalendarEventGrabState | null = null;
+    private transformState: CalendarEventTransformState | null = null;
     private persistingMove = false;
+    private pastingEvent = false;
     private readonly moveUndoStack: CalendarEventMove[] = [];
     private readonly moveRedoStack: CalendarEventMove[] = [];
     private readonly now: () => Date;
@@ -203,8 +231,13 @@ export class CalendarEventNavigator {
         grab: CalendarEventGrab
     ) => Promise<boolean>;
     private readonly requestDeleteEvent?: (eventId: string) => void;
+    private readonly yankEvent?: (event: CalendarEventGrab) => void;
+    private readonly pasteEvent?: (start: Date) => Promise<void>;
+    private readonly canScaleEvent?: (eventId: string) => boolean;
     private readonly onGrabModeChange?: (active: boolean) => void;
     private readonly onGrabUnavailable?: () => void;
+    private readonly onScaleModeChange?: (active: boolean) => void;
+    private readonly onScaleUnavailable?: () => void;
 
     constructor(
         private readonly containerEl: HTMLElement,
@@ -215,8 +248,13 @@ export class CalendarEventNavigator {
         this.previewGrabbedEvent = options.previewGrabbedEvent;
         this.commitGrabbedEvent = options.commitGrabbedEvent;
         this.requestDeleteEvent = options.requestDeleteEvent;
+        this.yankEvent = options.yankEvent;
+        this.pasteEvent = options.pasteEvent;
+        this.canScaleEvent = options.canScaleEvent;
         this.onGrabModeChange = options.onGrabModeChange;
         this.onGrabUnavailable = options.onGrabUnavailable;
+        this.onScaleModeChange = options.onScaleModeChange;
+        this.onScaleUnavailable = options.onScaleUnavailable;
     }
 
     activate(
@@ -235,7 +273,7 @@ export class CalendarEventNavigator {
     }
 
     deactivate(): void {
-        this.restoreGrabbedEvent();
+        this.restoreTransformedEvent();
         this.enabled = false;
         this.pendingPrefix = null;
         this.pendingCount = "";
@@ -253,7 +291,11 @@ export class CalendarEventNavigator {
     }
 
     isGrabbing(): boolean {
-        return this.grabState !== null;
+        return this.transformState?.mode === "move";
+    }
+
+    isScaling(): boolean {
+        return this.transformState?.mode === "scale";
     }
 
     canUndoMove(): boolean {
@@ -275,7 +317,15 @@ export class CalendarEventNavigator {
     }
 
     getGrabbedEvent(): CalendarEventGrab | null {
-        return this.grabState ? copyGrab(this.grabState.current) : null;
+        return this.isGrabbing() && this.transformState
+            ? copyGrab(this.transformState.current)
+            : null;
+    }
+
+    getScaledEvent(): CalendarEventGrab | null {
+        return this.isScaling() && this.transformState
+            ? copyGrab(this.transformState.current)
+            : null;
     }
 
     getFocusedEvent(): HTMLElement | null {
@@ -284,7 +334,7 @@ export class CalendarEventNavigator {
 
     getFocusedDate(): Date | null {
         const date =
-            this.grabState?.current.start ||
+            this.transformState?.current.start ||
             (this.focusedEvent
                 ? parseEventDate(this.focusedEvent, "ofcEventStart")
                 : this.anchorDate);
@@ -296,8 +346,8 @@ export class CalendarEventNavigator {
             return false;
         }
         if (
-            this.grabState &&
-            this.focusEventById(this.grabState.current.eventId)
+            this.transformState &&
+            this.focusEventById(this.transformState.current.eventId)
         ) {
             return true;
         }
@@ -427,11 +477,51 @@ export class CalendarEventNavigator {
         return true;
     }
 
+    yankFocusedEvent(repeat = false): boolean {
+        if (!this.enabled || !this.focusedEvent) {
+            return false;
+        }
+        const eventId = this.focusedEvent.dataset.ofcEventId;
+        const start = parseEventDate(this.focusedEvent, "ofcEventStart");
+        const end = parseEventDate(this.focusedEvent, "ofcEventEnd");
+        if (!eventId || !start || !end) {
+            return false;
+        }
+        if (!repeat) {
+            this.yankEvent?.({ eventId, start, end });
+        }
+        return true;
+    }
+
+    async pasteAtFocusedEvent(): Promise<boolean> {
+        const start = this.getFocusedDate();
+        if (!this.enabled || !start || this.pastingEvent) {
+            return false;
+        }
+        this.pastingEvent = true;
+        try {
+            await this.pasteEvent?.(start);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            this.pastingEvent = false;
+        }
+        return true;
+    }
+
     beginGrab(): boolean {
+        return this.beginTransform("move");
+    }
+
+    beginScale(): boolean {
+        return this.beginTransform("scale");
+    }
+
+    private beginTransform(mode: CalendarEventTransformMode): boolean {
         if (
             !this.enabled ||
             !this.focusedEvent ||
-            this.grabState ||
+            this.transformState ||
             this.persistingMove
         ) {
             return false;
@@ -442,56 +532,110 @@ export class CalendarEventNavigator {
         if (!eventId || !start || !end) {
             return false;
         }
-        if (this.canGrabEvent && !this.canGrabEvent(eventId)) {
-            this.onGrabUnavailable?.();
+        const canTransform =
+            mode === "move"
+                ? this.canGrabEvent
+                : this.canScaleEvent || this.canGrabEvent;
+        if (canTransform && !canTransform(eventId)) {
+            if (mode === "move") {
+                this.onGrabUnavailable?.();
+            } else {
+                this.onScaleUnavailable?.();
+            }
             return false;
         }
 
         const original = { eventId, start, end };
-        this.grabState = {
+        this.transformState = {
+            mode,
             original: copyGrab(original),
             current: copyGrab(original),
         };
         this.pendingCount = "";
-        this.containerEl.classList.add("ofc-event-grab-active");
-        this.markFocusedEventAsGrabbed();
-        this.onGrabModeChange?.(true);
+        this.containerEl.classList.add(
+            mode === "move" ? "ofc-event-grab-active" : "ofc-event-scale-active"
+        );
+        this.markFocusedEventAsTransformed();
+        if (mode === "move") {
+            this.onGrabModeChange?.(true);
+        } else {
+            this.onScaleModeChange?.(true);
+        }
         return true;
     }
 
     moveGrabbedEvent(direction: CalendarCellDirection, count = 1): boolean {
-        if (!this.grabState || this.persistingMove) {
+        if (!this.isGrabbing() || !this.transformState || this.persistingMove) {
             return false;
         }
-        this.grabState.current = moveCalendarEventGrab(
-            this.grabState.current,
+        this.transformState.current = moveCalendarEventGrab(
+            this.transformState.current,
             direction,
             count
         );
-        this.anchorDate = new Date(this.grabState.current.start);
-        this.previewGrabbedEvent?.(copyGrab(this.grabState.current));
-        this.focusEventById(this.grabState.current.eventId);
+        this.previewTransformedEvent();
         return true;
     }
 
-    private restoreGrabbedEvent(): boolean {
-        if (!this.grabState || this.persistingMove) {
+    scaleGrabbedEvent(direction: CalendarCellDirection, count = 1): boolean {
+        if (
+            !this.isScaling() ||
+            !this.transformState ||
+            this.persistingMove ||
+            (direction !== "up" && direction !== "down")
+        ) {
             return false;
         }
-        const original = copyGrab(this.grabState.original);
+        this.transformState.current = scaleCalendarEventGrab(
+            this.transformState.current,
+            direction,
+            count
+        );
+        this.previewTransformedEvent();
+        return true;
+    }
+
+    private previewTransformedEvent(): void {
+        if (!this.transformState) {
+            return;
+        }
+        this.anchorDate = new Date(this.transformState.current.start);
+        this.previewGrabbedEvent?.(copyGrab(this.transformState.current));
+        this.focusEventById(this.transformState.current.eventId);
+    }
+
+    private restoreTransformedEvent(): boolean {
+        if (!this.transformState || this.persistingMove) {
+            return false;
+        }
+        const original = copyGrab(this.transformState.original);
         this.previewGrabbedEvent?.(original);
-        this.finishGrab(original);
+        this.finishTransform(original);
         return true;
     }
 
     async confirmGrabbedEvent(): Promise<boolean> {
-        if (!this.grabState || this.persistingMove) {
+        if (!this.isGrabbing()) {
             return false;
         }
-        const current = copyGrab(this.grabState.current);
-        const original = copyGrab(this.grabState.original);
+        return this.confirmTransformedEvent();
+    }
+
+    async confirmScaledEvent(): Promise<boolean> {
+        if (!this.isScaling()) {
+            return false;
+        }
+        return this.confirmTransformedEvent();
+    }
+
+    private async confirmTransformedEvent(): Promise<boolean> {
+        if (!this.transformState || this.persistingMove) {
+            return false;
+        }
+        const current = copyGrab(this.transformState.current);
+        const original = copyGrab(this.transformState.original);
         if (grabsMatch(original, current)) {
-            this.finishGrab(current);
+            this.finishTransform(current);
             return true;
         }
 
@@ -505,7 +649,7 @@ export class CalendarEventNavigator {
             this.moveUndoStack.push({ before: original, after: current });
             this.moveRedoStack.length = 0;
         }
-        this.finishGrab(didCommit ? current : original);
+        this.finishTransform(didCommit ? current : original);
         return true;
     }
 
@@ -521,14 +665,14 @@ export class CalendarEventNavigator {
         if (!this.enabled) {
             return false;
         }
-        if (this.persistingMove) {
+        if (this.persistingMove || this.pastingEvent) {
             return true;
         }
         if (this.pendingPrefix) {
-            return this.handleViewportPrefix(key, repeat);
+            return this.handlePrefixKey(key, repeat);
         }
-        if (this.grabState) {
-            return this.handleGrabKey(key, repeat);
+        if (this.transformState) {
+            return this.handleTransformKey(key, repeat);
         }
         if (this.captureCount(key, repeat)) {
             return true;
@@ -537,6 +681,13 @@ export class CalendarEventNavigator {
             this.pendingCount = "";
             if (!repeat) {
                 this.beginGrab();
+            }
+            return true;
+        }
+        if (key === "s") {
+            this.pendingCount = "";
+            if (!repeat) {
+                this.beginScale();
             }
             return true;
         }
@@ -552,6 +703,20 @@ export class CalendarEventNavigator {
         if (key === "Delete" || key === "x") {
             this.pendingCount = "";
             this.requestFocusedEventDeletion(repeat);
+            return true;
+        }
+        if (key === "y") {
+            this.pendingCount = "";
+            if (!repeat) {
+                this.pendingPrefix = "y";
+            }
+            return true;
+        }
+        if (key === "p") {
+            this.pendingCount = "";
+            if (!repeat) {
+                void this.pasteAtFocusedEvent();
+            }
             return true;
         }
         if (key.toLowerCase() === "z") {
@@ -572,7 +737,7 @@ export class CalendarEventNavigator {
         return this.discardCount();
     }
 
-    private handleGrabKey(key: string, repeat: boolean): boolean {
+    private handleTransformKey(key: string, repeat: boolean): boolean {
         if (this.persistingMove) {
             return true;
         }
@@ -582,14 +747,14 @@ export class CalendarEventNavigator {
         if (key === "Escape") {
             this.pendingCount = "";
             if (!repeat) {
-                void this.confirmGrabbedEvent();
+                void this.confirmActiveTransform();
             }
             return true;
         }
         if (key === "Enter") {
             this.pendingCount = "";
             if (!repeat) {
-                void this.confirmGrabbedEvent();
+                void this.confirmActiveTransform();
             }
             return true;
         }
@@ -602,21 +767,43 @@ export class CalendarEventNavigator {
         }
         const direction = getCalendarCellDirection(key);
         if (direction) {
-            return this.moveGrabbedEvent(direction, this.takeCount());
+            const count = this.takeCount();
+            if (this.isGrabbing()) {
+                return this.moveGrabbedEvent(direction, count);
+            }
+            if (direction === "up" || direction === "down") {
+                return this.scaleGrabbedEvent(direction, count);
+            }
+            // Scaling is anchored at the top edge, so horizontal movement is
+            // intentionally consumed without changing the event.
+            return true;
         }
 
-        // Grab mode is modal: unrelated unmodified keys must not trigger
-        // normal-mode commands such as insert, today, or view cycling.
+        // Transform modes are modal: unrelated unmodified keys must not
+        // trigger normal-mode commands such as insert, today, or view cycling.
         this.pendingCount = "";
         return true;
     }
 
-    private handleViewportPrefix(key: string, repeat: boolean): boolean {
+    private confirmActiveTransform(): Promise<boolean> {
+        return this.isScaling()
+            ? this.confirmScaledEvent()
+            : this.confirmGrabbedEvent();
+    }
+
+    private handlePrefixKey(key: string, repeat: boolean): boolean {
         if (repeat) {
             return true;
         }
+        const prefix = this.pendingPrefix;
         this.pendingPrefix = null;
         this.pendingCount = "";
+        if (prefix === "y") {
+            if (key === "y") {
+                this.yankFocusedEvent();
+            }
+            return true;
+        }
         switch (key.toLowerCase()) {
             case "z":
                 this.alignFocusedEvent("center");
@@ -647,7 +834,7 @@ export class CalendarEventNavigator {
         direction: "undo" | "redo",
         count: number
     ): Promise<boolean> {
-        if (!this.enabled || this.grabState || this.persistingMove) {
+        if (!this.enabled || this.transformState || this.persistingMove) {
             return false;
         }
         const source =
@@ -751,19 +938,20 @@ export class CalendarEventNavigator {
             this.clearFocus();
         }
         this.focusedEvent = element;
-        const grabbedStart =
-            this.grabState &&
-            element.dataset.ofcEventId === this.grabState.current.eventId
-                ? this.grabState.current.start
+        const transformedStart =
+            this.transformState &&
+            element.dataset.ofcEventId === this.transformState.current.eventId
+                ? this.transformState.current.start
                 : null;
-        const start = grabbedStart || parseEventDate(element, "ofcEventStart");
+        const start =
+            transformedStart || parseEventDate(element, "ofcEventStart");
         if (start) {
             this.anchorDate = start;
         }
         element.classList.add("ofc-focused-calendar-event");
         element.setAttribute("aria-current", "true");
         element.tabIndex = 0;
-        this.markFocusedEventAsGrabbed();
+        this.markFocusedEventAsTransformed();
         element.focus?.({ preventScroll: true });
         element.scrollIntoView?.({ block: "nearest", inline: "nearest" });
     }
@@ -776,33 +964,47 @@ export class CalendarEventNavigator {
         this.focusedEvent = null;
         focusedEvent.classList.remove("ofc-focused-calendar-event");
         focusedEvent.classList.remove("ofc-grabbed-calendar-event");
+        focusedEvent.classList.remove("ofc-scaled-calendar-event");
         focusedEvent.removeAttribute("aria-current");
         focusedEvent.removeAttribute("aria-grabbed");
         focusedEvent.tabIndex = -1;
         focusedEvent.blur();
     }
 
-    private markFocusedEventAsGrabbed(): void {
+    private markFocusedEventAsTransformed(): void {
+        const transformState = this.transformState;
         if (
             !this.focusedEvent ||
+            !transformState ||
             this.focusedEvent.dataset.ofcEventId !==
-                this.grabState?.current.eventId
+                transformState.current.eventId
         ) {
             return;
         }
-        this.focusedEvent.classList.add("ofc-grabbed-calendar-event");
-        this.focusedEvent.setAttribute("aria-grabbed", "true");
+        if (transformState.mode === "move") {
+            this.focusedEvent.classList.add("ofc-grabbed-calendar-event");
+            this.focusedEvent.setAttribute("aria-grabbed", "true");
+        } else {
+            this.focusedEvent.classList.add("ofc-scaled-calendar-event");
+        }
     }
 
-    private finishGrab(focusTarget: CalendarEventGrab): void {
-        this.grabState = null;
+    private finishTransform(focusTarget: CalendarEventGrab): void {
+        const mode = this.transformState?.mode;
+        this.transformState = null;
         this.pendingPrefix = null;
         this.pendingCount = "";
         this.containerEl.classList.remove("ofc-event-grab-active");
+        this.containerEl.classList.remove("ofc-event-scale-active");
         this.focusedEvent?.classList.remove("ofc-grabbed-calendar-event");
+        this.focusedEvent?.classList.remove("ofc-scaled-calendar-event");
         this.focusedEvent?.removeAttribute("aria-grabbed");
         this.focusMoveTarget(focusTarget);
-        this.onGrabModeChange?.(false);
+        if (mode === "move") {
+            this.onGrabModeChange?.(false);
+        } else if (mode === "scale") {
+            this.onScaleModeChange?.(false);
+        }
     }
 
     private focusMoveTarget(focusTarget: CalendarEventGrab): void {

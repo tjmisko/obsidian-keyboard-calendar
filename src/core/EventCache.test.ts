@@ -93,8 +93,13 @@ class TestFullNoteCalendar extends FullNoteCalendar {
             : "Untitled event.md";
     }
 
-    getNewEventPath(): string {
-        return this.nextCreatePath;
+    getNewEventPath(preferredBasename?: string): string {
+        if (!preferredBasename) {
+            return this.nextCreatePath;
+        }
+        return this.directory
+            ? `${this.directory}/${preferredBasename}.md`
+            : `${preferredBasename}.md`;
     }
 
     getNewLocation(
@@ -518,6 +523,23 @@ describe("single local EventCache runtime", () => {
         expect(location.file.path).toBe("events/Untitled event.md");
         expect(sourceEvents(cache)[0].event.title).toBe("Created");
         expect(eventPayloads(callback)).toHaveLength(1);
+    });
+
+    it("passes a preferred copied-event basename through the guarded create", async () => {
+        const calendar = new TestFullNoteCalendar();
+        const cache = makeCache(calendar);
+        await cache.populate();
+
+        const location = await cache.createEvent(
+            event("Planning (copied event)"),
+            "Planning (copied event)"
+        );
+
+        expect(location.file.path).toBe("events/Planning (copied event).md");
+        expect(calendar.createEvent).toHaveBeenCalledWith(
+            expect.objectContaining({ title: "Planning (copied event)" }),
+            "events/Planning (copied event).md"
+        );
     });
 
     it("indexes create semantics returned from the exact persisted note", async () => {

@@ -178,6 +178,34 @@ describe("calendar cache updates", () => {
         expect(warn).not.toHaveBeenCalled();
     });
 
+    it("uses the caller's event converter for incremental decorations", () => {
+        const harness = makeCalendarHarness();
+        const added = cacheEntry("colored-event", "Colored event");
+        const convertEvent = jest.fn((id: string, event: OFCEvent) => ({
+            ...toEventInput(id, event),
+            color: "#ff00aa",
+            textColor: "black",
+        }));
+
+        applyCalendarCacheUpdate({
+            calendar: harness.calendar,
+            update: { type: "events", toRemove: [], toAdd: [added] },
+            getEventSources: () => [sourceSnapshot([added])],
+            renderSelection: jest.fn(),
+            convertEvent,
+        });
+
+        expect(convertEvent).toHaveBeenCalledWith(added.id, added.event);
+        expect(harness.addEvent).toHaveBeenCalledWith(
+            expect.objectContaining({
+                id: "colored-event",
+                color: "#ff00aa",
+                textColor: "black",
+            }),
+            expect.objectContaining({ id: "local" })
+        );
+    });
+
     it("rebuilds once when conversion returns no event", () => {
         const harness = makeCalendarHarness();
         const invalid = {

@@ -9,7 +9,10 @@ import {
     removeLocalSource,
     saveLocalSourceSelection,
 } from "./source_settings";
-import { parseGhostEventTagsInput } from "../settings/tag_settings";
+import {
+    parseEventTagInput,
+    parseGhostEventTagsInput,
+} from "../settings/tag_settings";
 
 export { DEFAULT_SETTINGS } from "../settings/migration";
 export type { FullCalendarSettings } from "../settings/migration";
@@ -228,6 +231,94 @@ export class FullCalendarSettingTab extends PluginSettingTab {
                     });
                 });
             });
+
+        containerEl.createEl("h2", { text: "Event Tag Colors" });
+        containerEl.createEl("p", {
+            text: "Assign colors to event tags. When an event matches more than one rule, the first rule in this list wins.",
+        });
+        this.plugin.settings.eventTagColors.forEach((rule, index) => {
+            new Setting(containerEl)
+                .setName(`#${rule.tag}`)
+                .setDesc(`Use ${rule.color} for events tagged #${rule.tag}.`)
+                .addColorPicker((picker) => {
+                    picker.setValue(rule.color);
+                    picker.onChange(async (color) => {
+                        await this.commitSettings({
+                            ...this.plugin.settings,
+                            eventTagColors:
+                                this.plugin.settings.eventTagColors.map(
+                                    (candidate, candidateIndex) =>
+                                        candidateIndex === index
+                                            ? { ...candidate, color }
+                                            : candidate
+                                ),
+                        });
+                    });
+                })
+                .addExtraButton((button) => {
+                    button
+                        .setIcon("trash")
+                        .setTooltip(`Remove color for #${rule.tag}`);
+                    button.onClick(async () => {
+                        await this.commitSettings({
+                            ...this.plugin.settings,
+                            eventTagColors:
+                                this.plugin.settings.eventTagColors.filter(
+                                    (_, candidateIndex) =>
+                                        candidateIndex !== index
+                                ),
+                        });
+                        await this.display();
+                    });
+                });
+        });
+
+        let newTag = "";
+        let newColor = DEFAULT_EVENT_COLOR;
+        new Setting(containerEl)
+            .setName("Add tag color")
+            .setDesc(
+                "Enter one tag without the leading #, then choose its color."
+            )
+            .addText((text) => {
+                text.setPlaceholder("work");
+                text.onChange((value) => {
+                    newTag = value;
+                });
+            })
+            .addColorPicker((picker) => {
+                picker.setValue(newColor);
+                picker.onChange((value) => {
+                    newColor = value;
+                });
+            })
+            .addButton((button) =>
+                button.setButtonText("Add").onClick(async () => {
+                    const tag = parseEventTagInput(newTag);
+                    if (!tag) {
+                        new Notice("Enter a tag for this color rule.");
+                        return;
+                    }
+                    if (
+                        this.plugin.settings.eventTagColors.some(
+                            (rule) => rule.tag === tag
+                        )
+                    ) {
+                        new Notice(
+                            `A color is already configured for #${tag}.`
+                        );
+                        return;
+                    }
+                    await this.commitSettings({
+                        ...this.plugin.settings,
+                        eventTagColors: [
+                            ...this.plugin.settings.eventTagColors,
+                            { tag, color: newColor },
+                        ],
+                    });
+                    await this.display();
+                })
+            );
 
         containerEl.createEl("h2", { text: "Event Folder" });
         const source = getConfiguredLocalSource(this.plugin.settings);
