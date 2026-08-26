@@ -1,7 +1,7 @@
 {
   "inputs": {
     "src/ui/overrides.css": {
-      "bytes": 14892,
+      "bytes": 15265,
       "imports": []
     },
     "node_modules/tslib/tslib.js": {
@@ -739,7 +739,7 @@
       "imports": []
     },
     "src/ui/calendar.ts": {
-      "bytes": 14480,
+      "bytes": 14565,
       "imports": [
         {
           "path": "node_modules/@fullcalendar/core/main.js",
@@ -1790,7 +1790,7 @@
           "bytesInOutput": 1860
         },
         "src/ui/calendar.ts": {
-          "bytesInOutput": 9035
+          "bytesInOutput": 9089
         },
         "node_modules/zod/lib/index.mjs": {
           "bytesInOutput": 107688
@@ -1949,13 +1949,13 @@
           "bytesInOutput": 401
         }
       },
-      "bytes": 1227230
+      "bytes": 1227284
     },
     "main.css": {
       "imports": [],
       "inputs": {
         "src/ui/overrides.css": {
-          "bytesInOutput": 14630
+          "bytesInOutput": 15011
         },
         "node_modules/@fullcalendar/common/main.css": {
           "bytesInOutput": 16811
@@ -1967,7 +1967,7 @@
           "bytesInOutput": 6924
         }
       },
-      "bytes": 42734
+      "bytes": 43115
     }
   }
 }

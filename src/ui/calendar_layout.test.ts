@@ -18,6 +18,9 @@ describe("calendar surface styles", () => {
     it("uses the calendar container to wrap narrow toolbars", () => {
         expect(stylesheet).toContain("container-type: inline-size");
         expect(stylesheet).toContain("@container (max-width: 40rem)");
+        expect(stylesheet).toContain(
+            ".fc.ofc-calendar-root:not(.ofc-day-calendar-root)"
+        );
         expect(stylesheet).toContain("flex: 1 0 100%");
     });
 
@@ -26,12 +29,26 @@ describe("calendar surface styles", () => {
         expect(stylesheet).toContain("-webkit-overflow-scrolling: touch");
     });
 
-    it("allows the day-sidebar toolbar to wrap in a narrow dock", () => {
+    it("keeps the day-sidebar toolbar on one compact row", () => {
         const rule = stylesheet.match(
             /\.fc\.ofc-day-calendar-root \.fc-toolbar\.fc-header-toolbar\s*\{([^}]*)\}/
         )?.[1];
 
-        expect(rule).toContain("flex-wrap: wrap");
+        expect(rule).toContain("flex-wrap: nowrap");
+        expect(rule).toContain("row-gap: 0");
+    });
+
+    it("removes the toolbar card and hides the inactive mode chip", () => {
+        const toolbarRule = stylesheet.match(
+            /\.fc \.fc-toolbar\.fc-header-toolbar\s*\{([^}]*)\}/
+        )?.[1];
+        const normalModeRule = stylesheet.match(
+            /\.fc \.ofc-mode-chip\[data-mode="normal"\]\s*\{([^}]*)\}/
+        )?.[1];
+
+        expect(toolbarRule).toContain("background: transparent");
+        expect(toolbarRule).toContain("border: 0");
+        expect(normalModeRule).toContain("display: none");
     });
 
     it("contains no retired list-view selectors", () => {

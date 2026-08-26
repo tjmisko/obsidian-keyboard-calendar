@@ -132,9 +132,9 @@ describe("calendar renderer", () => {
         ]);
         expect(options.initialView).toBe("timeGridDay");
         expect(options.headerToolbar).toEqual({
-            left: "prev,next today",
+            left: "prev,next",
             center: "title",
-            right: "",
+            right: "today",
         });
         expect(options.views?.timeGridDay).toMatchObject({
             duration: { days: 1 },
@@ -145,6 +145,61 @@ describe("calendar renderer", () => {
                 start: { year: 2026, month: 7, day: 23 },
             })
         ).toBe("2026-08-23");
+    });
+
+    it("shows only the weekday inside the fixed Day grid", () => {
+        const renderHeader = (variant?: "day-sidebar") => {
+            const spans: Array<{
+                cls: string;
+                text: string;
+                setAttribute: jest.Mock;
+            }> = [];
+            const header = {
+                addClass: jest.fn(),
+                createSpan: jest.fn(
+                    ({ cls, text }: { cls: string; text: string }) => {
+                        const span = {
+                            cls,
+                            text,
+                            setAttribute: jest.fn(),
+                        };
+                        spans.push(span);
+                        return span;
+                    }
+                ),
+            };
+            Object.defineProperty(global, "document", {
+                configurable: true,
+                value: { createElement: () => header },
+            });
+            renderCalendar({} as HTMLElement, [], { variant });
+            const calls = (Calendar as unknown as jest.Mock).mock.calls;
+            const options = calls[calls.length - 1][1] as CalendarOptions;
+            (options.dayHeaderContent as any)({
+                date: new Date(2026, 7, 25),
+                text: "Tuesday",
+                view: { type: variant ? "timeGridDay" : "timeGridWeek" },
+            });
+            return spans;
+        };
+
+        const daySpans = renderHeader("day-sidebar");
+        const weekSpans = renderHeader();
+        delete (global as any).document;
+
+        expect(daySpans.map(({ cls }) => cls)).toEqual([
+            "ofc-day-header-weekday",
+        ]);
+        expect(daySpans[0].text).toBe("Tuesday");
+        expect(daySpans[0].setAttribute).not.toHaveBeenCalledWith(
+            "aria-hidden",
+            "true"
+        );
+        expect(weekSpans.map(({ cls }) => cls)).toEqual([
+            "ofc-day-header-weekday",
+            "ofc-day-header-date ofc-day-header-date-full",
+            "ofc-day-header-date ofc-day-header-date-compact",
+        ]);
     });
 
     it("retains daily-note links and click navigation on time-grid headers", () => {

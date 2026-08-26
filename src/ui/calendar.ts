@@ -242,9 +242,9 @@ export function renderCalendar(
 
         headerToolbar: isDaySidebar
             ? {
-                  left: "prev,next today",
+                  left: "prev,next",
                   center: "title",
-                  right: "",
+                  right: "today",
               }
             : {
                   left: "prev,next today",
@@ -307,17 +307,18 @@ export function renderCalendar(
                 cls: "ofc-day-header-weekday",
                 text: date.toLocaleDateString(undefined, { weekday: "long" }),
             });
-            weekday.setAttribute("aria-hidden", "true");
-
-            header.createSpan({
-                cls: "ofc-day-header-date ofc-day-header-date-full",
-                text: formatDateLabel(date),
-            });
-            const compactDate = header.createSpan({
-                cls: "ofc-day-header-date ofc-day-header-date-compact",
-                text: formatCompactDateLabel(date),
-            });
-            compactDate.setAttribute("aria-hidden", "true");
+            if (!isDaySidebar) {
+                weekday.setAttribute("aria-hidden", "true");
+                header.createSpan({
+                    cls: "ofc-day-header-date ofc-day-header-date-full",
+                    text: formatDateLabel(date),
+                });
+                const compactDate = header.createSpan({
+                    cls: "ofc-day-header-date ofc-day-header-date-compact",
+                    text: formatCompactDateLabel(date),
+                });
+                compactDate.setAttribute("aria-hidden", "true");
+            }
 
             return { domNodes: [header] };
         },
