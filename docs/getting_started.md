@@ -22,4 +22,8 @@ Week always spans seven days. On a narrow screen its day columns retain a readab
 
 If the view does not match the notes on disk, run `Keyboard Calendar: Reset Event Cache`, then reopen the calendar. If the problem remains, report it at [tjmisko/obsidian-keyboard-calendar](https://github.com/tjmisko/obsidian-keyboard-calendar/issues).
 
+If the calendar is blank or fails to render—especially on mobile—reproduce the problem and then run `Keyboard Calendar: Show Diagnostic Report` from the command palette. Tap **Copy report** and review the text before sharing it. The bounded log survives plugin and app reloads when WebView storage is available. It records plugin/runtime versions, device and viewport information, calendar lifecycle checkpoints, element dimensions and computed layout styles, event counts, and errors. It intentionally does not record note contents, event titles, configured folder paths, or event/source IDs, although an unexpected error message can contain additional context.
+
+Use **Clear saved log** in the report dialog before reproducing a problem when you want a short, clean trace.
+
 Before upgrading an older installation, read [Migration and rollback](migration.md) and confirm that plugin data and workspace layout are backed up.

@@ -13,6 +13,10 @@ export const CALENDAR_COMMAND_METADATA = [
     { id: "keyboard-calendar-reset", name: "Reset Event Cache" },
     { id: "keyboard-calendar-open", name: "Open Calendar" },
     { id: "keyboard-calendar-open-day", name: "Open Day Calendar" },
+    {
+        id: "keyboard-calendar-diagnostics",
+        name: "Show Diagnostic Report",
+    },
 ] as const;
 
 export type CalendarCommandId =

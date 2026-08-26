@@ -1,4 +1,12 @@
-import { Command, Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import {
+    apiVersion,
+    Command,
+    Notice,
+    Platform,
+    Plugin,
+    TFile,
+    WorkspaceLeaf,
+} from "obsidian";
 import { CalendarView, KEYBOARD_CALENDAR_VIEW_TYPE } from "./ui/view";
 import { DayCalendarView } from "./ui/DayCalendarView";
 import { dateEndpointsToFrontmatter } from "./ui/interop";
@@ -38,8 +46,11 @@ import {
 import { LegacyPrimaryCompatibilityView } from "./ui/LegacyPrimaryCompatibilityView";
 import type { CalendarEventClipboard } from "./ui/event_clipboard";
 import { activateDayCalendarSidebar } from "./ui/day_sidebar";
+import { DiagnosticLogger, getBrowserDiagnosticStorage } from "./diagnostics";
+import { DiagnosticReportModal } from "./ui/diagnostic_report";
 
 export default class FullCalendarPlugin extends Plugin {
+    readonly diagnostics = new DiagnosticLogger(getBrowserDiagnosticStorage());
     settings: FullCalendarSettings = DEFAULT_SETTINGS;
     private persistedSettings: unknown = {};
     private runtimeSettingsBaseline: FullCalendarSettings =
@@ -60,6 +71,113 @@ export default class FullCalendarPlugin extends Plugin {
 
     eventNoteEditor: EventNoteEditor | null = null;
     eventClipboard: CalendarEventClipboard | null = null;
+
+    private getDiagnosticContext(): Record<string, unknown> {
+        let cacheSummary: Record<string, unknown>;
+        try {
+            const sources = this.cache.getAllEvents();
+            cacheSummary = {
+                initialized: this.cache.initialized,
+                sourceCount: sources.length,
+                eventCount: sources.reduce(
+                    (total, source) => total + source.events.length,
+                    0
+                ),
+            };
+        } catch (error) {
+            cacheSummary = {
+                initialized: this.cache.initialized,
+                summaryError: error,
+            };
+        }
+
+        let timezone: string | null = null;
+        try {
+            timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+        } catch (_error) {}
+
+        const knownBodyClasses = [
+            "is-mobile",
+            "is-phone",
+            "is-tablet",
+            "theme-dark",
+            "theme-light",
+        ];
+        return {
+            plugin: {
+                id: this.manifest.id,
+                version: this.manifest.version,
+            },
+            obsidianApiVersion: apiVersion,
+            platform: {
+                isDesktop: Platform.isDesktop,
+                isMobile: Platform.isMobile,
+                isDesktopApp: Platform.isDesktopApp,
+                isMobileApp: Platform.isMobileApp,
+                isIosApp: Platform.isIosApp,
+                isAndroidApp: Platform.isAndroidApp,
+                isMacOS: Platform.isMacOS,
+            },
+            environment: {
+                userAgent:
+                    typeof navigator === "undefined"
+                        ? null
+                        : navigator.userAgent,
+                language:
+                    typeof navigator === "undefined"
+                        ? null
+                        : navigator.language,
+                timezone,
+                viewport:
+                    typeof window === "undefined"
+                        ? null
+                        : {
+                              width: window.innerWidth,
+                              height: window.innerHeight,
+                              devicePixelRatio: window.devicePixelRatio,
+                              screenWidth: window.screen?.width || null,
+                              screenHeight: window.screen?.height || null,
+                              visualViewport: window.visualViewport
+                                  ? {
+                                        width: window.visualViewport.width,
+                                        height: window.visualViewport.height,
+                                        scale: window.visualViewport.scale,
+                                    }
+                                  : null,
+                          },
+                bodyClasses:
+                    typeof document === "undefined"
+                        ? []
+                        : knownBodyClasses.filter((className) =>
+                              document.body?.classList.contains(className)
+                          ),
+            },
+            settings: {
+                loaded: this.settingsLoaded,
+                sourceCount: this.settings.calendarSources.length,
+                initialView: this.settings.initialView,
+                firstDay: this.settings.firstDay,
+                timeFormat24h: this.settings.timeFormat24h,
+                ghostTagCount: this.settings.ghostEventTags.length,
+                tagColorRuleCount: this.settings.eventTagColors.length,
+            },
+            cache: cacheSummary,
+        };
+    }
+
+    showDiagnosticReport(): void {
+        this.diagnostics.info("diagnostics.report.opened", {
+            priorEntryCount: this.diagnostics.entryCount,
+        });
+        new DiagnosticReportModal(this.app, {
+            getReport: () =>
+                this.diagnostics.createReport(this.getDiagnosticContext()),
+            clear: () => {
+                this.diagnostics.clear();
+                this.diagnostics.info("diagnostics.log.cleared");
+            },
+        }).open();
+    }
 
     async createTimedEventNote(
         partialEvent: Partial<OFCEvent>,
@@ -106,38 +224,65 @@ export default class FullCalendarPlugin extends Plugin {
     }
 
     async activateView() {
+        const startedAt = Date.now();
         const leaves = this.app.workspace.getLeavesOfType(
             KEYBOARD_CALENDAR_VIEW_TYPE
         );
-        let leaf: WorkspaceLeaf;
-        if (leaves.length === 0) {
-            leaf = this.app.workspace.getLeaf("tab");
-            await leaf.setViewState({
-                type: KEYBOARD_CALENDAR_VIEW_TYPE,
-                active: true,
-            });
-        } else {
-            leaf = leaves[0];
+        this.diagnostics.info("primary-view.activation.started", {
+            existingLeafCount: leaves.length,
+        });
+        try {
+            let leaf: WorkspaceLeaf;
+            if (leaves.length === 0) {
+                leaf = this.app.workspace.getLeaf("tab");
+                await leaf.setViewState({
+                    type: KEYBOARD_CALENDAR_VIEW_TYPE,
+                    active: true,
+                });
+            } else {
+                leaf = leaves[0];
+                this.app.workspace.revealLeaf(leaf);
+                await (leaf.view as CalendarView).onOpen();
+            }
             this.app.workspace.revealLeaf(leaf);
-            await (leaf.view as CalendarView).onOpen();
+            this.diagnostics.info("primary-view.activation.completed", {
+                durationMs: Date.now() - startedAt,
+            });
+        } catch (error) {
+            this.diagnostics.error("primary-view.activation.failed", error, {
+                durationMs: Date.now() - startedAt,
+                existingLeafCount: leaves.length,
+            });
+            throw error;
         }
-        this.app.workspace.revealLeaf(leaf);
     }
 
     async activateDayView(date: Date = new Date()): Promise<void> {
-        await activateDayCalendarSidebar(date, {
-            getExistingLeaves: () =>
-                this.app.workspace.getLeavesOfType(DAY_CALENDAR_VIEW_TYPE),
-            getRightLeaf: () => this.app.workspace.getRightLeaf(false),
-            setDayView: (leaf) =>
-                leaf.setViewState({
-                    type: DAY_CALENDAR_VIEW_TYPE,
-                    active: true,
-                }),
-            getDayView: (leaf) =>
-                leaf.view instanceof DayCalendarView ? leaf.view : null,
-            revealLeaf: (leaf) => this.app.workspace.revealLeaf(leaf),
-        });
+        const startedAt = Date.now();
+        this.diagnostics.info("day-view.activation.started");
+        try {
+            await activateDayCalendarSidebar(date, {
+                getExistingLeaves: () =>
+                    this.app.workspace.getLeavesOfType(DAY_CALENDAR_VIEW_TYPE),
+                getRightLeaf: () => this.app.workspace.getRightLeaf(false),
+                setDayView: (leaf) =>
+                    leaf.setViewState({
+                        type: DAY_CALENDAR_VIEW_TYPE,
+                        active: true,
+                    }),
+                getDayView: (leaf) =>
+                    leaf.view instanceof DayCalendarView ? leaf.view : null,
+                revealLeaf: (leaf) => this.app.workspace.revealLeaf(leaf),
+            });
+            this.diagnostics.info("day-view.activation.completed", {
+                durationMs: Date.now() - startedAt,
+            });
+        } catch (error) {
+            this.diagnostics.error("day-view.activation.failed", error, {
+                durationMs: Date.now() - startedAt,
+            });
+            throw error;
+        }
     }
 
     private configureLegacyViewMigrations(): void {
@@ -203,6 +348,10 @@ export default class FullCalendarPlugin extends Plugin {
     }
 
     async onload() {
+        this.diagnostics.info(
+            "plugin.onload.started",
+            this.getDiagnosticContext()
+        );
         this.configureLegacyViewMigrations();
         // Register the active views and decoder-only legacy views before
         // the first await so restored workspaces never encounter an unknown
@@ -234,11 +383,16 @@ export default class FullCalendarPlugin extends Plugin {
                     void this.requestLegacyViewMigrations();
                 })
         );
+        this.diagnostics.info("plugin.views.registered");
 
-        await this.loadSettings((settings) =>
-            this.cache.reset(settings.calendarSources)
-        );
+        await this.loadSettings((settings) => {
+            this.cache.reset(settings.calendarSources);
+        });
         this.settingsLoaded = true;
+        this.diagnostics.info("plugin.settings.ready", {
+            sourceCount: this.settings.calendarSources.length,
+            initialView: this.settings.initialView,
+        });
         this.app.workspace.onLayoutReady(() => {
             void this.requestLegacyViewMigrations();
         });
@@ -340,6 +494,9 @@ export default class FullCalendarPlugin extends Plugin {
                         case "keyboard-calendar-open-day":
                             void this.activateDayView();
                             return;
+                        case "keyboard-calendar-diagnostics":
+                            this.showDiagnosticReport();
+                            return;
                     }
                 },
             })
@@ -349,9 +506,13 @@ export default class FullCalendarPlugin extends Plugin {
             display: "Keyboard Calendar",
             defaultMod: true,
         });
+        this.diagnostics.info("plugin.onload.completed", {
+            persistence: this.diagnostics.persistence,
+        });
     }
 
     onunload() {
+        this.diagnostics.info("plugin.unload.started");
         this.eventNoteEditor = null;
         this.eventClipboard = null;
         this.app.workspace.detachLeavesOfType(KEYBOARD_CALENDAR_VIEW_TYPE);
@@ -361,20 +522,33 @@ export default class FullCalendarPlugin extends Plugin {
     async loadSettings(
         initializeRuntime?: (settings: FullCalendarSettings) => void
     ) {
-        await loadMigratedSettingsBeforeRuntime(
-            () => this.loadData(),
-            (settings) => this.saveData(settings),
-            (settings) => {
-                this.settings = settings;
-                this.persistedSettings = capturePersistedSettings(settings);
-                this.runtimeSettingsBaseline = captureRuntimeSettingsBaseline(
-                    this.settings
-                );
-                initializeRuntime?.(this.settings);
-            },
-            console.debug,
-            (message: string) => new Notice(message)
-        );
+        const startedAt = Date.now();
+        this.diagnostics.info("settings.load.started");
+        try {
+            await loadMigratedSettingsBeforeRuntime(
+                () => this.loadData(),
+                (settings) => this.saveData(settings),
+                (settings) => {
+                    this.settings = settings;
+                    this.persistedSettings = capturePersistedSettings(settings);
+                    this.runtimeSettingsBaseline =
+                        captureRuntimeSettingsBaseline(this.settings);
+                    initializeRuntime?.(this.settings);
+                },
+                console.debug,
+                (message: string) => new Notice(message)
+            );
+            this.diagnostics.info("settings.load.completed", {
+                durationMs: Date.now() - startedAt,
+                sourceCount: this.settings.calendarSources.length,
+                initialView: this.settings.initialView,
+            });
+        } catch (error) {
+            this.diagnostics.error("settings.load.failed", error, {
+                durationMs: Date.now() - startedAt,
+            });
+            throw error;
+        }
     }
 
     private async persistLegacySidebarMigrationVersion(version: number) {

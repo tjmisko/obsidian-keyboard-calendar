@@ -3,6 +3,7 @@
  */
 import {
     Calendar,
+    CalendarOptions,
     EventApi,
     EventClickArg,
     EventHoveringArg,
@@ -57,6 +58,7 @@ interface ExtraRenderProps {
     openDailyNote?: (date: Date) => Promise<void>;
     datesSet?: () => void;
     eventsSet?: () => void;
+    diagnostic?: (event: string, details: unknown) => void;
     variant?: CalendarVariant;
     isMobile?: boolean;
 }
@@ -92,6 +94,267 @@ export const formatDateLabel = (date: Date): string =>
 
 /** Give a touch gesture time to become a scroll before selection or dragging. */
 export const TOUCH_LONG_PRESS_DELAY_MS = 400;
+
+const roundLayoutNumber = (value: unknown): number | null =>
+    typeof value === "number" && Number.isFinite(value)
+        ? Math.round(value * 100) / 100
+        : null;
+
+const toIsoString = (value: unknown): string | null =>
+    value instanceof Date && !Number.isNaN(value.getTime())
+        ? value.toISOString()
+        : null;
+
+const summarizeElement = (
+    element: HTMLElement | null
+): Record<string, unknown> => {
+    if (!element) {
+        return { present: false };
+    }
+
+    let rect: DOMRect | null = null;
+    try {
+        rect = element.getBoundingClientRect?.() || null;
+    } catch (_error) {}
+
+    let style: CSSStyleDeclaration | null = null;
+    try {
+        style =
+            element.ownerDocument?.defaultView?.getComputedStyle(element) ||
+            null;
+    } catch (_error) {}
+
+    let classes: string[] = [];
+    try {
+        classes = Array.from(element.classList || []).slice(0, 20);
+    } catch (_error) {}
+
+    return {
+        present: true,
+        tag: element.tagName?.toLowerCase() || null,
+        classes,
+        rect: rect
+            ? {
+                  x: roundLayoutNumber(rect.x),
+                  y: roundLayoutNumber(rect.y),
+                  width: roundLayoutNumber(rect.width),
+                  height: roundLayoutNumber(rect.height),
+              }
+            : null,
+        client: {
+            width: roundLayoutNumber(element.clientWidth),
+            height: roundLayoutNumber(element.clientHeight),
+        },
+        scroll: {
+            width: roundLayoutNumber(element.scrollWidth),
+            height: roundLayoutNumber(element.scrollHeight),
+        },
+        style: style
+            ? {
+                  display: style.display,
+                  visibility: style.visibility,
+                  position: style.position,
+                  width: style.width,
+                  height: style.height,
+                  minWidth: style.minWidth,
+                  minHeight: style.minHeight,
+                  overflow: style.overflow,
+                  overflowX: style.overflowX,
+                  overflowY: style.overflowY,
+                  flex: style.flex,
+                  flexGrow: style.flexGrow,
+              }
+            : null,
+    };
+};
+
+const CALENDAR_DIAGNOSTIC_SELECTORS = {
+    calendar: ".fc",
+    headerToolbar: ".fc-header-toolbar",
+    footerToolbar: ".fc-footer-toolbar",
+    viewHarness: ".fc-view-harness",
+    activeViewHarness: ".fc-view-harness-active",
+    timeGridView: ".fc-timegrid",
+    scrollGrid: ".fc-scrollgrid",
+    timeGridBody: ".fc-timegrid-body",
+    timeGridSlots: ".fc-timegrid-slots",
+    timeGridColumns: ".fc-timegrid-cols",
+    scrollerHarness: ".fc-scroller-harness",
+    scroller: ".fc-scroller",
+} as const;
+
+/** Capture layout facts without event titles, note paths, or DOM text. */
+export const collectCalendarRenderDiagnostics = (
+    containerEl: HTMLElement,
+    calendar?: Calendar | null
+): Record<string, unknown> => {
+    const query = (selector: string): HTMLElement | null => {
+        try {
+            return typeof containerEl.querySelector === "function"
+                ? containerEl.querySelector<HTMLElement>(selector)
+                : null;
+        } catch (_error) {
+            return null;
+        }
+    };
+    const count = (selector: string): number | null => {
+        try {
+            return typeof containerEl.querySelectorAll === "function"
+                ? containerEl.querySelectorAll(selector).length
+                : null;
+        } catch (_error) {
+            return null;
+        }
+    };
+
+    const elements: Record<string, unknown> = {};
+    for (const [name, selector] of Object.entries(
+        CALENDAR_DIAGNOSTIC_SELECTORS
+    )) {
+        elements[name] = {
+            count: count(selector),
+            first: summarizeElement(query(selector)),
+        };
+    }
+
+    const ancestors: Record<string, unknown>[] = [];
+    let ancestor = containerEl.parentElement;
+    for (let depth = 0; ancestor && depth < 4; depth += 1) {
+        ancestors.push(summarizeElement(ancestor));
+        ancestor = ancestor.parentElement;
+    }
+
+    const calendarApi = calendar as
+        | (Calendar & {
+              getEvents?: () => unknown[];
+              getEventSources?: () => unknown[];
+          })
+        | null
+        | undefined;
+    let calendarState: Record<string, unknown> | null = null;
+    if (calendarApi) {
+        try {
+            const view = calendarApi.view;
+            calendarState = {
+                viewType: view?.type || null,
+                activeStart: toIsoString(view?.activeStart),
+                activeEnd: toIsoString(view?.activeEnd),
+                currentDate:
+                    typeof calendarApi.getDate === "function"
+                        ? toIsoString(calendarApi.getDate())
+                        : null,
+                eventCount:
+                    typeof calendarApi.getEvents === "function"
+                        ? calendarApi.getEvents().length
+                        : null,
+                eventSourceCount:
+                    typeof calendarApi.getEventSources === "function"
+                        ? calendarApi.getEventSources().length
+                        : null,
+            };
+        } catch (error) {
+            calendarState = { readError: error };
+        }
+    }
+
+    const calendarWindow = containerEl.ownerDocument?.defaultView;
+    const visualViewport = calendarWindow?.visualViewport;
+    return {
+        connected: containerEl.isConnected ?? null,
+        documentVisibility: containerEl.ownerDocument?.visibilityState || null,
+        viewport: calendarWindow
+            ? {
+                  innerWidth: roundLayoutNumber(calendarWindow.innerWidth),
+                  innerHeight: roundLayoutNumber(calendarWindow.innerHeight),
+                  devicePixelRatio: roundLayoutNumber(
+                      calendarWindow.devicePixelRatio
+                  ),
+                  orientationType:
+                      calendarWindow.screen?.orientation?.type || null,
+                  orientationAngle:
+                      calendarWindow.screen?.orientation?.angle ?? null,
+                  visualViewport: visualViewport
+                      ? {
+                            width: roundLayoutNumber(visualViewport.width),
+                            height: roundLayoutNumber(visualViewport.height),
+                            scale: roundLayoutNumber(visualViewport.scale),
+                            offsetTop: roundLayoutNumber(
+                                visualViewport.offsetTop
+                            ),
+                            offsetLeft: roundLayoutNumber(
+                                visualViewport.offsetLeft
+                            ),
+                        }
+                      : null,
+              }
+            : null,
+        calendarState,
+        container: summarizeElement(containerEl),
+        ancestors,
+        elements,
+    };
+};
+
+const emitCalendarDiagnostic = (
+    diagnostic: ExtraRenderProps["diagnostic"],
+    event: string,
+    details: unknown
+): void => {
+    try {
+        diagnostic?.(event, details);
+    } catch (_error) {
+        // Diagnostics must not be capable of interrupting FullCalendar.
+    }
+};
+
+const scheduleCalendarLayoutDiagnostics = (
+    containerEl: HTMLElement,
+    calendar: Calendar,
+    diagnostic: ExtraRenderProps["diagnostic"]
+): void => {
+    if (!diagnostic) {
+        return;
+    }
+    const calendarWindow = containerEl.ownerDocument?.defaultView;
+    if (!calendarWindow) {
+        return;
+    }
+
+    try {
+        calendarWindow.requestAnimationFrame(() => {
+            emitCalendarDiagnostic(
+                diagnostic,
+                "layout.animation-frame-1",
+                collectCalendarRenderDiagnostics(containerEl, calendar)
+            );
+            calendarWindow.requestAnimationFrame(() => {
+                emitCalendarDiagnostic(
+                    diagnostic,
+                    "layout.animation-frame-2",
+                    collectCalendarRenderDiagnostics(containerEl, calendar)
+                );
+            });
+        });
+        calendarWindow.setTimeout(() => {
+            emitCalendarDiagnostic(
+                diagnostic,
+                "layout.after-250ms",
+                collectCalendarRenderDiagnostics(containerEl, calendar)
+            );
+        }, 250);
+        calendarWindow.setTimeout(() => {
+            emitCalendarDiagnostic(
+                diagnostic,
+                "layout.after-1000ms",
+                collectCalendarRenderDiagnostics(containerEl, calendar)
+            );
+        }, 1_000);
+    } catch (error) {
+        emitCalendarDiagnostic(diagnostic, "layout.schedule-error", {
+            error,
+        });
+    }
+};
 
 export const scrollCalendarDateIntoView = (
     containerEl: HTMLElement,
@@ -201,6 +464,7 @@ export function renderCalendar(
         openDailyNote,
         ghostEventTags,
     } = settings || {};
+    const diagnostic = settings?.diagnostic;
     const isDaySidebar = settings?.variant === "day-sidebar";
     const isMobile = settings?.isMobile === true;
     const modifyEventCallback =
@@ -220,7 +484,22 @@ export function renderCalendar(
             }
         });
 
-    const cal = new Calendar(containerEl, {
+    emitCalendarDiagnostic(diagnostic, "construct.start", {
+        variant: settings?.variant || "primary",
+        isMobile,
+        requestedInitialView: settings?.initialView || null,
+        effectiveInitialView: isDaySidebar
+            ? "timeGridDay"
+            : settings?.initialView || "timeGridWeek",
+        sourceCount: eventSources.length,
+        inputEventCount: eventSources.reduce(
+            (total, source) => total + source.events.length,
+            0
+        ),
+        layout: collectCalendarRenderDiagnostics(containerEl),
+    });
+
+    const calendarOptions: CalendarOptions = {
         plugins: [
             ...(isDaySidebar ? [] : [dayGridPlugin]),
             timeGridPlugin,
@@ -281,8 +560,24 @@ export function renderCalendar(
             }),
         },
         firstDay: settings?.firstDay,
-        datesSet: settings?.datesSet,
-        eventsSet: settings?.eventsSet,
+        datesSet: diagnostic
+            ? (info) => {
+                  emitCalendarDiagnostic(diagnostic, "dates.set", {
+                      viewType: info.view.type,
+                      start: info.start,
+                      end: info.end,
+                  });
+                  settings?.datesSet?.();
+              }
+            : settings?.datesSet,
+        eventsSet: diagnostic
+            ? (events) => {
+                  emitCalendarDiagnostic(diagnostic, "events.set", {
+                      eventCount: events.length,
+                  });
+                  settings?.eventsSet?.();
+              }
+            : settings?.eventsSet,
         slotLabelContent: ({ date }) => formatTimeGridSlotLabel(date),
         slotLabelClassNames: ({ date }) => {
             const minutes = date.getMinutes();
@@ -307,7 +602,9 @@ export function renderCalendar(
 
             const weekday = header.createSpan({
                 cls: "ofc-day-header-weekday",
-                text: date.toLocaleDateString(undefined, { weekday: "long" }),
+                text: date.toLocaleDateString(undefined, {
+                    weekday: "long",
+                }),
             });
             if (!isDaySidebar) {
                 weekday.setAttribute("aria-hidden", "true");
@@ -445,7 +742,33 @@ export function renderCalendar(
         longPressDelay: TOUCH_LONG_PRESS_DELAY_MS,
         selectLongPressDelay: TOUCH_LONG_PRESS_DELAY_MS,
         eventLongPressDelay: TOUCH_LONG_PRESS_DELAY_MS,
+    };
+
+    let cal: Calendar;
+    try {
+        cal = new Calendar(containerEl, calendarOptions);
+    } catch (error) {
+        emitCalendarDiagnostic(diagnostic, "construct.error", { error });
+        throw error;
+    }
+
+    emitCalendarDiagnostic(diagnostic, "construct.complete", {
+        layout: collectCalendarRenderDiagnostics(containerEl, cal),
     });
-    cal.render();
+    try {
+        cal.render();
+    } catch (error) {
+        emitCalendarDiagnostic(diagnostic, "render.error", {
+            error,
+            layout: collectCalendarRenderDiagnostics(containerEl, cal),
+        });
+        throw error;
+    }
+    emitCalendarDiagnostic(
+        diagnostic,
+        "render.complete",
+        collectCalendarRenderDiagnostics(containerEl, cal)
+    );
+    scheduleCalendarLayoutDiagnostics(containerEl, cal, diagnostic);
     return cal;
 }

@@ -17,13 +17,13 @@ sha256sum docs/lean-esbuild-metafile.json
 
 | Artifact | Decimal bytes |
 | --- | ---: |
-| `main.js` | 1,231,136 |
+| `main.js` | 1,259,572 |
 | `styles.css` | 43,723 |
 | generated `main.css` | 43,723 |
 | `package-lock.json` | 324,154 |
-| `docs/lean-esbuild-metafile.json` | 53,939 |
+| `docs/lean-esbuild-metafile.json` | 54,466 |
 
-The metafile SHA-256 is `bbc9c55e4b60cd51dfa6d59c8126f442a5d6cae7778fe276519836ce28d8d28e`. It contains 108 inputs and two outputs. Normal module resolution keeps `rrule`'s nested `tslib` distinct from the root package, and collision-checked normalization fails instead of overwriting two paths. The JavaScript bundle is below the rebaselined 1.30 MB target.
+The metafile SHA-256 is `bf1e2eb1ea076170a4670a29dcf351f38750829cad90d7382157dc64b43bf45b`. It contains 110 inputs and two outputs. Normal module resolution keeps `rrule`'s nested `tslib` distinct from the root package, and collision-checked normalization fails instead of overwriting two paths. The JavaScript bundle is below the rebaselined 1.30 MB target.
 
 ## Direct runtime dependencies
 

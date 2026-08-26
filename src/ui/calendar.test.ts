@@ -23,6 +23,41 @@ import {
 } from "./calendar";
 
 describe("calendar renderer", () => {
+    it("emits privacy-safe construction and render checkpoints", () => {
+        const diagnostic = jest.fn();
+        renderCalendar(
+            {} as HTMLElement,
+            [
+                {
+                    id: "private-source-id",
+                    events: [
+                        {
+                            id: "private-event-id",
+                            title: "Private event title",
+                            start: "2026-08-26T09:00:00",
+                        },
+                    ],
+                },
+            ],
+            { diagnostic, isMobile: true }
+        );
+
+        expect(diagnostic.mock.calls.map(([event]) => event)).toEqual([
+            "construct.start",
+            "construct.complete",
+            "render.complete",
+        ]);
+        expect(diagnostic.mock.calls[0][1]).toMatchObject({
+            isMobile: true,
+            sourceCount: 1,
+            inputEventCount: 1,
+        });
+        const serialized = JSON.stringify(diagnostic.mock.calls);
+        expect(serialized).not.toContain("Private event title");
+        expect(serialized).not.toContain("private-source-id");
+        expect(serialized).not.toContain("private-event-id");
+    });
+
     it("passes materialized events unchanged to the retained view plugins", () => {
         Object.defineProperty(global, "window", {
             configurable: true,

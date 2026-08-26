@@ -2,6 +2,7 @@ import "./overrides.css";
 import { ItemView, Menu, Notice, Platform, WorkspaceLeaf } from "obsidian";
 import { Calendar, EventInput } from "@fullcalendar/core";
 import {
+    collectCalendarRenderDiagnostics,
     formatDateLabel,
     getAdjacentCalendarView,
     LocalMaterializedEventSource,
@@ -490,17 +491,95 @@ export class CalendarView extends ItemView {
         return tagColor ? { ...input, ...getCalendarColors(tagColor) } : input;
     }
 
-    async onOpen() {
+    async onOpen(): Promise<void> {
+        const startedAt = Date.now();
+        this.plugin.diagnostics.info("calendar-view.open.started", {
+            surface: this.surface,
+        });
+        try {
+            await this.openCalendar();
+            this.plugin.diagnostics.info("calendar-view.open.completed", {
+                surface: this.surface,
+                durationMs: Date.now() - startedAt,
+                layout: this.calendarEl
+                    ? collectCalendarRenderDiagnostics(
+                          this.calendarEl,
+                          this.fullCalendarView
+                      )
+                    : null,
+            });
+        } catch (error) {
+            this.plugin.diagnostics.error("calendar-view.open.failed", error, {
+                surface: this.surface,
+                durationMs: Date.now() - startedAt,
+                layout: this.calendarEl
+                    ? collectCalendarRenderDiagnostics(
+                          this.calendarEl,
+                          this.fullCalendarView
+                      )
+                    : null,
+            });
+            this.renderDiagnosticFailure();
+            new Notice(
+                "Keyboard Calendar could not render. Open its diagnostic report from the command palette."
+            );
+        }
+    }
+
+    private renderDiagnosticFailure(): void {
+        this.contentEl.empty();
+        const failure = this.contentEl.createDiv({
+            cls: "keyboard-calendar-render-failure",
+        });
+        failure.createEl("h2", { text: "Calendar could not render" });
+        failure.createEl("p", {
+            text: "A diagnostic report was saved without note contents or event titles.",
+        });
+        const actions = failure.createDiv();
+        const reportButton = actions.createEl("button", {
+            text: "Show diagnostic report",
+        });
+        reportButton.addEventListener("click", () =>
+            this.plugin.showDiagnosticReport()
+        );
+        const retryButton = actions.createEl("button", { text: "Retry" });
+        retryButton.addEventListener("click", () => {
+            void this.onOpen();
+        });
+    }
+
+    private async openCalendar(): Promise<void> {
         await this.plugin.loadSettings();
+        this.plugin.diagnostics.info("calendar-view.settings.loaded", {
+            surface: this.surface,
+            sourceCount: this.plugin.settings.calendarSources.length,
+            initialView: this.plugin.settings.initialView,
+        });
         if (!this.plugin.cache) {
+            this.plugin.diagnostics.warning("calendar-view.cache.missing", {
+                surface: this.surface,
+            });
             new Notice("Keyboard Calendar event cache not loaded.");
             return;
         }
+        const cacheStartedAt = Date.now();
+        const cacheWasInitialized = this.plugin.cache.initialized;
         if (!this.plugin.cache.initialized) {
             await this.plugin.cache.populate();
         } else {
             await this.plugin.cache.reconcileFromDisk();
         }
+        const cachedSources = this.plugin.cache.getAllEvents();
+        this.plugin.diagnostics.info("calendar-view.cache.ready", {
+            surface: this.surface,
+            operation: cacheWasInitialized ? "reconcile" : "populate",
+            durationMs: Date.now() - cacheStartedAt,
+            sourceCount: cachedSources.length,
+            eventCount: cachedSources.reduce(
+                (total, source) => total + source.events.length,
+                0
+            ),
+        });
 
         const container = this.contentEl;
         container.empty();
@@ -514,8 +593,15 @@ export class CalendarView extends ItemView {
         });
         this.calendarEl = calendarEl;
         this.timeGridZoom.applyTo(calendarEl);
+        this.plugin.diagnostics.info("calendar-view.container.created", {
+            surface: this.surface,
+            layout: collectCalendarRenderDiagnostics(calendarEl),
+        });
 
         if (this.plugin.settings.calendarSources.length === 0) {
+            this.plugin.diagnostics.info("calendar-view.onboarding.rendered", {
+                surface: this.surface,
+            });
             renderOnboarding(this.app, this.plugin, calendarEl);
             return;
         }
@@ -537,6 +623,14 @@ export class CalendarView extends ItemView {
             : null;
 
         const sources: LocalMaterializedEventSource[] = this.translateSources();
+        this.plugin.diagnostics.info("calendar-view.sources.translated", {
+            surface: this.surface,
+            sourceCount: sources.length,
+            eventCount: sources.reduce(
+                (total, source) => total + source.events.length,
+                0
+            ),
+        });
 
         if (this.fullCalendarView) {
             this.cancelWeekAnchor();
@@ -689,6 +783,11 @@ export class CalendarView extends ItemView {
                     this.eventNavigator?.syncToView();
                 }
             },
+            diagnostic: (event, details) =>
+                this.plugin.diagnostics.info(`fullcalendar.${event}`, {
+                    surface: this.surface,
+                    details,
+                }),
             ghostEventTags: () => this.plugin.settings.ghostEventTags,
             dailyNotePath: (date) => this.getDailyNotePath(date),
             openDailyNote: async (date) => {
@@ -882,21 +981,55 @@ export class CalendarView extends ItemView {
                 },
             });
         });
+        this.plugin.diagnostics.info("calendar-view.navigation.ready", {
+            surface: this.surface,
+            navigationMode: this.navigationMode,
+        });
     }
 
     onResize(): void {
         if (this.fullCalendarView) {
-            this.fullCalendarView.render();
-            if (this.navigationMode === "insert") {
-                this.cellNavigator?.renderSelection();
-            } else {
-                this.eventNavigator?.syncToView();
+            try {
+                this.plugin.diagnostics.info("calendar-view.resize.started", {
+                    surface: this.surface,
+                    layout: this.calendarEl
+                        ? collectCalendarRenderDiagnostics(
+                              this.calendarEl,
+                              this.fullCalendarView
+                          )
+                        : null,
+                });
+                this.fullCalendarView.render();
+                if (this.navigationMode === "insert") {
+                    this.cellNavigator?.renderSelection();
+                } else {
+                    this.eventNavigator?.syncToView();
+                }
+                this.scheduleWeekAnchor();
+                this.plugin.diagnostics.info("calendar-view.resize.completed", {
+                    surface: this.surface,
+                    layout: this.calendarEl
+                        ? collectCalendarRenderDiagnostics(
+                              this.calendarEl,
+                              this.fullCalendarView
+                          )
+                        : null,
+                });
+            } catch (error) {
+                this.plugin.diagnostics.error(
+                    "calendar-view.resize.failed",
+                    error,
+                    { surface: this.surface }
+                );
+                throw error;
             }
-            this.scheduleWeekAnchor();
         }
     }
 
     async onunload() {
+        this.plugin.diagnostics.info("calendar-view.unload.started", {
+            surface: this.surface,
+        });
         this.cancelWeekAnchor();
         this.deleteConfirmationModal?.close();
         this.deleteConfirmationModal = null;
@@ -915,5 +1048,8 @@ export class CalendarView extends ItemView {
             this.plugin.cache.off("update", this.callback);
             this.callback = null;
         }
+        this.plugin.diagnostics.info("calendar-view.unload.completed", {
+            surface: this.surface,
+        });
     }
 }

@@ -739,7 +739,7 @@
       "imports": []
     },
     "src/ui/calendar.ts": {
-      "bytes": 14552,
+      "bytes": 25395,
       "imports": [
         {
           "path": "node_modules/@fullcalendar/core/main.js",
@@ -1331,7 +1331,7 @@
       "imports": []
     },
     "src/plugin_registration.ts": {
-      "bytes": 1638,
+      "bytes": 1736,
       "imports": []
     },
     "src/ui/cell_navigation.ts": {
@@ -1421,7 +1421,7 @@
       "imports": []
     },
     "src/ui/view.ts": {
-      "bytes": 33582,
+      "bytes": 39164,
       "imports": [
         {
           "path": "src/ui/overrides.css",
@@ -1578,8 +1578,16 @@
       "bytes": 790,
       "imports": []
     },
+    "src/diagnostics.ts": {
+      "bytes": 11253,
+      "imports": []
+    },
+    "src/ui/diagnostic_report.ts": {
+      "bytes": 4005,
+      "imports": []
+    },
     "src/main.ts": {
-      "bytes": 15767,
+      "bytes": 22596,
       "imports": [
         {
           "path": "src/ui/view.ts",
@@ -1644,6 +1652,14 @@
         {
           "path": "src/ui/day_sidebar.ts",
           "kind": "import-statement"
+        },
+        {
+          "path": "src/diagnostics.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/diagnostic_report.ts",
+          "kind": "import-statement"
         }
       ]
     }
@@ -1667,13 +1683,13 @@
           "bytesInOutput": 27179
         },
         "src/main.ts": {
-          "bytesInOutput": 10864
+          "bytesInOutput": 16217
         },
         "src/ui/overrides.css": {
           "bytesInOutput": 0
         },
         "src/ui/view.ts": {
-          "bytesInOutput": 25988
+          "bytesInOutput": 30338
         },
         "node_modules/tslib/modules/index.js": {
           "bytesInOutput": 464
@@ -1811,7 +1827,7 @@
           "bytesInOutput": 1860
         },
         "src/ui/calendar.ts": {
-          "bytesInOutput": 9204
+          "bytesInOutput": 17688
         },
         "node_modules/zod/lib/index.mjs": {
           "bytesInOutput": 107688
@@ -1913,7 +1929,7 @@
           "bytesInOutput": 699
         },
         "src/plugin_registration.ts": {
-          "bytesInOutput": 1140
+          "bytesInOutput": 1225
         },
         "src/ui/cell_navigation.ts": {
           "bytesInOutput": 17644
@@ -1974,9 +1990,15 @@
         },
         "src/ui/day_sidebar.ts": {
           "bytesInOutput": 401
+        },
+        "src/diagnostics.ts": {
+          "bytesInOutput": 7181
+        },
+        "src/ui/diagnostic_report.ts": {
+          "bytesInOutput": 2928
         }
       },
-      "bytes": 1231136
+      "bytes": 1259572
     },
     "main.css": {
       "imports": [],

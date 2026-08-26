@@ -60,8 +60,8 @@ describe("plugin registration seams", () => {
     it("registers the stable open command through an injectable callback", () => {
         const register = jest.fn();
         registerCalendarCommands(register, (metadata) => metadata);
-        expect(CALENDAR_COMMAND_METADATA).toHaveLength(4);
-        expect(register).toHaveBeenCalledTimes(4);
+        expect(CALENDAR_COMMAND_METADATA).toHaveLength(5);
+        expect(register).toHaveBeenCalledTimes(5);
         expect(register).toHaveBeenCalledWith({
             id: "keyboard-calendar-open",
             name: "Open Calendar",
@@ -72,6 +72,10 @@ describe("plugin registration seams", () => {
         expect(register).toHaveBeenCalledWith({
             id: "keyboard-calendar-open-day",
             name: "Open Day Calendar",
+        });
+        expect(register).toHaveBeenCalledWith({
+            id: "keyboard-calendar-diagnostics",
+            name: "Show Diagnostic Report",
         });
     });
 
