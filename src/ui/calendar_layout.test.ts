@@ -2,6 +2,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 const stylesheet = readFileSync(join(__dirname, "overrides.css"), "utf8");
+const calendarViewSource = readFileSync(join(__dirname, "view.ts"), "utf8");
 const manifest = JSON.parse(
     readFileSync(join(__dirname, "../../manifest.json"), "utf8")
 ) as { isDesktopOnly?: boolean };
@@ -15,12 +16,32 @@ describe("calendar surface styles", () => {
         expect(stylesheet).not.toContain("max-width: 96rem");
     });
 
-    it("reserves Obsidian's phone navigation strip for usable grid height", () => {
-        const phoneRule = stylesheet.match(
-            /\.is-phone \.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\)\s*\{([^}]*)\}/
+    it("uses a definite flex host instead of a collapsible percentage height", () => {
+        const hostRule = stylesheet.match(
+            /\.ofc-calendar-view-content\s*\{([^}]*)\}/
+        )?.[1];
+        const rootRule = stylesheet.match(
+            /\.ofc-calendar-view-content > \.ofc-calendar-root\s*\{([^}]*)\}/
         )?.[1];
 
-        expect(phoneRule).toContain("height: calc(100% - 4rem)");
+        expect(calendarViewSource).toContain('"ofc-calendar-view-content"');
+        expect(hostRule).toContain("display: flex");
+        expect(hostRule).toContain("flex-direction: column");
+        expect(hostRule).toContain("min-height: 0");
+        expect(rootRule).toContain("flex: 1 1 0");
+        expect(rootRule).toContain("height: auto");
+    });
+
+    it("puts phone chrome clearance on the host while removing outer padding", () => {
+        const phoneRule = stylesheet.match(
+            /\.is-phone \.ofc-calendar-view-content-primary\s*\{([^}]*)\}/
+        )?.[1];
+
+        expect(phoneRule).toContain("box-sizing: border-box");
+        expect(phoneRule).toContain(
+            "padding: 0 0 calc(4rem + env(safe-area-inset-bottom, 0px))"
+        );
+        expect(stylesheet).not.toContain("height: calc(100% - 4rem)");
     });
 
     it("uses the calendar container to wrap narrow toolbars", () => {
@@ -31,6 +52,31 @@ describe("calendar surface styles", () => {
         );
         expect(stylesheet).toContain(".fc-toolbar.fc-footer-toolbar");
         expect(stylesheet).toContain("flex: 1 0 100%");
+    });
+
+    it("keeps the phone footer toolbar to one dense row", () => {
+        const toolbarRule = stylesheet.match(
+            /\.is-phone \.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\) \.fc-toolbar\.fc-footer-toolbar\s*\{([^}]*)\}/
+        )?.[1];
+
+        expect(toolbarRule).toContain("display: grid");
+        expect(toolbarRule).toContain(
+            "grid-template-columns: auto minmax(0, 1fr) auto"
+        );
+        expect(toolbarRule).toContain("margin-top: 0.25rem");
+    });
+
+    it("tightens phone grid labels without shrinking controls below two rem", () => {
+        const buttonRule = stylesheet.match(
+            /\.is-phone \.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\) \.fc-footer-toolbar \.fc-button\s*\{([^}]*)\}/
+        )?.[1];
+        const dayHeaderRule = stylesheet.match(
+            /\.is-phone \.fc \.ofc-day-header\s*\{([^}]*)\}/
+        )?.[1];
+
+        expect(buttonRule).toContain("min-height: 2rem");
+        expect(dayHeaderRule).toContain("min-height: 2.1rem");
+        expect(dayHeaderRule).toContain("gap: 0");
     });
 
     it("contains horizontal touch scrolling inside the calendar", () => {

@@ -166,6 +166,10 @@ describe("calendar renderer", () => {
             right: "dayGridMonth,timeGridWeek",
         });
         expect(options.initialView).toBe("timeGridWeek");
+        expect(options.views?.dayGridMonth?.titleFormat).toEqual({
+            year: "numeric",
+            month: "short",
+        });
     });
 
     it("renders the sidebar as one fixed day with compact navigation", () => {
@@ -192,6 +196,7 @@ describe("calendar renderer", () => {
         expect(options.views?.timeGridDay).toMatchObject({
             duration: { days: 1 },
         });
+        expect(options.views).not.toHaveProperty("dayGridMonth");
         expect(options.views).not.toHaveProperty("timeGridWeek");
         expect(
             (options.views?.timeGridDay?.titleFormat as any)?.({

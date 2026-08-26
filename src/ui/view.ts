@@ -583,6 +583,10 @@ export class CalendarView extends ItemView {
 
         const container = this.contentEl;
         container.empty();
+        container.addClass(
+            "ofc-calendar-view-content",
+            `ofc-calendar-view-content-${this.surface}`
+        );
         const calendarEl = container.createEl("div", {
             cls: [
                 "ofc-calendar-root",
@@ -1040,6 +1044,10 @@ export class CalendarView extends ItemView {
         this.modeChipEl?.remove();
         this.modeChipEl = null;
         this.calendarEl = null;
+        this.contentEl.removeClass(
+            "ofc-calendar-view-content",
+            `ofc-calendar-view-content-${this.surface}`
+        );
         if (this.fullCalendarView) {
             this.fullCalendarView.destroy();
             this.fullCalendarView = null;

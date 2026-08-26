@@ -1,3 +1,16 @@
+.ofc-calendar-view-content {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.ofc-calendar-view-content > .ofc-calendar-root {
+	flex: 1 1 0;
+	height: auto;
+	min-height: 0;
+}
+
 .ofc-calendar-root {
 	width: 100%;
 	min-width: 0;
@@ -43,11 +56,13 @@
 	--fc-non-business-color: var(--background-modifier-box-shadow);
 }
 
-/* Obsidian reserves a four-rem navigation strip below phone views. Keeping
- * FullCalendar out of that strip gives its view harness a definite height and
- * leaves the footer controls above the app chrome. */
-.is-phone .fc.ofc-calendar-root:not(.ofc-day-calendar-root) {
-	height: calc(100% - 4rem);
+/* Obsidian overlays its phone navigation on the bottom of the view. Put that
+ * clearance on the definite flex host rather than subtracting it from a
+ * percentage-height calendar, which can collapse to zero when the host is
+ * resized. Removing the other view padding returns scarce space to the grid. */
+.is-phone .ofc-calendar-view-content-primary {
+	box-sizing: border-box;
+	padding: 0 0 calc(4rem + env(safe-area-inset-bottom, 0px)) !important;
 }
 
 .fc .fc-scroller {
@@ -493,6 +508,63 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
+}
+
+/* A phone has room for these controls in one row. FullCalendar's generic
+ * narrow layout puts the title on a separate row, spending useful grid height
+ * without improving legibility. */
+.is-phone .fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-toolbar.fc-footer-toolbar {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 0.25rem;
+	margin-top: 0.25rem;
+}
+
+.is-phone .fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-footer-toolbar .fc-toolbar-chunk {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+
+.is-phone .fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-footer-toolbar .fc-toolbar-chunk:nth-child(2) {
+	order: 0;
+	flex: none;
+	justify-content: center;
+	overflow: hidden;
+}
+
+.is-phone .fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-footer-toolbar .fc-toolbar-title {
+	max-width: 100%;
+	font-size: 0.72rem !important;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.is-phone .fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-footer-toolbar .fc-button {
+	min-height: 2rem;
+	padding-inline: 0.4rem !important;
+	font-size: 0.64rem !important;
+}
+
+.is-phone .fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-footer-toolbar .fc-prev-button,
+.is-phone .fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-footer-toolbar .fc-next-button {
+	width: 2rem;
+	min-width: 2rem;
+}
+
+.is-phone .fc .ofc-day-header {
+	min-height: 2.1rem;
+	gap: 0;
+}
+
+.is-phone .fc .fc-daygrid .fc-daygrid-day-number {
+	padding: 0.25rem 0.35rem;
+}
+
+.is-phone .fc .fc-daygrid-dot-event {
+	margin-inline: 1px;
+	padding: 1px 3px;
 }
 
 .fc .fc-button {

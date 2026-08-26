@@ -541,6 +541,12 @@ export function renderCalendar(
                 : false,
 
         views: {
+            ...(!isDaySidebar &&
+                isMobile && {
+                    dayGridMonth: {
+                        titleFormat: { year: "numeric", month: "short" },
+                    },
+                }),
             timeGrid: {
                 allDaySlot: false,
                 displayEventTime: false,
