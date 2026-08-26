@@ -36,6 +36,20 @@ describe("calendar surface styles", () => {
 
         expect(rule).toContain("flex-wrap: nowrap");
         expect(rule).toContain("row-gap: 0");
+        expect(rule).toContain("margin-bottom: 0.125rem");
+    });
+
+    it("keeps the day date and weekday in a compact vertical group", () => {
+        const linkRule = stylesheet.match(
+            /\.fc\.ofc-day-calendar-root \.fc-col-header-cell-cushion\.ofc-daily-note-link\s*\{([^}]*)\}/
+        )?.[1];
+        const weekdayRule = stylesheet.match(
+            /\.fc\.ofc-day-calendar-root \.ofc-day-header\s*\{([^}]*)\}/
+        )?.[1];
+
+        expect(linkRule).toContain("padding-block: 0");
+        expect(weekdayRule).toContain("min-height: 1.5rem");
+        expect(weekdayRule).toContain("line-height: 1");
     });
 
     it("removes the toolbar card and hides the inactive mode chip", () => {

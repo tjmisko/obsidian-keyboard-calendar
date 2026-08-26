@@ -1,7 +1,7 @@
 {
   "inputs": {
     "src/ui/overrides.css": {
-      "bytes": 15265,
+      "bytes": 15301,
       "imports": []
     },
     "node_modules/tslib/tslib.js": {
@@ -1955,7 +1955,7 @@
       "imports": [],
       "inputs": {
         "src/ui/overrides.css": {
-          "bytesInOutput": 15011
+          "bytesInOutput": 15049
         },
         "node_modules/@fullcalendar/common/main.css": {
           "bytesInOutput": 16811
@@ -1967,7 +1967,7 @@
           "bytesInOutput": 6924
         }
       },
-      "bytes": 43115
+      "bytes": 43153
     }
   }
 }
