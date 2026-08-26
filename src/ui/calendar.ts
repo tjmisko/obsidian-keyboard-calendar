@@ -113,6 +113,61 @@ export const scrollCalendarDateIntoView = (
     return true;
 };
 
+/**
+ * FullCalendar can measure a zero-width harness when Obsidian mounts a mobile
+ * leaf while it is still hidden. Re-run its layout after the host is painted
+ * and whenever that host becomes visible or changes size.
+ */
+export const observeCalendarContainerSize = (
+    containerEl: HTMLElement,
+    updateSize: () => void
+): (() => void) => {
+    const calendarWindow = containerEl.ownerDocument.defaultView;
+    if (!calendarWindow) {
+        updateSize();
+        return () => undefined;
+    }
+
+    let animationFrame: number | null = null;
+    const requestUpdate = () => {
+        if (animationFrame !== null) {
+            return;
+        }
+        animationFrame = calendarWindow.requestAnimationFrame(() => {
+            animationFrame = null;
+            updateSize();
+        });
+    };
+    const ResizeObserverConstructor = (
+        calendarWindow as Window & {
+            ResizeObserver?: typeof ResizeObserver;
+        }
+    ).ResizeObserver;
+    const observer = ResizeObserverConstructor
+        ? new ResizeObserverConstructor((entries) => {
+              if (
+                  entries.some(
+                      ({ target, contentRect }) =>
+                          target === containerEl && contentRect.width > 0
+                  )
+              ) {
+                  requestUpdate();
+              }
+          })
+        : null;
+
+    observer?.observe(containerEl);
+    requestUpdate();
+
+    return () => {
+        observer?.disconnect();
+        if (animationFrame !== null) {
+            calendarWindow.cancelAnimationFrame(animationFrame);
+            animationFrame = null;
+        }
+    };
+};
+
 const COMPACT_MONTH_LABELS = [
     "Jan",
     "Feb",
@@ -252,6 +307,7 @@ export function renderCalendar(
                   right: "dayGridMonth,timeGridWeek",
               },
         footerToolbar: false,
+        height: "100%",
 
         views: {
             timeGrid: {

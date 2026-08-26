@@ -1,3 +1,13 @@
+.ofc-calendar-view-content {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.ofc-calendar-view-content > .ofc-calendar-root {
+	flex: 1 1 auto;
+}
+
 .ofc-calendar-root {
 	width: 100%;
 	min-width: 0;

@@ -5,6 +5,7 @@ import {
     formatDateLabel,
     getAdjacentCalendarView,
     LocalMaterializedEventSource,
+    observeCalendarContainerSize,
     renderCalendar,
     scrollCalendarDateIntoView,
 } from "./calendar";
@@ -99,6 +100,7 @@ export class CalendarView extends ItemView {
     private deleteConfirmationModal: EventDeleteConfirmationModal | null = null;
     private readonly timeGridZoom = new TimeGridZoom();
     private calendarEl: HTMLElement | null = null;
+    private stopCalendarResizeObservation: (() => void) | null = null;
     private weekAnchorAnimationFrame: number | null = null;
     private weekAnchorWindow: Window | null = null;
 
@@ -503,7 +505,10 @@ export class CalendarView extends ItemView {
         }
 
         const container = this.contentEl;
+        this.stopCalendarResizeObservation?.();
+        this.stopCalendarResizeObservation = null;
         container.empty();
+        container.addClass("ofc-calendar-view-content");
         const calendarEl = container.createEl("div", {
             cls: [
                 "ofc-calendar-root",
@@ -770,6 +775,10 @@ export class CalendarView extends ItemView {
                 menu.showAtMouseEvent(mouseEvent);
             },
         });
+        this.stopCalendarResizeObservation = observeCalendarContainerSize(
+            container,
+            () => this.onResize()
+        );
         this.cellNavigator = new CalendarCellNavigator(
             calendarEl,
             this.fullCalendarView,
@@ -891,10 +900,13 @@ export class CalendarView extends ItemView {
             } else {
                 this.eventNavigator?.syncToView();
             }
+            this.scheduleWeekAnchor();
         }
     }
 
     async onunload() {
+        this.stopCalendarResizeObservation?.();
+        this.stopCalendarResizeObservation = null;
         this.cancelWeekAnchor();
         this.deleteConfirmationModal?.close();
         this.deleteConfirmationModal = null;
@@ -905,6 +917,7 @@ export class CalendarView extends ItemView {
         this.modeChipEl?.remove();
         this.modeChipEl = null;
         this.calendarEl = null;
+        this.contentEl.removeClass("ofc-calendar-view-content");
         if (this.fullCalendarView) {
             this.fullCalendarView.destroy();
             this.fullCalendarView = null;

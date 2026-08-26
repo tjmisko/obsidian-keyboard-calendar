@@ -15,6 +15,20 @@ describe("calendar surface styles", () => {
         expect(stylesheet).not.toContain("max-width: 96rem");
     });
 
+    it("gives FullCalendar a flex host with usable mobile height", () => {
+        const hostRule = stylesheet.match(
+            /\.ofc-calendar-view-content\s*\{([^}]*)\}/
+        )?.[1];
+        const rootRule = stylesheet.match(
+            /\.ofc-calendar-view-content > \.ofc-calendar-root\s*\{([^}]*)\}/
+        )?.[1];
+
+        expect(hostRule).toContain("display: flex");
+        expect(hostRule).toContain("flex-direction: column");
+        expect(hostRule).toContain("min-height: 0");
+        expect(rootRule).toContain("flex: 1 1 auto");
+    });
+
     it("uses the calendar container to wrap narrow toolbars", () => {
         expect(stylesheet).toContain("container-type: inline-size");
         expect(stylesheet).toContain("@container (max-width: 40rem)");
