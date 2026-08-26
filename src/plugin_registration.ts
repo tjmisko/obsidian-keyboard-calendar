@@ -1,18 +1,18 @@
 import { Notice } from "obsidian";
 
-export const FULL_CALENDAR_VIEW_TYPE = "full-calendar-view";
+export const KEYBOARD_CALENDAR_VIEW_TYPE = "keyboard-calendar-view";
 export const DAY_CALENDAR_VIEW_TYPE = "keyboard-calendar-day-view";
 
 export const CALENDAR_VIEW_REGISTRATIONS = [
-    { type: FULL_CALENDAR_VIEW_TYPE, surface: "primary" },
+    { type: KEYBOARD_CALENDAR_VIEW_TYPE, surface: "primary" },
     { type: DAY_CALENDAR_VIEW_TYPE, surface: "day-sidebar" },
 ] as const;
 
 export const CALENDAR_COMMAND_METADATA = [
-    { id: "full-calendar-new-event", name: "New Event" },
-    { id: "full-calendar-reset", name: "Reset Event Cache" },
-    { id: "full-calendar-open", name: "Open Calendar" },
-    { id: "full-calendar-open-day", name: "Open Day Calendar" },
+    { id: "keyboard-calendar-new-event", name: "New Event" },
+    { id: "keyboard-calendar-reset", name: "Reset Event Cache" },
+    { id: "keyboard-calendar-open", name: "Open Calendar" },
+    { id: "keyboard-calendar-open-day", name: "Open Day Calendar" },
 ] as const;
 
 export type CalendarCommandId =

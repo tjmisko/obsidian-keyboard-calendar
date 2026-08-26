@@ -23,7 +23,7 @@ import { openFullNoteForEvent } from "./actions";
 import { UpdateViewCallback } from "src/core/EventCache";
 import {
     DAY_CALENDAR_VIEW_TYPE,
-    FULL_CALENDAR_VIEW_TYPE,
+    KEYBOARD_CALENDAR_VIEW_TYPE,
 } from "../plugin_registration";
 import {
     CalendarEventGrab,
@@ -50,7 +50,7 @@ import { refreshTimeGridLayout, TimeGridZoom } from "./calendar_zoom";
 
 export {
     DAY_CALENDAR_VIEW_TYPE,
-    FULL_CALENDAR_VIEW_TYPE,
+    KEYBOARD_CALENDAR_VIEW_TYPE,
 } from "../plugin_registration";
 
 type CalendarNavigationMode = "normal" | "insert" | "grab" | "scale";
@@ -386,7 +386,7 @@ export class CalendarView extends ItemView {
     getViewType() {
         return this.surface === "day-sidebar"
             ? DAY_CALENDAR_VIEW_TYPE
-            : FULL_CALENDAR_VIEW_TYPE;
+            : KEYBOARD_CALENDAR_VIEW_TYPE;
     }
 
     getDisplayText() {

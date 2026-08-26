@@ -2,14 +2,32 @@ import {
     CALENDAR_COMMAND_METADATA,
     CALENDAR_VIEW_REGISTRATIONS,
     DAY_CALENDAR_VIEW_TYPE,
-    FULL_CALENDAR_VIEW_TYPE,
+    KEYBOARD_CALENDAR_VIEW_TYPE,
     registerCalendarCommands,
     registerCalendarViews,
     reportEventNoteCreationFailure,
 } from "./plugin_registration";
 import { Notice } from "obsidian";
+import { readFileSync } from "fs";
+import { join } from "path";
+
+const manifest = JSON.parse(
+    readFileSync(join(__dirname, "../manifest.json"), "utf8")
+) as { id?: string };
 
 describe("plugin registration seams", () => {
+    it("uses the Keyboard Calendar plugin namespace", () => {
+        expect(manifest.id).toBe("obsidian-keyboard-calendar");
+        expect(CALENDAR_VIEW_REGISTRATIONS[0].type).toBe(
+            "keyboard-calendar-view"
+        );
+        expect(
+            CALENDAR_COMMAND_METADATA.every(({ id }) =>
+                id.startsWith("keyboard-calendar-")
+            )
+        ).toBe(true);
+    });
+
     it("registers the primary and right-sidebar calendar views", () => {
         const register = jest.fn();
         const create = jest.fn(
@@ -21,7 +39,7 @@ describe("plugin registration seams", () => {
         registerCalendarViews(register, create);
 
         expect(CALENDAR_VIEW_REGISTRATIONS[0].type).toBe(
-            FULL_CALENDAR_VIEW_TYPE
+            KEYBOARD_CALENDAR_VIEW_TYPE
         );
         expect(CALENDAR_VIEW_REGISTRATIONS[1]).toEqual({
             type: DAY_CALENDAR_VIEW_TYPE,
@@ -45,14 +63,14 @@ describe("plugin registration seams", () => {
         expect(CALENDAR_COMMAND_METADATA).toHaveLength(4);
         expect(register).toHaveBeenCalledTimes(4);
         expect(register).toHaveBeenCalledWith({
-            id: "full-calendar-open",
+            id: "keyboard-calendar-open",
             name: "Open Calendar",
         });
         expect(CALENDAR_COMMAND_METADATA.map(({ id }) => id)).not.toContain(
-            "full-calendar-revalidate"
+            "keyboard-calendar-revalidate"
         );
         expect(register).toHaveBeenCalledWith({
-            id: "full-calendar-open-day",
+            id: "keyboard-calendar-open-day",
             name: "Open Day Calendar",
         });
     });

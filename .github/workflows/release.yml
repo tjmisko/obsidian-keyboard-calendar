@@ -7,7 +7,7 @@ on:
 
 env:
     ARTIFACT_NAME: obsidian-keyboard-calendar
-    PLUGIN_DIR: obsidian-full-calendar
+    PLUGIN_DIR: obsidian-keyboard-calendar
 
 jobs:
     build:

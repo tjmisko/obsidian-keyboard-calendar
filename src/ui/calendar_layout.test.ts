@@ -38,6 +38,19 @@ describe("calendar surface styles", () => {
         expect(stylesheet).toContain("-webkit-overflow-scrolling: touch");
     });
 
+    it("scrolls the standard week renderer without FullCalendar ScrollGrid", () => {
+        const harnessRule = stylesheet.match(
+            /\.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\) \.fc-view-harness\s*\{([^}]*)\}/
+        )?.[1];
+        const weekRule = stylesheet.match(
+            /\.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\) \.fc-view-harness-active > \.fc-timeGridWeek-view\s*\{([^}]*)\}/
+        )?.[1];
+
+        expect(harnessRule).toContain("overflow-x: auto");
+        expect(harnessRule).toContain("overflow-y: hidden");
+        expect(weekRule).toContain("min-width: 45rem");
+    });
+
     it("keeps the day-sidebar toolbar on one compact row", () => {
         const rule = stylesheet.match(
             /\.fc\.ofc-day-calendar-root \.fc-toolbar\.fc-header-toolbar\s*\{([^}]*)\}/

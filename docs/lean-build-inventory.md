@@ -17,13 +17,13 @@ sha256sum docs/lean-esbuild-metafile.json
 
 | Artifact | Decimal bytes |
 | --- | ---: |
-| `main.js` | 1,227,596 |
-| `styles.css` | 43,412 |
-| generated `main.css` | 43,412 |
+| `main.js` | 1,231,136 |
+| `styles.css` | 43,723 |
+| generated `main.css` | 43,723 |
 | `package-lock.json` | 324,154 |
-| `docs/lean-esbuild-metafile.json` | 53,232 |
+| `docs/lean-esbuild-metafile.json` | 53,939 |
 
-The metafile SHA-256 is `11daf0f5566831b9438925cf68f1419fb280bda24b4063cef03767db47cc17ae`. It contains 106 inputs and two outputs. Normal module resolution keeps `rrule`'s nested `tslib` distinct from the root package, and collision-checked normalization fails instead of overwriting two paths. The JavaScript bundle is below the rebaselined 1.30 MB target.
+The metafile SHA-256 is `bbc9c55e4b60cd51dfa6d59c8126f442a5d6cae7778fe276519836ce28d8d28e`. It contains 108 inputs and two outputs. Normal module resolution keeps `rrule`'s nested `tslib` distinct from the root package, and collision-checked normalization fails instead of overwriting two paths. The JavaScript bundle is below the rebaselined 1.30 MB target.
 
 ## Direct runtime dependencies
 
@@ -50,7 +50,7 @@ The following searches use file-only output so they cannot print a legacy secret
 
 ```sh
 rg -l -i '\b(caldav|icloud|ical|ics|bearer)\b' src package.json manifest.json
-rg -l -i 'full-calendar-sidebar-view|legacy.*sidebar|three.?day|timeGrid3Days' src package.json manifest.json
+rg -l -i 'full-calendar-(view|sidebar-view)|legacy.*(primary|sidebar)|three.?day|timeGrid3Days' src package.json manifest.json
 rg -l -i 'DailyNote|daily.note|dailynote' src package.json manifest.json
 rg -l -i 'isTask|taskCompleted|ofc-task|checkbox' src package.json manifest.json
 rg -l -i '\breact-dom\b|\breact\b|node_modules/react|@types/react' src package.json manifest.json
@@ -62,7 +62,7 @@ The explicit residual allowlist is:
 | Term family | Allowed locations | Reason |
 | --- | --- | --- |
 | CalDAV/ICS/iCloud | `src/settings/migration.ts` and its test | Versioned source-type-only decoder/quarantine and synthetic leak fixtures |
-| Retired sidebar/three-day view | `src/legacy_sidebar_bridge.ts`, `src/ui/LegacySidebarCompatibilityView.ts`, registration in `src/main.ts`, migration decoder, and their tests | Decoder-only persisted-workspace bridge and completion marker remain; the active Day Calendar uses a distinct sidebar view type, and the responsive mobile week uses the ordinary seven-day view |
+| Retired primary/sidebar/three-day view | `src/legacy_primary_bridge.ts`, `src/legacy_sidebar_bridge.ts`, their decoder-only compatibility views, registration in `src/main.ts`, migration decoder, and their tests | Persisted-workspace bridges remain for the former product namespace and sidebar layout; the active views use Keyboard Calendar IDs, and the responsive mobile week uses the ordinary seven-day view |
 | Daily note | `src/ui/daily_note_navigation.ts`, date-header renderer/view/CSS, `obsidian-daily-notes-interface`, migration decoder/fixture, and tests | Retained navigation only; never an event source |
 | EventStore/line lookup | `src/performance/phase8b_local_index_benchmark.test.ts` | Test-local archived old-index oracle only |
 | Task/checkbox vocabulary | Negative assertions in renderer/interop tests only | Proves the removed task surface stays absent |

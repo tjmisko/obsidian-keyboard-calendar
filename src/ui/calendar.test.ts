@@ -20,7 +20,6 @@ import {
     renderCalendar,
     scrollCalendarDateIntoView,
     TOUCH_LONG_PRESS_DELAY_MS,
-    WEEK_DAY_MIN_WIDTH_PX,
 } from "./calendar";
 
 describe("calendar renderer", () => {
@@ -63,9 +62,9 @@ describe("calendar renderer", () => {
         expect(options?.slotDuration).toBe("00:15:00");
         expect(options?.snapDuration).toBe("00:15:00");
         expect(options?.slotLabelInterval).toBe("00:15:00");
-        expect(options?.views?.timeGridWeek?.dayMinWidth).toBe(
-            WEEK_DAY_MIN_WIDTH_PX
-        );
+        // FullCalendar 5 routes dayMinWidth through its unbundled premium
+        // ScrollGrid implementation and throws before rendering without it.
+        expect(options?.views?.timeGridWeek?.dayMinWidth).toBeUndefined();
         expect(options?.longPressDelay).toBe(TOUCH_LONG_PRESS_DELAY_MS);
         expect(options?.selectLongPressDelay).toBe(TOUCH_LONG_PRESS_DELAY_MS);
         expect(options?.eventLongPressDelay).toBe(TOUCH_LONG_PRESS_DELAY_MS);

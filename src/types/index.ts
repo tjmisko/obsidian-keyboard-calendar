@@ -7,4 +7,4 @@ export {
 } from "./calendar_settings";
 export type { CalendarInfo } from "./calendar_settings";
 
-export const PLUGIN_SLUG = "full-calendar-plugin";
+export const PLUGIN_SLUG = "obsidian-keyboard-calendar";

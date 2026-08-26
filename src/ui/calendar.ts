@@ -90,9 +90,6 @@ export const formatTimeGridSlotLabel = (date: Date): string =>
 export const formatDateLabel = (date: Date): string =>
     formatDatePartsLabel(date.getFullYear(), date.getMonth(), date.getDate());
 
-/** Keep week columns readable while letting narrow panes scroll horizontally. */
-export const WEEK_DAY_MIN_WIDTH_PX = 96;
-
 /** Give a touch gesture time to become a scroll before selection or dragging. */
 export const TOUCH_LONG_PRESS_DELAY_MS = 400;
 
@@ -270,24 +267,18 @@ export function renderCalendar(
                 displayEventTime: false,
                 titleFormat: { week: "long" },
             },
-            ...(isDaySidebar
-                ? {
-                      timeGridDay: {
-                          type: "timeGrid",
-                          duration: { days: 1 },
-                          titleFormat: ({ start }) =>
-                              formatDatePartsLabel(
-                                  start.year,
-                                  start.month,
-                                  start.day
-                              ),
-                      },
-                  }
-                : {
-                      timeGridWeek: {
-                          dayMinWidth: WEEK_DAY_MIN_WIDTH_PX,
-                      },
-                  }),
+            ...(isDaySidebar && {
+                timeGridDay: {
+                    type: "timeGrid",
+                    duration: { days: 1 },
+                    titleFormat: ({ start }) =>
+                        formatDatePartsLabel(
+                            start.year,
+                            start.month,
+                            start.day
+                        ),
+                },
+            }),
         },
         firstDay: settings?.firstDay,
         datesSet: settings?.datesSet,

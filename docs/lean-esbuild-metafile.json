@@ -1,7 +1,7 @@
 {
   "inputs": {
     "src/ui/overrides.css": {
-      "bytes": 15765,
+      "bytes": 16301,
       "imports": []
     },
     "node_modules/tslib/tslib.js": {
@@ -739,7 +739,7 @@
       "imports": []
     },
     "src/ui/calendar.ts": {
-      "bytes": 14922,
+      "bytes": 14552,
       "imports": [
         {
           "path": "node_modules/@fullcalendar/core/main.js",
@@ -790,7 +790,7 @@
       ]
     },
     "src/types/index.ts": {
-      "bytes": 303,
+      "bytes": 309,
       "imports": [
         {
           "path": "src/types/schema.ts",
@@ -1331,7 +1331,7 @@
       "imports": []
     },
     "src/plugin_registration.ts": {
-      "bytes": 1610,
+      "bytes": 1638,
       "imports": []
     },
     "src/ui/cell_navigation.ts": {
@@ -1421,7 +1421,7 @@
       "imports": []
     },
     "src/ui/view.ts": {
-      "bytes": 33570,
+      "bytes": 33582,
       "imports": [
         {
           "path": "src/ui/overrides.css",
@@ -1561,12 +1561,25 @@
         }
       ]
     },
+    "src/legacy_primary_bridge.ts": {
+      "bytes": 2794,
+      "imports": []
+    },
+    "src/ui/LegacyPrimaryCompatibilityView.ts": {
+      "bytes": 874,
+      "imports": [
+        {
+          "path": "src/legacy_primary_bridge.ts",
+          "kind": "import-statement"
+        }
+      ]
+    },
     "src/ui/day_sidebar.ts": {
       "bytes": 790,
       "imports": []
     },
     "src/main.ts": {
-      "bytes": 13939,
+      "bytes": 15767,
       "imports": [
         {
           "path": "src/ui/view.ts",
@@ -1621,6 +1634,14 @@
           "kind": "import-statement"
         },
         {
+          "path": "src/legacy_primary_bridge.ts",
+          "kind": "import-statement"
+        },
+        {
+          "path": "src/ui/LegacyPrimaryCompatibilityView.ts",
+          "kind": "import-statement"
+        },
+        {
           "path": "src/ui/day_sidebar.ts",
           "kind": "import-statement"
         }
@@ -1646,13 +1667,13 @@
           "bytesInOutput": 27179
         },
         "src/main.ts": {
-          "bytesInOutput": 9670
+          "bytesInOutput": 10864
         },
         "src/ui/overrides.css": {
           "bytesInOutput": 0
         },
         "src/ui/view.ts": {
-          "bytesInOutput": 25984
+          "bytesInOutput": 25988
         },
         "node_modules/tslib/modules/index.js": {
           "bytesInOutput": 464
@@ -1790,7 +1811,7 @@
           "bytesInOutput": 1860
         },
         "src/ui/calendar.ts": {
-          "bytesInOutput": 9318
+          "bytesInOutput": 9204
         },
         "node_modules/zod/lib/index.mjs": {
           "bytesInOutput": 107688
@@ -1799,7 +1820,7 @@
           "bytesInOutput": 1761
         },
         "src/types/index.ts": {
-          "bytesInOutput": 42
+          "bytesInOutput": 48
         },
         "src/types/calendar_settings.ts": {
           "bytesInOutput": 1252
@@ -1892,7 +1913,7 @@
           "bytesInOutput": 699
         },
         "src/plugin_registration.ts": {
-          "bytesInOutput": 1112
+          "bytesInOutput": 1140
         },
         "src/ui/cell_navigation.ts": {
           "bytesInOutput": 17644
@@ -1945,17 +1966,23 @@
         "src/ui/LegacySidebarCompatibilityView.ts": {
           "bytesInOutput": 690
         },
+        "src/legacy_primary_bridge.ts": {
+          "bytesInOutput": 1663
+        },
+        "src/ui/LegacyPrimaryCompatibilityView.ts": {
+          "bytesInOutput": 681
+        },
         "src/ui/day_sidebar.ts": {
           "bytesInOutput": 401
         }
       },
-      "bytes": 1227596
+      "bytes": 1231136
     },
     "main.css": {
       "imports": [],
       "inputs": {
         "src/ui/overrides.css": {
-          "bytesInOutput": 15308
+          "bytesInOutput": 15619
         },
         "node_modules/@fullcalendar/common/main.css": {
           "bytesInOutput": 16811
@@ -1967,7 +1994,7 @@
           "bytesInOutput": 6924
         }
       },
-      "bytes": 43412
+      "bytes": 43723
     }
   }
 }

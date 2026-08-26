@@ -4,13 +4,16 @@ Back up Obsidian's plugin data and workspace layout before installing Keyboard C
 
 ## What changes
 
+- The plugin ID and install directory change from `obsidian-full-calendar` to `obsidian-keyboard-calendar`. With Obsidian closed, rename an existing plugin directory before replacing the release files so its `data.json` remains with the plugin. Re-enable Keyboard Calendar if Obsidian does not carry the enabled state across the ID change.
+- Command IDs now use the `keyboard-calendar-` namespace. Reassign any custom hotkeys that were attached to the former command IDs.
+
 - Settings v2 removes CalDAV/iCloud sources and their credential fields. Only a source-type/version marker is retained.
 - Settings v3 removes ICS sources and their URLs. Only a source-type/version marker is retained.
 - Settings v4 removes daily-note event sources. Existing daily-note list items stay on disk and stop appearing as calendar events; date-header daily-note navigation remains.
 - Settings v5 retains one writable local folder. It prefers the previously selected local source and otherwise the first valid local source. Notes belonging to discarded folder configurations are not moved.
 - Settings v6 historically retained one desktop initial view and discarded the old mobile/three-day preference. Current mobile support uses that shared Month-or-Week preference responsively; the discarded value is not reconstructed.
 - Settings v7 adds a configurable ghost-event tag list, initially containing the neutral `ghost` tag.
-- A saved legacy full-calendar sidebar leaf is redirected into the normal main-tab calendar view. The decoder-only compatibility view and its completion marker remain until a separately approved removal gate; the new Day Calendar sidebar uses a distinct view type.
+- A primary calendar leaf saved as `full-calendar-view` is rewritten to `keyboard-calendar-view`. A saved legacy full-calendar sidebar leaf is redirected into the normal main-tab calendar view. Decoder-only compatibility views remain so restored older workspaces can be migrated; the new Day Calendar sidebar uses a distinct view type.
 - Saved Day or List initial-view values now normalize to Week. Day remains available only through the dedicated right-sidebar view, and List is removed.
 - The old public Dataview `renderCalendar`/`processFrontmatter` hooks are removed. Arbitrary URL and callback event sources are no longer accepted; the internal renderer receives materialized local events only.
 

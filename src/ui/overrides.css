@@ -55,6 +55,20 @@
 	-webkit-overflow-scrolling: touch;
 }
 
+/* FullCalendar 5's dayMinWidth option requires its unbundled premium
+ * ScrollGrid. Scroll the standard, self-contained time-grid view instead so
+ * its header, time axis, columns, and events remain aligned on narrow panes. */
+.fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-view-harness {
+	overflow-x: auto;
+	overflow-y: hidden;
+	overscroll-behavior-inline: contain;
+	-webkit-overflow-scrolling: touch;
+}
+
+.fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-view-harness-active > .fc-timeGridWeek-view {
+	min-width: 45rem;
+}
+
 .fc a {
 	text-decoration-line: none;
 }

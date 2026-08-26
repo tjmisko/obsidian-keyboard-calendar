@@ -1,5 +1,5 @@
 import { Command, Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
-import { CalendarView, FULL_CALENDAR_VIEW_TYPE } from "./ui/view";
+import { CalendarView, KEYBOARD_CALENDAR_VIEW_TYPE } from "./ui/view";
 import { DayCalendarView } from "./ui/DayCalendarView";
 import { dateEndpointsToFrontmatter } from "./ui/interop";
 import {
@@ -30,6 +30,12 @@ import {
     registerLegacySidebarCompatibilityView,
 } from "./legacy_sidebar_bridge";
 import { LegacySidebarCompatibilityView } from "./ui/LegacySidebarCompatibilityView";
+import {
+    LEGACY_FULL_CALENDAR_VIEW_TYPE,
+    createLegacyPrimaryMigrationRunner,
+    registerLegacyPrimaryCompatibilityView,
+} from "./legacy_primary_bridge";
+import { LegacyPrimaryCompatibilityView } from "./ui/LegacyPrimaryCompatibilityView";
 import type { CalendarEventClipboard } from "./ui/event_clipboard";
 import { activateDayCalendarSidebar } from "./ui/day_sidebar";
 
@@ -39,6 +45,8 @@ export default class FullCalendarPlugin extends Plugin {
     private runtimeSettingsBaseline: FullCalendarSettings =
         captureRuntimeSettingsBaseline(DEFAULT_SETTINGS);
     private settingsLoaded = false;
+    private requestLegacyPrimaryMigration: () => Promise<boolean> = () =>
+        Promise.resolve(false);
     private requestLegacySidebarMigration: () => Promise<void> = () =>
         Promise.resolve();
     cache: EventCache = new EventCache(
@@ -99,13 +107,13 @@ export default class FullCalendarPlugin extends Plugin {
 
     async activateView() {
         const leaves = this.app.workspace.getLeavesOfType(
-            FULL_CALENDAR_VIEW_TYPE
+            KEYBOARD_CALENDAR_VIEW_TYPE
         );
         let leaf: WorkspaceLeaf;
         if (leaves.length === 0) {
             leaf = this.app.workspace.getLeaf("tab");
             await leaf.setViewState({
-                type: FULL_CALENDAR_VIEW_TYPE,
+                type: KEYBOARD_CALENDAR_VIEW_TYPE,
                 active: true,
             });
         } else {
@@ -132,13 +140,35 @@ export default class FullCalendarPlugin extends Plugin {
         });
     }
 
-    private configureLegacySidebarMigration(): void {
+    private configureLegacyViewMigrations(): void {
+        this.requestLegacyPrimaryMigration = createLegacyPrimaryMigrationRunner(
+            () => this.settingsLoaded && this.app.workspace.layoutReady,
+            {
+                getLegacyLeaves: () =>
+                    this.app.workspace.getLeavesOfType(
+                        LEGACY_FULL_CALENDAR_VIEW_TYPE
+                    ),
+                replaceLegacyLeaf: async (leaf) => {
+                    await leaf.setViewState({
+                        ...leaf.getViewState(),
+                        type: KEYBOARD_CALENDAR_VIEW_TYPE,
+                    });
+                },
+                requestSaveLayout: async () => {
+                    await this.app.workspace.requestSaveLayout();
+                },
+            },
+            console.error,
+            (message) => new Notice(message)
+        );
         this.requestLegacySidebarMigration = createLegacySidebarMigrationRunner(
             () => this.settingsLoaded && this.app.workspace.layoutReady,
             () => this.settings.legacySidebarMigrationVersion || 0,
             {
                 getPrimaryLeaves: () =>
-                    this.app.workspace.getLeavesOfType(FULL_CALENDAR_VIEW_TYPE),
+                    this.app.workspace.getLeavesOfType(
+                        KEYBOARD_CALENDAR_VIEW_TYPE
+                    ),
                 getLegacyLeaves: () =>
                     this.app.workspace.getLeavesOfType(
                         LEGACY_FULL_CALENDAR_SIDEBAR_VIEW_TYPE
@@ -146,7 +176,7 @@ export default class FullCalendarPlugin extends Plugin {
                 createPrimaryLeaf: async () => {
                     const leaf = this.app.workspace.getLeaf("tab");
                     await leaf.setViewState({
-                        type: FULL_CALENDAR_VIEW_TYPE,
+                        type: KEYBOARD_CALENDAR_VIEW_TYPE,
                         active: true,
                     });
                     return leaf;
@@ -166,9 +196,15 @@ export default class FullCalendarPlugin extends Plugin {
         );
     }
 
+    private async requestLegacyViewMigrations(): Promise<void> {
+        if (await this.requestLegacyPrimaryMigration()) {
+            await this.requestLegacySidebarMigration();
+        }
+    }
+
     async onload() {
-        this.configureLegacySidebarMigration();
-        // Register the active views and decoder-only legacy view before
+        this.configureLegacyViewMigrations();
+        // Register the active views and decoder-only legacy views before
         // the first await so restored workspaces never encounter an unknown
         // persisted view type.
         registerCalendarViews<WorkspaceLeaf, CalendarView | DayCalendarView>(
@@ -178,6 +214,16 @@ export default class FullCalendarPlugin extends Plugin {
                     ? new DayCalendarView(leaf, this)
                     : new CalendarView(leaf, this)
         );
+        registerLegacyPrimaryCompatibilityView<
+            WorkspaceLeaf,
+            LegacyPrimaryCompatibilityView
+        >(
+            (type, creator) => this.registerView(type, creator),
+            (leaf) =>
+                new LegacyPrimaryCompatibilityView(leaf, () => {
+                    void this.requestLegacyViewMigrations();
+                })
+        );
         registerLegacySidebarCompatibilityView<
             WorkspaceLeaf,
             LegacySidebarCompatibilityView
@@ -185,7 +231,7 @@ export default class FullCalendarPlugin extends Plugin {
             (type, creator) => this.registerView(type, creator),
             (leaf) =>
                 new LegacySidebarCompatibilityView(leaf, () => {
-                    void this.requestLegacySidebarMigration();
+                    void this.requestLegacyViewMigrations();
                 })
         );
 
@@ -194,7 +240,7 @@ export default class FullCalendarPlugin extends Plugin {
         );
         this.settingsLoaded = true;
         this.app.workspace.onLayoutReady(() => {
-            void this.requestLegacySidebarMigration();
+            void this.requestLegacyViewMigrations();
         });
 
         this.eventNoteEditor = new EventNoteEditor(this.app);
@@ -267,7 +313,7 @@ export default class FullCalendarPlugin extends Plugin {
                 name,
                 callback: () => {
                     switch (id) {
-                        case "full-calendar-new-event": {
+                        case "keyboard-calendar-new-event": {
                             const start = new Date();
                             start.setMinutes(0, 0, 0);
                             const end = new Date(
@@ -278,20 +324,20 @@ export default class FullCalendarPlugin extends Plugin {
                             ).catch(reportEventNoteCreationFailure);
                             return;
                         }
-                        case "full-calendar-reset":
+                        case "keyboard-calendar-reset":
                             this.cache.reset(this.settings.calendarSources);
                             this.app.workspace.detachLeavesOfType(
-                                FULL_CALENDAR_VIEW_TYPE
+                                KEYBOARD_CALENDAR_VIEW_TYPE
                             );
                             this.app.workspace.detachLeavesOfType(
                                 DAY_CALENDAR_VIEW_TYPE
                             );
                             new Notice("Keyboard Calendar has been reset.");
                             return;
-                        case "full-calendar-open":
+                        case "keyboard-calendar-open":
                             void this.activateView();
                             return;
-                        case "full-calendar-open-day":
+                        case "keyboard-calendar-open-day":
                             void this.activateDayView();
                             return;
                     }
@@ -308,7 +354,7 @@ export default class FullCalendarPlugin extends Plugin {
     onunload() {
         this.eventNoteEditor = null;
         this.eventClipboard = null;
-        this.app.workspace.detachLeavesOfType(FULL_CALENDAR_VIEW_TYPE);
+        this.app.workspace.detachLeavesOfType(KEYBOARD_CALENDAR_VIEW_TYPE);
         this.app.workspace.detachLeavesOfType(DAY_CALENDAR_VIEW_TYPE);
     }
 

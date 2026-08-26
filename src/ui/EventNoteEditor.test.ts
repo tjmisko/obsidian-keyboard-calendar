@@ -6,7 +6,7 @@ describe("event-note navigation", () => {
 
     const setup = () => {
         const activeLeaf = {
-            getViewState: () => ({ type: "full-calendar-view" }),
+            getViewState: () => ({ type: "keyboard-calendar-view" }),
             openFile: jest.fn(async () => undefined),
         } as unknown as WorkspaceLeaf;
         const fallbackLeaf = {
@@ -24,7 +24,7 @@ describe("event-note navigation", () => {
     it("opens in an explicitly supplied originating leaf", async () => {
         const { editor, workspace } = setup();
         const originatingLeaf = {
-            getViewState: () => ({ type: "full-calendar-view" }),
+            getViewState: () => ({ type: "keyboard-calendar-view" }),
             openFile: jest.fn(async () => undefined),
         } as unknown as WorkspaceLeaf;
 
