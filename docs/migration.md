@@ -8,7 +8,7 @@ Back up Obsidian's plugin data and workspace layout before installing Keyboard C
 - Settings v3 removes ICS sources and their URLs. Only a source-type/version marker is retained.
 - Settings v4 removes daily-note event sources. Existing daily-note list items stay on disk and stop appearing as calendar events; date-header daily-note navigation remains.
 - Settings v5 retains one writable local folder. It prefers the previously selected local source and otherwise the first valid local source. Notes belonging to discarded folder configurations are not moved.
-- Settings v6 retains one desktop initial view and discards the retired mobile/three-day preference.
+- Settings v6 historically retained one desktop initial view and discarded the old mobile/three-day preference. Current mobile support uses that shared Month-or-Week preference responsively; the discarded value is not reconstructed.
 - Settings v7 adds a configurable ghost-event tag list, initially containing the neutral `ghost` tag.
 - A saved legacy full-calendar sidebar leaf is redirected into the normal main-tab calendar view. The decoder-only compatibility view and its completion marker remain until a separately approved removal gate; the new Day Calendar sidebar uses a distinct view type.
 - Saved Day or List initial-view values now normalize to Week. Day remains available only through the dedicated right-sidebar view, and List is removed.

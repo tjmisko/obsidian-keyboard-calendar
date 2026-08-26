@@ -18,6 +18,9 @@ import {
     getRenderedEventTitle,
     LocalMaterializedEventSource,
     renderCalendar,
+    scrollCalendarDateIntoView,
+    TOUCH_LONG_PRESS_DELAY_MS,
+    WEEK_DAY_MIN_WIDTH_PX,
 } from "./calendar";
 
 describe("calendar renderer", () => {
@@ -60,6 +63,12 @@ describe("calendar renderer", () => {
         expect(options?.slotDuration).toBe("00:15:00");
         expect(options?.snapDuration).toBe("00:15:00");
         expect(options?.slotLabelInterval).toBe("00:15:00");
+        expect(options?.views?.timeGridWeek?.dayMinWidth).toBe(
+            WEEK_DAY_MIN_WIDTH_PX
+        );
+        expect(options?.longPressDelay).toBe(TOUCH_LONG_PRESS_DELAY_MS);
+        expect(options?.selectLongPressDelay).toBe(TOUCH_LONG_PRESS_DELAY_MS);
+        expect(options?.eventLongPressDelay).toBe(TOUCH_LONG_PRESS_DELAY_MS);
         expect(
             (options?.slotLabelClassNames as any)?.({
                 date: new Date(2026, 7, 23, 9, 0),
@@ -130,6 +139,7 @@ describe("calendar renderer", () => {
         expect(options.views?.timeGridDay).toMatchObject({
             duration: { days: 1 },
         });
+        expect(options.views).not.toHaveProperty("timeGridWeek");
         expect(
             (options.views?.timeGridDay?.titleFormat as any)?.({
                 start: { year: 2026, month: 7, day: 23 },
@@ -390,6 +400,38 @@ describe("calendar renderer", () => {
 });
 
 describe("calendar labels", () => {
+    it("centers a rendered week date through its header", () => {
+        const scrollIntoView = jest.fn();
+        const querySelector = jest.fn(() => ({ scrollIntoView }));
+        const date = new Date(2026, 7, 25);
+
+        expect(
+            scrollCalendarDateIntoView(
+                { querySelector } as unknown as HTMLElement,
+                date
+            )
+        ).toBe(true);
+        expect(querySelector).toHaveBeenCalledWith(
+            '.fc-col-header-cell[data-date="2026-08-25"]'
+        );
+        expect(scrollIntoView).toHaveBeenCalledWith({
+            behavior: "auto",
+            block: "nearest",
+            inline: "center",
+        });
+    });
+
+    it("leaves an unrendered date alone", () => {
+        expect(
+            scrollCalendarDateIntoView(
+                {
+                    querySelector: () => null,
+                } as unknown as HTMLElement,
+                new Date(2026, 7, 25)
+            )
+        ).toBe(false);
+    });
+
     it("always formats time labels as HH:MM", () => {
         expect(formatTimeLabel(new Date(2026, 7, 21, 0, 0))).toBe("00:00");
         expect(formatTimeLabel(new Date(2026, 7, 21, 8, 5))).toBe("08:05");

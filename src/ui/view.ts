@@ -6,6 +6,7 @@ import {
     getAdjacentCalendarView,
     LocalMaterializedEventSource,
     renderCalendar,
+    scrollCalendarDateIntoView,
 } from "./calendar";
 import FullCalendarPlugin from "../main";
 import { OFCEvent, PLUGIN_SLUG } from "../types";
@@ -98,6 +99,8 @@ export class CalendarView extends ItemView {
     private deleteConfirmationModal: EventDeleteConfirmationModal | null = null;
     private readonly timeGridZoom = new TimeGridZoom();
     private calendarEl: HTMLElement | null = null;
+    private weekAnchorAnimationFrame: number | null = null;
+    private weekAnchorWindow: Window | null = null;
 
     constructor(
         leaf: WorkspaceLeaf,
@@ -394,6 +397,61 @@ export class CalendarView extends ItemView {
         this.fullCalendarView?.gotoDate(date);
     }
 
+    private cancelWeekAnchor(): void {
+        if (this.weekAnchorAnimationFrame !== null && this.weekAnchorWindow) {
+            this.weekAnchorWindow.cancelAnimationFrame(
+                this.weekAnchorAnimationFrame
+            );
+        }
+        this.weekAnchorAnimationFrame = null;
+        this.weekAnchorWindow = null;
+    }
+
+    private scheduleWeekAnchor(): void {
+        this.cancelWeekAnchor();
+        const calendar = this.fullCalendarView;
+        const calendarEl = this.calendarEl;
+        if (
+            this.surface !== "primary" ||
+            !calendar ||
+            !calendarEl ||
+            calendar.view.type !== "timeGridWeek"
+        ) {
+            return;
+        }
+
+        const scrollAnchorIntoView = () => {
+            this.weekAnchorAnimationFrame = null;
+            this.weekAnchorWindow = null;
+            if (
+                this.fullCalendarView !== calendar ||
+                this.calendarEl !== calendarEl ||
+                calendar.view.type !== "timeGridWeek"
+            ) {
+                return;
+            }
+            const focusedEvent = this.eventNavigator?.getFocusedEvent();
+            if (focusedEvent) {
+                focusedEvent.scrollIntoView?.({
+                    behavior: "auto",
+                    block: "nearest",
+                    inline: "nearest",
+                });
+                return;
+            }
+            scrollCalendarDateIntoView(calendarEl, calendar.getDate());
+        };
+
+        const calendarWindow = calendarEl.ownerDocument.defaultView;
+        if (!calendarWindow) {
+            scrollAnchorIntoView();
+            return;
+        }
+        this.weekAnchorWindow = calendarWindow;
+        this.weekAnchorAnimationFrame =
+            calendarWindow.requestAnimationFrame(scrollAnchorIntoView);
+    }
+
     getDailyNotePath(date: Date): string {
         return resolveDailyNotePath(date);
     }
@@ -444,7 +502,7 @@ export class CalendarView extends ItemView {
             await this.plugin.cache.reconcileFromDisk();
         }
 
-        const container = this.containerEl.children[1];
+        const container = this.contentEl;
         container.empty();
         const calendarEl = container.createEl("div", {
             cls: [
@@ -481,6 +539,7 @@ export class CalendarView extends ItemView {
         const sources: LocalMaterializedEventSource[] = this.translateSources();
 
         if (this.fullCalendarView) {
+            this.cancelWeekAnchor();
             this.cellNavigator?.destroy();
             this.cellNavigator = null;
             this.eventNavigator?.destroy();
@@ -622,6 +681,7 @@ export class CalendarView extends ItemView {
                 } else {
                     this.eventNavigator?.syncToView();
                 }
+                this.scheduleWeekAnchor();
             },
             eventsSet: () => {
                 if (this.navigationMode !== "insert") {
@@ -798,6 +858,7 @@ export class CalendarView extends ItemView {
             returnEventId || undefined
         );
         this.createModeChip(calendarEl);
+        this.scheduleWeekAnchor();
         if (this.callback) {
             this.plugin.cache.off("update", this.callback);
             this.callback = null;
@@ -824,7 +885,7 @@ export class CalendarView extends ItemView {
 
     onResize(): void {
         if (this.fullCalendarView) {
-            this.fullCalendarView.render();
+            this.fullCalendarView.updateSize();
             if (this.navigationMode === "insert") {
                 this.cellNavigator?.renderSelection();
             } else {
@@ -834,6 +895,7 @@ export class CalendarView extends ItemView {
     }
 
     async onunload() {
+        this.cancelWeekAnchor();
         this.deleteConfirmationModal?.close();
         this.deleteConfirmationModal = null;
         this.cellNavigator?.destroy();

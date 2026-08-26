@@ -12,9 +12,11 @@ Dates in week and day headers link to the corresponding daily note. The link ope
 
 Either click on the ribbon icon, or run the "Keyboard Calendar: Open Calendar" command from the command palette.
 
-Keyboard Calendar opens Month and Week as a desktop-only normal tab. Run "Keyboard Calendar: Open Day Calendar" to reveal the separate Day Calendar in Obsidian's right sidebar. Selecting a date in Month also opens the sidebar at that date. The retained compatibility bridge still redirects workspace leaves saved with the retired full-calendar sidebar type; that legacy type is distinct from the active Day Calendar.
+Keyboard Calendar opens Month and Week in the main workspace on desktop and mobile. Run "Keyboard Calendar: Open Day Calendar" to reveal the separate Day Calendar in Obsidian's right sidebar or mobile drawer. Selecting a date in Month also opens the day surface at that date. The retained compatibility bridge still redirects workspace leaves saved with the retired full-calendar sidebar type; that legacy type is distinct from the active Day Calendar.
 
 Use Tab and Shift-Tab to switch between Month and Week in the main tab. Press `T` for Today. In Week and the Day Calendar sidebar, use `+` (or `=`) and `-` to expand and contract the shared time-row height. Minute labels thin out automatically at compact zoom levels. Clicking an event in the main calendar replaces that tab with its ordinary Markdown note; clicking one in the Day Calendar opens the note in the main workspace and leaves the sidebar intact.
+
+Week always spans seven days. On a narrow screen its day columns retain a readable minimum width and the grid scrolls horizontally, naturally showing fewer days in portrait and more in landscape. Touch selection and event dragging begin after a 400 ms long press so normal swipes can pan the calendar.
 
 ## Troubleshooting
 

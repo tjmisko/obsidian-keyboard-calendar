@@ -1,6 +1,6 @@
 # Lean build and dependency inventory
 
-This is the reproducible Phase 9 build record for the desktop, local-note fork. It contains no vault data or user settings.
+This is the reproducible build record for the local-note fork. It contains no vault data or user settings.
 
 ## Reproduce
 
@@ -17,13 +17,13 @@ sha256sum docs/lean-esbuild-metafile.json
 
 | Artifact | Decimal bytes |
 | --- | ---: |
-| `main.js` | 1,224,886 |
-| `styles.css` | 41,997 |
-| generated `main.css` | 41,997 |
+| `main.js` | 1,227,230 |
+| `styles.css` | 42,734 |
+| generated `main.css` | 42,734 |
 | `package-lock.json` | 324,154 |
 | `docs/lean-esbuild-metafile.json` | 53,232 |
 
-The metafile SHA-256 is `afb858e98f7a730e512cba3ae9c73cd99bb8a0e6d4377678d5c681f7112871d0`. It contains 106 inputs and two outputs. Normal module resolution keeps `rrule`'s nested `tslib` distinct from the root package, and collision-checked normalization fails instead of overwriting two paths. The JavaScript bundle is below the rebaselined 1.30 MB target.
+The metafile SHA-256 is `a51361f3e6fb54b9cba90d585998eea9ae4b3f9d98e0a02cec132a8bc405ab53`. It contains 106 inputs and two outputs. Normal module resolution keeps `rrule`'s nested `tslib` distinct from the root package, and collision-checked normalization fails instead of overwriting two paths. The JavaScript bundle is below the rebaselined 1.30 MB target.
 
 ## Direct runtime dependencies
 
@@ -50,7 +50,7 @@ The following searches use file-only output so they cannot print a legacy secret
 
 ```sh
 rg -l -i '\b(caldav|icloud|ical|ics|bearer)\b' src package.json manifest.json
-rg -l -i 'full-calendar-sidebar-view|legacy.*sidebar|mobile|three.?day|timeGrid3Days' src package.json manifest.json
+rg -l -i 'full-calendar-sidebar-view|legacy.*sidebar|three.?day|timeGrid3Days' src package.json manifest.json
 rg -l -i 'DailyNote|daily.note|dailynote' src package.json manifest.json
 rg -l -i 'isTask|taskCompleted|ofc-task|checkbox' src package.json manifest.json
 rg -l -i '\breact-dom\b|\breact\b|node_modules/react|@types/react' src package.json manifest.json
@@ -62,7 +62,7 @@ The explicit residual allowlist is:
 | Term family | Allowed locations | Reason |
 | --- | --- | --- |
 | CalDAV/ICS/iCloud | `src/settings/migration.ts` and its test | Versioned source-type-only decoder/quarantine and synthetic leak fixtures |
-| Retired sidebar/mobile view | `src/legacy_sidebar_bridge.ts`, `src/ui/LegacySidebarCompatibilityView.ts`, registration in `src/main.ts`, migration decoder, and their tests | Decoder-only persisted-workspace bridge and completion marker remain; the active Day Calendar uses a distinct sidebar view type |
+| Retired sidebar/three-day view | `src/legacy_sidebar_bridge.ts`, `src/ui/LegacySidebarCompatibilityView.ts`, registration in `src/main.ts`, migration decoder, and their tests | Decoder-only persisted-workspace bridge and completion marker remain; the active Day Calendar uses a distinct sidebar view type, and the responsive mobile week uses the ordinary seven-day view |
 | Daily note | `src/ui/daily_note_navigation.ts`, date-header renderer/view/CSS, `obsidian-daily-notes-interface`, migration decoder/fixture, and tests | Retained navigation only; never an event source |
 | EventStore/line lookup | `src/performance/phase8b_local_index_benchmark.test.ts` | Test-local archived old-index oracle only |
 | Task/checkbox vocabulary | Negative assertions in renderer/interop tests only | Proves the removed task surface stays absent |
@@ -74,4 +74,4 @@ The explicit residual allowlist is:
 
 There are no non-test runtime credential-field matches, no non-test network API matches, no active remote source class, and no removed connector/React/deep-equal input in the metafile. The renderer accepts only already-materialized local event arrays; there is no URL or callback event-source boundary.
 
-These are static and deterministic Node/build proofs. Live Obsidian network observation, note-open latency, navigation/history, and two-restart acceptance remain pending in the manual release matrix.
+These are static and deterministic Node/build proofs. Live Obsidian network observation, note-open latency, navigation/history, mobile portrait/landscape touch behavior, and two-restart acceptance remain pending in the manual release matrix.

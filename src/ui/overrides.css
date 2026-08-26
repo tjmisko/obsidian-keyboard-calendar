@@ -1,3 +1,11 @@
+.ofc-calendar-root {
+	width: 100%;
+	min-width: 0;
+	height: 100%;
+	min-height: 0;
+	container-type: inline-size;
+}
+
 .fc {
 	height: 100%;
 	color: var(--text-muted);
@@ -33,6 +41,11 @@
 	--fc-highlight-color: var(--text-highlight-bg);
 	--fc-bg-event-color: var(--background-modifier-success);
 	--fc-non-business-color: var(--background-modifier-box-shadow);
+}
+
+.fc .fc-scroller {
+	overscroll-behavior-inline: contain;
+	-webkit-overflow-scrolling: touch;
 }
 
 .fc a {
@@ -398,6 +411,34 @@
 	font-size: 0.95rem !important;
 	font-weight: var(--font-semibold, 600);
 	letter-spacing: -0.01em;
+}
+
+@container (max-width: 40rem) {
+	.fc.ofc-calendar-root .fc-toolbar.fc-header-toolbar {
+		flex-wrap: wrap;
+		align-items: center;
+		row-gap: var(--size-4-1, 0.25rem);
+	}
+
+	.fc.ofc-calendar-root .fc-toolbar-chunk {
+		display: flex;
+		align-items: center;
+		min-width: 0;
+	}
+
+	.fc.ofc-calendar-root .fc-toolbar-chunk:nth-child(2) {
+		order: -1;
+		flex: 1 0 100%;
+		justify-content: center;
+	}
+
+	.fc.ofc-calendar-root .fc-toolbar-title {
+		max-width: 100%;
+		overflow: hidden;
+		font-size: 0.82rem !important;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
 }
 
 .fc .fc-button {

@@ -1,12 +1,12 @@
 # Keyboard Calendar
 
-Keyboard Calendar is a desktop-only, keyboard-first calendar for Obsidian by [Tristan Misko](https://github.com/tjmisko). It renders events with [FullCalendar](https://fullcalendar.io/) while keeping every event in an ordinary Markdown note in the local vault.
+Keyboard Calendar is a keyboard-first calendar for Obsidian on desktop and mobile by [Tristan Misko](https://github.com/tjmisko). It renders events with [FullCalendar](https://fullcalendar.io/) while keeping every event in an ordinary Markdown note in the local vault.
 
 This fork deliberately supports one model:
 
 - One writable local event folder. The setup flow prefers an existing `events` folder.
 - Only direct-child Markdown files (`.md`, case-insensitive) in that folder are indexed; nested notes and other file types are ignored.
-- Month and week views in a normal desktop tab, with a dedicated day view in Obsidian's right sidebar.
+- Month and responsive, horizontally scrollable week views in the main workspace, with a dedicated day view in Obsidian's right sidebar or mobile drawer.
 - Click-to-open event notes, timed-event creation, modal move/scale updates, recurrence controls, and confirmed deletion.
 - Date-header links to daily notes. Daily notes are navigation targets, not event stores.
 - Local-only calendar operation with no ICS, CalDAV, Google connector, remote refresh, or credential UI.
@@ -29,7 +29,7 @@ The filename supplies the title unless `title` is set. The rest of the note is y
 
 ## Install and upgrade
 
-Back up Obsidian's plugin data and workspace layout before installing this fork. Migration intentionally scrubs or narrows older remote, daily-note-event, multi-folder, mobile, and sidebar settings. It never moves, rewrites, or deletes event notes or daily-note contents, but Git rollback cannot restore settings or a workspace layout that Obsidian has already saved.
+Back up Obsidian's plugin data and workspace layout before installing this fork. Migration intentionally scrubs or narrows older remote, daily-note-event, multi-folder, separate-mobile-view, and legacy-sidebar settings. It never moves, rewrites, or deletes event notes or daily-note contents, but Git rollback cannot restore settings or a workspace layout that Obsidian has already saved.
 
 Use a release from this fork's [releases page](https://github.com/tjmisko/obsidian-keyboard-calendar/releases), or build the repository and copy `main.js`, `manifest.json`, and `styles.css` into the vault's `.obsidian/plugins/obsidian-full-calendar/` directory. See [migration and rollback](docs/migration.md) before upgrading an existing installation.
 
@@ -61,6 +61,12 @@ Insert-mode commands are:
 Calendar navigation only captures keys while the calendar is the active Obsidian leaf and no editor, input, or modal is active. In the main tab, `Tab` and `Shift+Tab` switch between Month and Week; `t` returns the active calendar to today. Run **Keyboard Calendar: Open Day Calendar** to reveal the fixed day view in the right sidebar. In the Week view and Day Calendar, `+` (or `=`) expands the 15-minute rows and `-` contracts them; quarter-hour and then half-hour gutter labels disappear automatically at compact levels.
 
 Right-click any event for a context menu with confirmed deletion. Recurring occurrences also offer omission; unattended events matching a configured ghost tag offer an attendance action. Recurring blocks carry a small repeat badge. Settings can assign ordered colors to tags; the first matching tag-color rule overrides the event-folder color.
+
+## Mobile and touch
+
+Week remains a seven-day calendar on narrow screens. Each day has a readable minimum width, so the grid scrolls horizontally: portrait phones show fewer days while landscape phones reveal more of the same week. The active or focused date is brought into view after calendar navigation, and rotating the device resizes the existing view without changing its date range.
+
+Run **Keyboard Calendar: Open Day Calendar** to reveal the fixed day view in Obsidian's right drawer. Touch selection and event dragging use a 400 ms long press so an ordinary horizontal gesture can scroll the week first.
 
 ## Development
 
