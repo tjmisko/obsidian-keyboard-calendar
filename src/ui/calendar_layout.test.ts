@@ -15,18 +15,12 @@ describe("calendar surface styles", () => {
         expect(stylesheet).not.toContain("max-width: 96rem");
     });
 
-    it("gives FullCalendar a flex host with usable mobile height", () => {
-        const hostRule = stylesheet.match(
-            /\.ofc-calendar-view-content\s*\{([^}]*)\}/
-        )?.[1];
-        const rootRule = stylesheet.match(
-            /\.ofc-calendar-view-content > \.ofc-calendar-root\s*\{([^}]*)\}/
+    it("reserves Obsidian's phone navigation strip for usable grid height", () => {
+        const phoneRule = stylesheet.match(
+            /\.is-phone \.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\)\s*\{([^}]*)\}/
         )?.[1];
 
-        expect(hostRule).toContain("display: flex");
-        expect(hostRule).toContain("flex-direction: column");
-        expect(hostRule).toContain("min-height: 0");
-        expect(rootRule).toContain("flex: 1 1 auto");
+        expect(phoneRule).toContain("height: calc(100% - 4rem)");
     });
 
     it("uses the calendar container to wrap narrow toolbars", () => {
@@ -35,6 +29,7 @@ describe("calendar surface styles", () => {
         expect(stylesheet).toContain(
             ".fc.ofc-calendar-root:not(.ofc-day-calendar-root)"
         );
+        expect(stylesheet).toContain(".fc-toolbar.fc-footer-toolbar");
         expect(stylesheet).toContain("flex: 1 0 100%");
     });
 

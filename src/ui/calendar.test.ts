@@ -17,7 +17,6 @@ import {
     getAdjacentCalendarView,
     getRenderedEventTitle,
     LocalMaterializedEventSource,
-    observeCalendarContainerSize,
     renderCalendar,
     scrollCalendarDateIntoView,
     TOUCH_LONG_PRESS_DELAY_MS,
@@ -61,7 +60,6 @@ describe("calendar renderer", () => {
         expect(options?.headerToolbar).toMatchObject({
             right: "dayGridMonth,timeGridWeek",
         });
-        expect(options?.height).toBe("100%");
         expect(options?.slotDuration).toBe("00:15:00");
         expect(options?.snapDuration).toBe("00:15:00");
         expect(options?.slotLabelInterval).toBe("00:15:00");
@@ -93,73 +91,6 @@ describe("calendar renderer", () => {
         ).toEqual(["ofc-time-slot-minor"]);
     });
 
-    it("remeasures a calendar after its mobile host becomes visible", () => {
-        let resizeCallback: ResizeObserverCallback | undefined;
-        const observe = jest.fn();
-        const disconnect = jest.fn();
-        const ResizeObserverMock = jest.fn(
-            (callback: ResizeObserverCallback) => {
-                resizeCallback = callback;
-                return { observe, disconnect };
-            }
-        );
-        const frames = new Map<number, FrameRequestCallback>();
-        const requestAnimationFrame = jest.fn(
-            (callback: FrameRequestCallback) => {
-                const id = frames.size + 1;
-                frames.set(id, callback);
-                return id;
-            }
-        );
-        const cancelAnimationFrame = jest.fn((id: number) => {
-            frames.delete(id);
-        });
-        const calendarWindow = {
-            ResizeObserver: ResizeObserverMock,
-            requestAnimationFrame,
-            cancelAnimationFrame,
-        };
-        const containerEl = {
-            ownerDocument: { defaultView: calendarWindow },
-        } as unknown as HTMLElement;
-        const updateSize = jest.fn();
-
-        const stop = observeCalendarContainerSize(containerEl, updateSize);
-
-        expect(observe).toHaveBeenCalledWith(containerEl);
-        expect(frames.size).toBe(1);
-        frames.get(1)?.(0);
-        frames.delete(1);
-        expect(updateSize).toHaveBeenCalledTimes(1);
-
-        resizeCallback?.(
-            [
-                {
-                    target: containerEl,
-                    contentRect: { width: 0 },
-                } as unknown as ResizeObserverEntry,
-            ],
-            {} as ResizeObserver
-        );
-        expect(frames.size).toBe(0);
-
-        resizeCallback?.(
-            [
-                {
-                    target: containerEl,
-                    contentRect: { width: 390 },
-                } as unknown as ResizeObserverEntry,
-            ],
-            {} as ResizeObserver
-        );
-        expect(frames.size).toBe(1);
-
-        stop();
-        expect(disconnect).toHaveBeenCalledTimes(1);
-        expect(cancelAnimationFrame).toHaveBeenCalledTimes(1);
-        expect(updateSize).toHaveBeenCalledTimes(1);
-    });
-
     it("limits the primary toolbar to month and week without reading viewport width", () => {
         Object.defineProperty(global, "window", {
             configurable: true,
@@ -186,10 +117,28 @@ describe("calendar renderer", () => {
         expect(options.views).not.toHaveProperty("listWeek");
     });
 
+    it("places primary controls in the usable mobile footer", () => {
+        renderCalendar({} as HTMLElement, [], {
+            initialView: "timeGridWeek",
+            isMobile: true,
+        });
+
+        const calls = (Calendar as unknown as jest.Mock).mock.calls;
+        const options = calls[calls.length - 1][1] as CalendarOptions;
+        expect(options.headerToolbar).toBe(false);
+        expect(options.footerToolbar).toEqual({
+            left: "prev,next today",
+            center: "title",
+            right: "dayGridMonth,timeGridWeek",
+        });
+        expect(options.initialView).toBe("timeGridWeek");
+    });
+
     it("renders the sidebar as one fixed day with compact navigation", () => {
         renderCalendar({} as HTMLElement, [], {
             initialView: "dayGridMonth",
             variant: "day-sidebar",
+            isMobile: true,
         });
 
         const calls = (Calendar as unknown as jest.Mock).mock.calls;
@@ -205,6 +154,7 @@ describe("calendar renderer", () => {
             center: "title",
             right: "today",
         });
+        expect(options.footerToolbar).toBe(false);
         expect(options.views?.timeGridDay).toMatchObject({
             duration: { days: 1 },
         });

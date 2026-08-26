@@ -58,6 +58,7 @@ interface ExtraRenderProps {
     datesSet?: () => void;
     eventsSet?: () => void;
     variant?: CalendarVariant;
+    isMobile?: boolean;
 }
 
 /** A local, already-materialized source. URL and callback sources are excluded. */
@@ -111,61 +112,6 @@ export const scrollCalendarDateIntoView = (
         inline: "center",
     });
     return true;
-};
-
-/**
- * FullCalendar can measure a zero-width harness when Obsidian mounts a mobile
- * leaf while it is still hidden. Re-run its layout after the host is painted
- * and whenever that host becomes visible or changes size.
- */
-export const observeCalendarContainerSize = (
-    containerEl: HTMLElement,
-    updateSize: () => void
-): (() => void) => {
-    const calendarWindow = containerEl.ownerDocument.defaultView;
-    if (!calendarWindow) {
-        updateSize();
-        return () => undefined;
-    }
-
-    let animationFrame: number | null = null;
-    const requestUpdate = () => {
-        if (animationFrame !== null) {
-            return;
-        }
-        animationFrame = calendarWindow.requestAnimationFrame(() => {
-            animationFrame = null;
-            updateSize();
-        });
-    };
-    const ResizeObserverConstructor = (
-        calendarWindow as Window & {
-            ResizeObserver?: typeof ResizeObserver;
-        }
-    ).ResizeObserver;
-    const observer = ResizeObserverConstructor
-        ? new ResizeObserverConstructor((entries) => {
-              if (
-                  entries.some(
-                      ({ target, contentRect }) =>
-                          target === containerEl && contentRect.width > 0
-                  )
-              ) {
-                  requestUpdate();
-              }
-          })
-        : null;
-
-    observer?.observe(containerEl);
-    requestUpdate();
-
-    return () => {
-        observer?.disconnect();
-        if (animationFrame !== null) {
-            calendarWindow.cancelAnimationFrame(animationFrame);
-            animationFrame = null;
-        }
-    };
 };
 
 const COMPACT_MONTH_LABELS = [
@@ -259,6 +205,7 @@ export function renderCalendar(
         ghostEventTags,
     } = settings || {};
     const isDaySidebar = settings?.variant === "day-sidebar";
+    const isMobile = settings?.isMobile === true;
     const modifyEventCallback =
         modifyEvent &&
         (async ({
@@ -301,13 +248,21 @@ export function renderCalendar(
                   center: "title",
                   right: "today",
               }
+            : isMobile
+            ? false
             : {
                   left: "prev,next today",
                   center: "title",
                   right: "dayGridMonth,timeGridWeek",
               },
-        footerToolbar: false,
-        height: "100%",
+        footerToolbar:
+            !isDaySidebar && isMobile
+                ? {
+                      left: "prev,next today",
+                      center: "title",
+                      right: "dayGridMonth,timeGridWeek",
+                  }
+                : false,
 
         views: {
             timeGrid: {
