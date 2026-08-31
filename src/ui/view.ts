@@ -39,11 +39,19 @@ import {
     openDailyNoteForDate,
     resolveDailyNotePath,
 } from "./daily_note_navigation";
-import { getCalendarEventContextActions } from "./event_context";
+import {
+    canAttendEventOccurrence,
+    canOmitEventOccurrence,
+    getCalendarEventContextActions,
+} from "./event_context";
 import { handleCalendarSelection } from "./event_creation";
 import { CalendarCellNavigator } from "./cell_navigation";
 import { applyCalendarCacheUpdate } from "./calendar_update";
 import { EventDeleteConfirmationModal } from "./event_deletion";
+import {
+    EventOccurrenceAction,
+    EventOccurrenceConfirmationModal,
+} from "./event_occurrence_confirmation";
 import { resolveEventTagColor } from "../settings/tag_settings";
 import {
     createCalendarEventClipboard,
@@ -100,6 +108,8 @@ export class CalendarView extends ItemView {
     private navigationMode: CalendarNavigationMode = "normal";
     private modeChipEl: HTMLElement | null = null;
     private deleteConfirmationModal: EventDeleteConfirmationModal | null = null;
+    private occurrenceConfirmationModal: EventOccurrenceConfirmationModal | null =
+        null;
     private readonly timeGridZoom = new TimeGridZoom();
     private calendarEl: HTMLElement | null = null;
     private weekAnchorAnimationFrame: number | null = null;
@@ -258,6 +268,7 @@ export class CalendarView extends ItemView {
             return;
         }
 
+        this.occurrenceConfirmationModal?.close();
         this.deleteConfirmationModal?.close();
         let modal: EventDeleteConfirmationModal;
         modal = new EventDeleteConfirmationModal(this.app, {
@@ -292,6 +303,80 @@ export class CalendarView extends ItemView {
             },
         });
         this.deleteConfirmationModal = modal;
+        modal.open();
+    }
+
+    private async updateEventOccurrence(
+        action: EventOccurrenceAction,
+        eventId: string,
+        date: string
+    ): Promise<boolean> {
+        try {
+            await this.plugin.cache.processEvent(eventId, (event) =>
+                action === "omit"
+                    ? omitRecurringOccurrence(event, date)
+                    : attendEventOccurrence(event, date)
+            );
+            new Notice(
+                action === "omit"
+                    ? `Omitted occurrence on ${date}.`
+                    : `Attending occurrence on ${date}.`
+            );
+            return true;
+        } catch (error) {
+            console.error(error);
+            new Notice(
+                error instanceof Error
+                    ? error.message
+                    : action === "omit"
+                    ? "Could not omit this occurrence."
+                    : "Could not mark this occurrence as attending."
+            );
+            return false;
+        }
+    }
+
+    private requestEventOccurrenceAction(
+        action: EventOccurrenceAction,
+        eventId: string,
+        occurrence: Date
+    ): void {
+        const event = this.plugin.cache.getEventById(eventId);
+        const isLocalFullNote =
+            this.plugin.cache.getInfoForFullNoteEvent(eventId) !== null;
+        const date = formatDateLabel(occurrence);
+        const isAvailable = event
+            ? action === "omit"
+                ? canOmitEventOccurrence(event, isLocalFullNote, date)
+                : canAttendEventOccurrence(
+                      event,
+                      isLocalFullNote,
+                      date,
+                      this.plugin.settings.ghostEventTags
+                  )
+            : false;
+        if (!event || !isAvailable) {
+            return;
+        }
+
+        this.deleteConfirmationModal?.close();
+        this.occurrenceConfirmationModal?.close();
+        let modal: EventOccurrenceConfirmationModal;
+        modal = new EventOccurrenceConfirmationModal(this.app, {
+            action,
+            title: event.title,
+            date,
+            confirm: () => this.updateEventOccurrence(action, eventId, date),
+            onClose: () => {
+                if (this.occurrenceConfirmationModal === modal) {
+                    this.occurrenceConfirmationModal = null;
+                }
+                if (this.navigationMode !== "insert") {
+                    this.eventNavigator?.syncToView();
+                }
+            },
+        });
+        this.occurrenceConfirmationModal = modal;
         modal.open();
     }
 
@@ -374,7 +459,7 @@ export class CalendarView extends ItemView {
         this.modeChipEl.setAttribute("aria-label", `Calendar mode: ${label}`);
         this.modeChipEl.title =
             this.navigationMode === "normal"
-                ? "Normal mode — arrows or h/j/k/l focus events and cross week boundaries; i inserts; m moves; s scales; yy/p copy/paste; x/Delete removes; zt/zz/zb align"
+                ? "Normal mode — arrows or h/j/k/l focus events and cross week boundaries; o omits; a attends; i inserts; m moves; s scales; yy/p copy/paste; x/Delete removes; zt/zz/zb align"
                 : this.navigationMode === "insert"
                 ? "Insert mode — p pastes; Escape returns; zt/zz/zb align the selected cell"
                 : this.navigationMode === "grab"
@@ -855,36 +940,10 @@ export class CalendarView extends ItemView {
                     occurrenceDate,
                     ghostEventTags: this.plugin.settings.ghostEventTags,
                     omit: async (date) => {
-                        try {
-                            await this.plugin.cache.processEvent(
-                                e.id,
-                                (event) => omitRecurringOccurrence(event, date)
-                            );
-                            new Notice(`Omitted occurrence on ${date}.`);
-                        } catch (error) {
-                            console.error(error);
-                            new Notice(
-                                error instanceof Error
-                                    ? error.message
-                                    : "Could not omit this occurrence."
-                            );
-                        }
+                        await this.updateEventOccurrence("omit", e.id, date);
                     },
                     attend: async (date) => {
-                        try {
-                            await this.plugin.cache.processEvent(
-                                e.id,
-                                (event) => attendEventOccurrence(event, date)
-                            );
-                            new Notice(`Attending occurrence on ${date}.`);
-                        } catch (error) {
-                            console.error(error);
-                            new Notice(
-                                error instanceof Error
-                                    ? error.message
-                                    : "Could not mark this occurrence as attending."
-                            );
-                        }
+                        await this.updateEventOccurrence("attend", e.id, date);
                     },
                     deleteEvent: () => this.requestEventDeletion(e.id),
                 });
@@ -929,6 +988,10 @@ export class CalendarView extends ItemView {
         };
         this.eventNavigator = new CalendarEventNavigator(calendarEl, {
             navigateWeeks: (delta) => this.navigateWeeks(delta),
+            requestOmitOccurrence: (eventId, date) =>
+                this.requestEventOccurrenceAction("omit", eventId, date),
+            requestAttendOccurrence: (eventId, date) =>
+                this.requestEventOccurrenceAction("attend", eventId, date),
             canGrabEvent: canTransformEvent,
             canScaleEvent: canTransformEvent,
             onGrabUnavailable: () =>
@@ -1068,6 +1131,8 @@ export class CalendarView extends ItemView {
         this.cancelWeekAnchor();
         this.deleteConfirmationModal?.close();
         this.deleteConfirmationModal = null;
+        this.occurrenceConfirmationModal?.close();
+        this.occurrenceConfirmationModal = null;
         this.cellNavigator?.destroy();
         this.cellNavigator = null;
         this.eventNavigator?.destroy();

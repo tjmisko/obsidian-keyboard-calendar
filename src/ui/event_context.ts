@@ -9,6 +9,24 @@ export interface CalendarEventContextAction {
     run: () => void | Promise<void>;
 }
 
+export const canOmitEventOccurrence = (
+    event: OFCEvent,
+    isLocalFullNote: boolean,
+    occurrenceDate: string | null
+): boolean =>
+    isLocalFullNote && event.type !== "single" && occurrenceDate !== null;
+
+export const canAttendEventOccurrence = (
+    event: OFCEvent,
+    isLocalFullNote: boolean,
+    occurrenceDate: string | null,
+    ghostEventTags: readonly string[]
+): boolean =>
+    isLocalFullNote &&
+    occurrenceDate !== null &&
+    eventHasGhostTag(event.categories, ghostEventTags) &&
+    !event.attendingDates?.includes(occurrenceDate);
+
 /** Builds the complete event context menu without coupling it to Obsidian UI. */
 export function getCalendarEventContextActions({
     event,

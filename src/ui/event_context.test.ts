@@ -1,5 +1,9 @@
 import { parseEvent } from "../types";
-import { getCalendarEventContextActions } from "./event_context";
+import {
+    canAttendEventOccurrence,
+    canOmitEventOccurrence,
+    getCalendarEventContextActions,
+} from "./event_context";
 
 const single = parseEvent({
     title: "Single",
@@ -140,5 +144,36 @@ describe("calendar event context actions", () => {
         expect(actions.map(({ title }) => title)).not.toContain(
             "Attend this occurrence"
         );
+    });
+
+    it("limits keyboard omission to local recurring occurrences", () => {
+        expect(canOmitEventOccurrence(weekly, true, "2026-08-22")).toBe(true);
+        expect(canOmitEventOccurrence(monthly, true, "2026-08-22")).toBe(true);
+        expect(canOmitEventOccurrence(single, true, "2026-08-22")).toBe(false);
+        expect(canOmitEventOccurrence(weekly, false, "2026-08-22")).toBe(false);
+        expect(canOmitEventOccurrence(weekly, true, null)).toBe(false);
+    });
+
+    it("limits keyboard attendance to unattended local ghost occurrences", () => {
+        const ghosted = parseEvent({
+            ...weekly,
+            categories: ["dance"],
+            attendingDates: ["2026-08-15"],
+        });
+
+        expect(
+            canAttendEventOccurrence(ghosted, true, "2026-08-22", ["dance"])
+        ).toBe(true);
+        expect(
+            canAttendEventOccurrence(
+                { ...ghosted, attendingDates: ["2026-08-22"] },
+                true,
+                "2026-08-22",
+                ["dance"]
+            )
+        ).toBe(false);
+        expect(
+            canAttendEventOccurrence(weekly, true, "2026-08-22", ["dance"])
+        ).toBe(false);
     });
 });

@@ -211,6 +211,8 @@ export interface CalendarEventNavigatorOptions {
     onScaleModeChange?: (active: boolean) => void;
     onScaleUnavailable?: () => void;
     navigateWeeks?: (delta: number) => void;
+    requestOmitOccurrence?: (eventId: string, date: Date) => void;
+    requestAttendOccurrence?: (eventId: string, date: Date) => void;
 }
 
 /** Owns event focus while the calendar is in normal mode. */
@@ -240,6 +242,14 @@ export class CalendarEventNavigator {
     private readonly onScaleModeChange?: (active: boolean) => void;
     private readonly onScaleUnavailable?: () => void;
     private readonly navigateWeeks?: (delta: number) => void;
+    private readonly requestOmitOccurrence?: (
+        eventId: string,
+        date: Date
+    ) => void;
+    private readonly requestAttendOccurrence?: (
+        eventId: string,
+        date: Date
+    ) => void;
 
     constructor(
         private readonly containerEl: HTMLElement,
@@ -258,6 +268,8 @@ export class CalendarEventNavigator {
         this.onScaleModeChange = options.onScaleModeChange;
         this.onScaleUnavailable = options.onScaleUnavailable;
         this.navigateWeeks = options.navigateWeeks;
+        this.requestOmitOccurrence = options.requestOmitOccurrence;
+        this.requestAttendOccurrence = options.requestAttendOccurrence;
     }
 
     activate(
@@ -715,6 +727,10 @@ export class CalendarEventNavigator {
             }
             return true;
         }
+        if (key === "o" || key === "a") {
+            this.pendingCount = "";
+            return this.requestFocusedOccurrenceAction(key, repeat);
+        }
         if (key.toLowerCase() === "z") {
             this.pendingCount = "";
             if (!repeat) {
@@ -731,6 +747,25 @@ export class CalendarEventNavigator {
             return this.openFocusedEvent(repeat);
         }
         return this.discardCount();
+    }
+
+    private requestFocusedOccurrenceAction(
+        key: "o" | "a",
+        repeat: boolean
+    ): boolean {
+        if (!this.focusedEvent) {
+            return true;
+        }
+        const eventId = this.focusedEvent.dataset.ofcEventId;
+        const date = parseEventDate(this.focusedEvent, "ofcEventStart");
+        if (!repeat && eventId && date) {
+            if (key === "o") {
+                this.requestOmitOccurrence?.(eventId, date);
+            } else {
+                this.requestAttendOccurrence?.(eventId, date);
+            }
+        }
+        return true;
     }
 
     private moveByWeeks(delta: number): boolean {

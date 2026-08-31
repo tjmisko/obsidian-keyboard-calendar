@@ -547,6 +547,36 @@ describe("calendar event grab mode", () => {
         expect(navigator.isGrabbing()).toBe(true);
     });
 
+    it("requests omit and attend confirmations only in normal mode", () => {
+        const start = new Date(2026, 7, 20, 9, 0);
+        const focused = makeEventElement(
+            start,
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 },
+            "event-id"
+        );
+        const requestOmitOccurrence = jest.fn();
+        const requestAttendOccurrence = jest.fn();
+        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
+            requestOmitOccurrence,
+            requestAttendOccurrence,
+        });
+        navigator.activate(start);
+
+        expect(navigator.handleKey("o")).toBe(true);
+        expect(navigator.handleKey("a")).toBe(true);
+        expect(navigator.handleKey("o", true)).toBe(true);
+        expect(requestOmitOccurrence).toHaveBeenCalledWith("event-id", start);
+        expect(requestOmitOccurrence).toHaveBeenCalledTimes(1);
+        expect(requestAttendOccurrence).toHaveBeenCalledWith("event-id", start);
+
+        navigator.handleKey("m");
+        navigator.handleKey("o");
+        navigator.handleKey("a");
+        expect(requestOmitOccurrence).toHaveBeenCalledTimes(1);
+        expect(requestAttendOccurrence).toHaveBeenCalledTimes(1);
+    });
+
     it("keeps failed undo history and restores the moved preview", async () => {
         const start = new Date(2026, 7, 20, 9, 0);
         const focused = makeEventElement(
