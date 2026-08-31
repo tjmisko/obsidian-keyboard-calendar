@@ -452,6 +452,24 @@ export const getAdjacentCalendarView = (
     ];
 };
 
+export type CalendarPeriodDirection = "previous" | "next";
+
+/** Use the active FullCalendar view's native date increment. */
+export const navigateCalendarPeriod = (
+    calendar: Pick<Calendar, "prev" | "next"> | null,
+    direction: CalendarPeriodDirection
+): boolean => {
+    if (!calendar) {
+        return false;
+    }
+    if (direction === "previous") {
+        calendar.prev();
+    } else {
+        calendar.next();
+    }
+    return true;
+};
+
 const isTimeGridView = (viewType: string): boolean =>
     viewType.startsWith("timeGrid");
 

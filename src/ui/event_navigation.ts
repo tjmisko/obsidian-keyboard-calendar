@@ -63,13 +63,6 @@ export const isCalendarMoveRedoShortcut = (
     !event.shiftKey &&
     event.key.toLowerCase() === "r";
 
-export const getNormalModeWeekDelta = (key: string): -1 | 1 | null => {
-    if (key === "ArrowLeft" || key === "ArrowUp") {
-        return -1;
-    }
-    return key === "ArrowRight" || key === "ArrowDown" ? 1 : null;
-};
-
 /** Moves a grabbed event while preserving both endpoints in local time. */
 export const moveCalendarEventGrab = (
     grab: CalendarEventGrab,
@@ -388,25 +381,15 @@ export class CalendarEventNavigator {
         const events = this.getEventElements();
         if (events.length === 0) {
             this.clearFocus();
-            return true;
+            return this.moveByWeeks(
+                direction === "left" || direction === "up" ? -1 : 1
+            );
         }
         if (!this.focusedEvent || !events.includes(this.focusedEvent)) {
             this.syncToView();
         }
         if (direction === "up" || direction === "down") {
-            const orderedEvents = events
-                .map((event, domIndex) => ({
-                    event,
-                    domIndex,
-                    start:
-                        parseEventDate(event, "ofcEventStart")?.getTime() || 0,
-                }))
-                .sort(
-                    (left, right) =>
-                        left.start - right.start ||
-                        left.domIndex - right.domIndex
-                )
-                .map(({ event }) => event);
+            const orderedEvents = this.getChronologicalEvents(events);
             const currentIndex = this.focusedEvent
                 ? orderedEvents.indexOf(this.focusedEvent)
                 : -1;
@@ -414,10 +397,10 @@ export class CalendarEventNavigator {
                 return true;
             }
             const offset = (direction === "down" ? 1 : -1) * count;
-            const nextIndex = Math.max(
-                0,
-                Math.min(orderedEvents.length - 1, currentIndex + offset)
-            );
+            const nextIndex = currentIndex + offset;
+            if (nextIndex < 0 || nextIndex >= orderedEvents.length) {
+                return this.moveByWeeks(direction === "down" ? 1 : -1);
+            }
             this.focus(orderedEvents[nextIndex]);
             return true;
         }
@@ -437,6 +420,9 @@ export class CalendarEventNavigator {
                 direction
             );
             if (nextIndex === currentIndex) {
+                if (this.isAtChronologicalBoundary(events, direction)) {
+                    return this.moveByWeeks(direction === "right" ? 1 : -1);
+                }
                 break;
             }
             currentIndex = nextIndex;
@@ -736,10 +722,6 @@ export class CalendarEventNavigator {
             }
             return true;
         }
-        const weekDelta = getNormalModeWeekDelta(key);
-        if (weekDelta !== null) {
-            return this.moveByWeeks(weekDelta * this.takeCount());
-        }
         const direction = getCalendarCellDirection(key);
         if (direction) {
             return this.move(direction, this.takeCount());
@@ -758,6 +740,32 @@ export class CalendarEventNavigator {
         this.clearFocus();
         this.navigateWeeks?.(delta);
         return true;
+    }
+
+    private getChronologicalEvents(events: readonly HTMLElement[]) {
+        return events
+            .map((event, domIndex) => ({
+                event,
+                domIndex,
+                start: parseEventDate(event, "ofcEventStart")?.getTime() || 0,
+            }))
+            .sort(
+                (left, right) =>
+                    left.start - right.start || left.domIndex - right.domIndex
+            )
+            .map(({ event }) => event);
+    }
+
+    private isAtChronologicalBoundary(
+        events: readonly HTMLElement[],
+        direction: "left" | "right"
+    ): boolean {
+        const orderedEvents = this.getChronologicalEvents(events);
+        const boundaryEvent =
+            direction === "left"
+                ? orderedEvents[0]
+                : orderedEvents[orderedEvents.length - 1];
+        return this.focusedEvent === boundaryEvent;
     }
 
     private handleTransformKey(key: string, repeat: boolean): boolean {

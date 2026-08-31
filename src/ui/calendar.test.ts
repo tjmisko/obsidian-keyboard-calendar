@@ -17,6 +17,7 @@ import {
     getAdjacentCalendarView,
     getRenderedEventTitle,
     LocalMaterializedEventSource,
+    navigateCalendarPeriod,
     renderCalendar,
     scrollCalendarDateIntoView,
     toLocalWallClockRecurrenceMarker,
@@ -615,5 +616,18 @@ describe("calendar labels", () => {
         expect(getAdjacentCalendarView("dayGridMonth", true)).toBe(
             "timeGridWeek"
         );
+    });
+
+    it("navigates by the active view's native previous and next intervals", () => {
+        const calendar = {
+            prev: jest.fn(),
+            next: jest.fn(),
+        };
+
+        expect(navigateCalendarPeriod(calendar, "previous")).toBe(true);
+        expect(navigateCalendarPeriod(calendar, "next")).toBe(true);
+        expect(calendar.prev).toHaveBeenCalledTimes(1);
+        expect(calendar.next).toHaveBeenCalledTimes(1);
+        expect(navigateCalendarPeriod(null, "next")).toBe(false);
     });
 });

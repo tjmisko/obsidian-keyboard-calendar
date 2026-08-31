@@ -3,9 +3,11 @@ import { ItemView, Menu, Notice, Platform, WorkspaceLeaf } from "obsidian";
 import { Calendar, EventInput } from "@fullcalendar/core";
 import {
     collectCalendarRenderDiagnostics,
+    CalendarPeriodDirection,
     formatDateLabel,
     getAdjacentCalendarView,
     LocalMaterializedEventSource,
+    navigateCalendarPeriod,
     renderCalendar,
     scrollCalendarDateIntoView,
 } from "./calendar";
@@ -372,7 +374,7 @@ export class CalendarView extends ItemView {
         this.modeChipEl.setAttribute("aria-label", `Calendar mode: ${label}`);
         this.modeChipEl.title =
             this.navigationMode === "normal"
-                ? "Normal mode — arrows change weeks; h/j/k/l focus events; i inserts; m moves; s scales; yy/p copy/paste; x/Delete removes; zt/zz/zb align"
+                ? "Normal mode — arrows or h/j/k/l focus events and cross week boundaries; i inserts; m moves; s scales; yy/p copy/paste; x/Delete removes; zt/zz/zb align"
                 : this.navigationMode === "insert"
                 ? "Insert mode — p pastes; Escape returns; zt/zz/zb align the selected cell"
                 : this.navigationMode === "grab"
@@ -396,6 +398,34 @@ export class CalendarView extends ItemView {
 
     goToDate(date: Date): void {
         this.fullCalendarView?.gotoDate(date);
+    }
+
+    navigateView(direction: CalendarPeriodDirection): boolean {
+        const calendar = this.fullCalendarView;
+        if (!navigateCalendarPeriod(calendar, direction) || !calendar) {
+            return false;
+        }
+        this.focusCalendarRangeBoundary(direction === "next" ? 1 : -1);
+        return true;
+    }
+
+    private navigateWeeks(delta: number): void {
+        const calendar = this.fullCalendarView;
+        if (!calendar) {
+            return;
+        }
+        calendar.incrementDate({ weeks: delta });
+        this.focusCalendarRangeBoundary(delta);
+    }
+
+    private focusCalendarRangeBoundary(delta: number): void {
+        if (this.navigationMode === "insert" || !this.fullCalendarView) {
+            return;
+        }
+        const { activeStart, activeEnd } = this.fullCalendarView.view;
+        this.eventNavigator?.syncToView(
+            delta > 0 ? activeStart : new Date(activeEnd.getTime() - 1)
+        );
     }
 
     private cancelWeekAnchor(): void {
@@ -898,8 +928,7 @@ export class CalendarView extends ItemView {
             );
         };
         this.eventNavigator = new CalendarEventNavigator(calendarEl, {
-            navigateWeeks: (delta) =>
-                this.fullCalendarView?.incrementDate({ weeks: delta }),
+            navigateWeeks: (delta) => this.navigateWeeks(delta),
             canGrabEvent: canTransformEvent,
             canScaleEvent: canTransformEvent,
             onGrabUnavailable: () =>

@@ -14,6 +14,11 @@ export const CALENDAR_COMMAND_METADATA = [
     { id: "keyboard-calendar-open", name: "Open Calendar" },
     { id: "keyboard-calendar-open-day", name: "Open Day Calendar" },
     {
+        id: "keyboard-calendar-previous-view",
+        name: "Previous View",
+    },
+    { id: "keyboard-calendar-next-view", name: "Next View" },
+    {
         id: "keyboard-calendar-diagnostics",
         name: "Show Diagnostic Report",
     },

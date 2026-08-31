@@ -3,7 +3,6 @@ import {
     CALENDAR_KEYDOWN_CAPTURE_OPTIONS,
     CalendarEventNavigator,
     getDirectionalEventIndex,
-    getNormalModeWeekDelta,
     isCalendarMoveRedoShortcut,
     moveCalendarEventGrab,
     navigateFromCalendarEvent,
@@ -67,17 +66,6 @@ describe("calendar event focus", () => {
         expect(getDirectionalEventIndex(rects, 0, "down")).toBe(1);
         expect(getDirectionalEventIndex(rects, 0, "right")).toBe(2);
         expect(getDirectionalEventIndex(rects, 0, "up")).toBe(0);
-    });
-
-    it.each([
-        ["ArrowLeft", -1],
-        ["ArrowUp", -1],
-        ["ArrowRight", 1],
-        ["ArrowDown", 1],
-        ["h", null],
-        ["j", null],
-    ])("maps normal-mode %s to a week delta of %s", (key, delta) => {
-        expect(getNormalModeWeekDelta(key)).toBe(delta);
     });
 
     it("focuses the event nearest a supplied cursor time", () => {
@@ -152,34 +140,61 @@ describe("calendar event focus", () => {
 
         navigator.handleKey("j");
         expect(navigator.getFocusedEvent()).toBe(tenSecond);
-        navigator.handleKey("j");
+        navigator.handleKey("ArrowDown");
         expect(navigator.getFocusedEvent()).toBe(eleven);
         navigator.handleKey("k");
         expect(navigator.getFocusedEvent()).toBe(tenSecond);
-        navigator.handleKey("k");
+        navigator.handleKey("ArrowUp");
         expect(navigator.getFocusedEvent()).toBe(tenFirst);
         navigator.handleKey("k");
         expect(navigator.getFocusedEvent()).toBe(nine);
     });
 
-    it("moves whole weeks with normal-mode arrows and applies counts", () => {
-        const focused = makeEventElement(
+    it("retains arrow-key event focus and crosses at week boundaries", () => {
+        const first = makeEventElement(
             new Date(2026, 7, 20, 9, 0),
             new Date(2026, 7, 20, 10, 0),
             { top: 0, left: 0, width: 50, height: 30 }
         );
+        const last = makeEventElement(
+            new Date(2026, 7, 21, 17, 0),
+            new Date(2026, 7, 21, 18, 0),
+            { top: 100, left: 100, width: 50, height: 30 }
+        );
         const navigateWeeks = jest.fn();
-        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
-            navigateWeeks,
-        });
+        const navigator = new CalendarEventNavigator(
+            makeContainer([first, last]),
+            { navigateWeeks }
+        );
         navigator.activate(new Date(2026, 7, 20, 9, 0));
 
-        navigator.handleKey("ArrowLeft");
-        navigator.handleKey("2");
         navigator.handleKey("ArrowDown");
+        expect(navigator.getFocusedEvent()).toBe(last);
+        expect(navigateWeeks).not.toHaveBeenCalled();
 
-        expect(navigateWeeks.mock.calls).toEqual([[-1], [2]]);
-        expect(navigator.getFocusedEvent()).toBeNull();
+        navigator.handleKey("ArrowDown");
+        expect(navigateWeeks).toHaveBeenLastCalledWith(1);
+
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+        navigator.handleKey("ArrowLeft");
+        expect(navigateWeeks).toHaveBeenLastCalledWith(-1);
+    });
+
+    it("crosses forward from the last event with the right arrow", () => {
+        const last = makeEventElement(
+            new Date(2026, 7, 21, 17, 0),
+            new Date(2026, 7, 21, 18, 0),
+            { top: 100, left: 100, width: 50, height: 30 }
+        );
+        const navigateWeeks = jest.fn();
+        const navigator = new CalendarEventNavigator(makeContainer([last]), {
+            navigateWeeks,
+        });
+        navigator.activate(new Date(2026, 7, 21, 17, 0));
+
+        navigator.handleKey("ArrowRight");
+
+        expect(navigateWeeks).toHaveBeenCalledWith(1);
     });
 
     it("activates an exact event ID and scrolls it into the viewport", () => {

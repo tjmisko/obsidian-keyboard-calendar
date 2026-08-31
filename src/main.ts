@@ -494,6 +494,20 @@ export default class FullCalendarPlugin extends Plugin {
                         case "keyboard-calendar-open-day":
                             void this.activateDayView();
                             return;
+                        case "keyboard-calendar-previous-view": {
+                            const view = this.app.workspace.activeLeaf?.view;
+                            if (view instanceof CalendarView) {
+                                view.navigateView("previous");
+                            }
+                            return;
+                        }
+                        case "keyboard-calendar-next-view": {
+                            const view = this.app.workspace.activeLeaf?.view;
+                            if (view instanceof CalendarView) {
+                                view.navigateView("next");
+                            }
+                            return;
+                        }
                         case "keyboard-calendar-diagnostics":
                             this.showDiagnosticReport();
                             return;
