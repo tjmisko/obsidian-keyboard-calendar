@@ -24,6 +24,14 @@ export type CalendarScrollAlignment = "start" | "center" | "end";
 
 const FALLBACK_PAGE_CELL_COUNT = 16;
 const MAX_OPERATION_COUNT = 9999;
+const MODIFIER_ONLY_KEYS = new Set([
+    "Shift",
+    "Control",
+    "Alt",
+    "Meta",
+    "AltGraph",
+    "CapsLock",
+]);
 
 const minutesSinceStartOfDay = (date: Date): number =>
     date.getHours() * 60 + date.getMinutes();
@@ -531,6 +539,10 @@ export class CalendarCellNavigator {
 
     handleKey(key: string, repeat = false): boolean {
         if (!this.isActive()) {
+            return false;
+        }
+
+        if (MODIFIER_ONLY_KEYS.has(key)) {
             return false;
         }
 

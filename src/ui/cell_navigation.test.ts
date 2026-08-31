@@ -246,6 +246,25 @@ describe("cell navigator", () => {
         expectTime(navigator.getSelectedCell()!.end, 2026, 7, 20, 20, 15);
     });
 
+    it("preserves a counted G command across the Shift keydown", () => {
+        const navigator = new CalendarCellNavigator(
+            makeContainer(),
+            makeCalendar(
+                "timeGridWeek",
+                new Date(2026, 7, 17),
+                new Date(2026, 7, 24)
+            ),
+            { now: () => new Date(2026, 7, 20, 10, 7) }
+        );
+
+        expect(navigator.handleKey("2")).toBe(true);
+        expect(navigator.handleKey("1")).toBe(true);
+        expect(navigator.handleKey("Shift")).toBe(false);
+        expect(navigator.handleKey("G")).toBe(true);
+        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 20, 21, 0);
+        expectTime(navigator.getSelectedCell()!.end, 2026, 7, 20, 21, 15);
+    });
+
     it("starts each insert-mode activation from the current time", () => {
         const navigator = new CalendarCellNavigator(
             makeContainer(),
