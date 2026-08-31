@@ -239,10 +239,11 @@ describe("cell navigator", () => {
         navigator.handleKey("l");
         expectTime(navigator.getSelectedCell()!.start, 2026, 7, 20, 10, 45);
 
-        navigator.handleKey("1");
-        navigator.handleKey("8");
-        navigator.handleKey("G");
-        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 20, 18, 0);
+        expect(navigator.handleKey("2")).toBe(true);
+        expect(navigator.handleKey("0")).toBe(true);
+        expect(navigator.handleKey("G")).toBe(true);
+        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 20, 20, 0);
+        expectTime(navigator.getSelectedCell()!.end, 2026, 7, 20, 20, 15);
     });
 
     it("starts each insert-mode activation from the current time", () => {
@@ -261,6 +262,58 @@ describe("cell navigator", () => {
         navigator.activateAtCurrentTime();
 
         expectTime(navigator.getSelectedCell()!.start, 2026, 7, 20, 10, 0);
+    });
+
+    it("can activate insert mode at a focused event's start cell", () => {
+        const navigator = new CalendarCellNavigator(
+            makeContainer(),
+            makeCalendar(
+                "timeGridWeek",
+                new Date(2026, 7, 17),
+                new Date(2026, 7, 24)
+            ),
+            { now: () => new Date(2026, 7, 20, 10, 7) }
+        );
+
+        navigator.deactivate();
+        navigator.activateAt(new Date(2026, 7, 22, 19, 7));
+
+        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 22, 19, 0);
+        expectTime(navigator.getSelectedCell()!.end, 2026, 7, 22, 19, 15);
+    });
+
+    it("moves the insert cursor back to the current-time cell with T", () => {
+        const navigator = new CalendarCellNavigator(
+            makeContainer(),
+            makeCalendar(
+                "timeGridWeek",
+                new Date(2026, 7, 17),
+                new Date(2026, 7, 24)
+            ),
+            { now: () => new Date(2026, 7, 20, 16, 38) }
+        );
+        navigator.select(new Date(2026, 7, 22, 9, 0), false);
+
+        expect(navigator.handleKey("T")).toBe(true);
+        expectTime(navigator.getSelectedCell()!.start, 2026, 7, 20, 16, 30);
+        expectTime(navigator.getSelectedCell()!.end, 2026, 7, 20, 16, 45);
+    });
+
+    it("consumes T without abandoning an event draft", () => {
+        const navigator = new CalendarCellNavigator(
+            makeContainer(),
+            makeCalendar(
+                "timeGridWeek",
+                new Date(2026, 7, 17),
+                new Date(2026, 7, 24)
+            ),
+            { now: () => new Date(2026, 7, 20, 16, 38) }
+        );
+        navigator.handleKey("Enter");
+        const draft = navigator.getEventDraft();
+
+        expect(navigator.handleKey("T")).toBe(true);
+        expect(navigator.getEventDraft()).toEqual(draft);
     });
 
     it("supports Vim scroll-position prefixes", () => {

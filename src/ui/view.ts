@@ -247,8 +247,15 @@ export class CalendarView extends ItemView {
         ) {
             return false;
         }
+        const focusedEventDate = this.eventNavigator?.getFocusedEvent()
+            ? this.eventNavigator.getFocusedDate()
+            : null;
         this.eventNavigator?.deactivate();
-        this.cellNavigator.activateAtCurrentTime();
+        if (focusedEventDate) {
+            this.cellNavigator.activateAt(focusedEventDate);
+        } else {
+            this.cellNavigator.activateAtCurrentTime();
+        }
         this.navigationMode = "insert";
         this.updateModeChip();
         return true;
@@ -462,7 +469,7 @@ export class CalendarView extends ItemView {
             this.navigationMode === "normal"
                 ? "Normal mode — arrows or h/j/k/l focus events and cross week boundaries; o omits; a attends; i inserts; m moves; s scales; yy/p copy/paste; x/Delete removes; zt/zz/zb align"
                 : this.navigationMode === "insert"
-                ? "Insert mode — p pastes; Escape returns; zt/zz/zb align the selected cell"
+                ? "Insert mode — T jumps to the current time; {hour}G jumps to an hour; p pastes; Escape returns; zt/zz/zb align the selected cell"
                 : this.navigationMode === "grab"
                 ? "Grab mode — arrows move; Enter/Escape keep; zt/zz/zb align"
                 : "Scale mode — up/down resize the bottom; Enter/Escape keep; zt/zz/zb align";

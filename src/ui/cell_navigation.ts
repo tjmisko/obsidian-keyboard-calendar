@@ -228,6 +228,16 @@ export class CalendarCellNavigator {
         this.renderSelection(true);
     }
 
+    activateAt(date: Date): void {
+        this.enabled = true;
+        this.eventDraft = null;
+        this.pendingPrefix = null;
+        this.pendingCount = "";
+        this.containerEl.classList.add("ofc-cell-navigation-active");
+        this.containerEl.classList.remove("ofc-event-draft-active");
+        this.select(date, true);
+    }
+
     deactivate(): void {
         this.enabled = false;
         this.eventDraft = null;
@@ -370,6 +380,16 @@ export class CalendarCellNavigator {
         const date = new Date(this.selectedCell.start);
         date.setHours(Math.max(0, Math.min(23, hour)), 0, 0, 0);
         this.select(date);
+        return true;
+    }
+
+    moveToCurrentTime(): boolean {
+        if (!this.isActive() || this.eventDraft) {
+            return false;
+        }
+        this.pendingPrefix = null;
+        this.pendingCount = "";
+        this.select(this.now(), true);
         return true;
     }
 
@@ -551,6 +571,14 @@ export class CalendarCellNavigator {
             }
             this.pendingCount = "";
             return true;
+        }
+
+        if (key === "T") {
+            if (this.eventDraft) {
+                this.pendingCount = "";
+                return true;
+            }
+            return repeat ? true : this.moveToCurrentTime();
         }
 
         if (this.eventDraft) {
