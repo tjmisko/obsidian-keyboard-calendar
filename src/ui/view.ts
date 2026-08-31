@@ -114,6 +114,7 @@ export class CalendarView extends ItemView {
     private calendarEl: HTMLElement | null = null;
     private weekAnchorAnimationFrame: number | null = null;
     private weekAnchorWindow: Window | null = null;
+    private lastPrimaryViewType: string | null = null;
 
     constructor(
         leaf: WorkspaceLeaf,
@@ -884,7 +885,17 @@ export class CalendarView extends ItemView {
             variant: this.surface,
             isMobile: Platform.isMobile,
             timeFormat24h: this.plugin.settings.timeFormat24h,
-            datesSet: () => {
+            datesSet: (viewType) => {
+                if (
+                    this.surface === "primary" &&
+                    (viewType === "dayGridMonth" || viewType === "timeGridWeek")
+                ) {
+                    const priorViewType = this.lastPrimaryViewType;
+                    this.lastPrimaryViewType = viewType;
+                    if (priorViewType && priorViewType !== viewType) {
+                        this.plugin.rememberCalendarView(viewType);
+                    }
+                }
                 if (
                     this.navigationMode === "insert" &&
                     !this.fullCalendarView?.view.type.startsWith("timeGrid")

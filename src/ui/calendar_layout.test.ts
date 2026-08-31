@@ -133,6 +133,19 @@ describe("calendar surface styles", () => {
         expect(normalModeRule).toContain("display: none");
     });
 
+    it("styles relative period labels as space-aware muted small caps", () => {
+        const labelRule = stylesheet.match(
+            /\.fc \.fc-toolbar-title \.ofc-relative-period-label\s*\{([^}]*)\}/
+        )?.[1];
+
+        expect(labelRule).toContain("color: var(--text-faint)");
+        expect(labelRule).toContain("font-variant-caps: all-small-caps");
+        expect(stylesheet).toContain("@container (max-width: 32rem)");
+        expect(stylesheet).toContain(
+            ".fc .fc-toolbar-title .ofc-relative-period-label"
+        );
+    });
+
     it("contains no retired list-view selectors", () => {
         expect(stylesheet).not.toContain("fc-list");
     });

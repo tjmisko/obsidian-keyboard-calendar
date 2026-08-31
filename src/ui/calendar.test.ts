@@ -15,6 +15,7 @@ import {
     formatTimeLabel,
     formatTimeGridSlotLabel,
     getAdjacentCalendarView,
+    getRelativeCalendarPeriodLabel,
     getRenderedEventTitle,
     LocalMaterializedEventSource,
     navigateCalendarPeriod,
@@ -616,6 +617,51 @@ describe("calendar labels", () => {
         expect(getAdjacentCalendarView("dayGridMonth", true)).toBe(
             "timeGridWeek"
         );
+    });
+
+    it.each([
+        ["2026-08-31", null],
+        ["2026-09-07", "next week"],
+        ["2026-09-14", "two weeks hence"],
+        ["2026-08-24", "last week"],
+        ["2026-08-10", "three weeks ago"],
+    ])("labels the displayed week starting %s as %s", (start, label) => {
+        expect(
+            getRelativeCalendarPeriodLabel(
+                "timeGridWeek",
+                new Date(`${start}T00:00:00`),
+                new Date("2026-08-31T09:00:00"),
+                1
+            )
+        ).toBe(label);
+    });
+
+    it.each([
+        ["2026-08-01", null],
+        ["2026-09-01", "next month"],
+        ["2026-10-01", "two months hence"],
+        ["2026-07-01", "last month"],
+        ["2026-06-01", "two months ago"],
+    ])("labels the displayed month starting %s as %s", (start, label) => {
+        expect(
+            getRelativeCalendarPeriodLabel(
+                "dayGridMonth",
+                new Date(`${start}T00:00:00`),
+                new Date("2026-08-31T09:00:00"),
+                1
+            )
+        ).toBe(label);
+    });
+
+    it("omits relative labels outside week and month views", () => {
+        expect(
+            getRelativeCalendarPeriodLabel(
+                "timeGridDay",
+                new Date("2026-09-01T00:00:00"),
+                new Date("2026-08-31T09:00:00"),
+                1
+            )
+        ).toBeNull();
     });
 
     it("navigates by the active view's native previous and next intervals", () => {

@@ -55,6 +55,8 @@ export default class FullCalendarPlugin extends Plugin {
     private persistedSettings: unknown = {};
     private runtimeSettingsBaseline: FullCalendarSettings =
         captureRuntimeSettingsBaseline(DEFAULT_SETTINGS);
+    private calendarViewPersistence: Promise<void> = Promise.resolve();
+    private requestedInitialView: string | null = null;
     private settingsLoaded = false;
     private requestLegacyPrimaryMigration: () => Promise<boolean> = () =>
         Promise.resolve(false);
@@ -581,6 +583,40 @@ export default class FullCalendarPlugin extends Plugin {
             },
             () => undefined
         );
+    }
+
+    rememberCalendarView(initialView: string): void {
+        if (initialView !== "dayGridMonth" && initialView !== "timeGridWeek") {
+            return;
+        }
+        const rememberedView =
+            this.requestedInitialView || this.settings.initialView;
+        if (rememberedView === initialView) {
+            return;
+        }
+
+        this.requestedInitialView = initialView;
+        const persistence = this.calendarViewPersistence.then(async () => {
+            await commitSettingsBeforeRuntime(
+                this.persistedSettings,
+                this.runtimeSettingsBaseline,
+                { ...this.settings, initialView },
+                (persisted) => this.saveData(persisted),
+                (settings, persisted, baseline) => {
+                    this.settings = settings;
+                    this.persistedSettings = persisted;
+                    this.runtimeSettingsBaseline = baseline;
+                },
+                () => undefined
+            );
+        });
+        this.calendarViewPersistence = persistence.catch((error) => {
+            if (this.requestedInitialView === initialView) {
+                this.requestedInitialView = null;
+            }
+            console.error("Could not remember calendar view", error);
+            new Notice("Could not remember the selected calendar view.");
+        });
     }
 
     async updateSettings(nextSettings: FullCalendarSettings) {

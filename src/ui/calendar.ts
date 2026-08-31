@@ -62,7 +62,7 @@ interface ExtraRenderProps {
     ) => Promise<void>;
     dailyNotePath?: (date: Date) => string;
     openDailyNote?: (date: Date) => Promise<void>;
-    datesSet?: () => void;
+    datesSet?: (viewType: string) => void;
     eventsSet?: () => void;
     diagnostic?: (event: string, details: unknown) => void;
     variant?: CalendarVariant;
@@ -97,6 +97,107 @@ export const formatTimeGridSlotLabel = (date: Date): string =>
 
 export const formatDateLabel = (date: Date): string =>
     formatDatePartsLabel(date.getFullYear(), date.getMonth(), date.getDate());
+
+const PERIOD_COUNT_WORDS = [
+    "zero",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+] as const;
+
+const formatPeriodCount = (count: number): string =>
+    PERIOD_COUNT_WORDS[count] || count.toString();
+
+const localDateOrdinal = (date: Date): number =>
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+
+const startOfLocalWeek = (date: Date, firstDay: number): Date => {
+    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const dayOffset = (start.getDay() - firstDay + 7) % 7;
+    start.setDate(start.getDate() - dayOffset);
+    return start;
+};
+
+const formatRelativePeriod = (
+    difference: number,
+    period: "week" | "month"
+): string | null => {
+    if (difference === 0) {
+        return null;
+    }
+    if (difference === 1) {
+        return `next ${period}`;
+    }
+    if (difference === -1) {
+        return `last ${period}`;
+    }
+    const count = formatPeriodCount(Math.abs(difference));
+    return difference > 0
+        ? `${count} ${period}s hence`
+        : `${count} ${period}s ago`;
+};
+
+export const getRelativeCalendarPeriodLabel = (
+    viewType: string,
+    currentStart: Date,
+    now: Date = new Date(),
+    firstDay = 0
+): string | null => {
+    if (viewType === "timeGridWeek") {
+        const displayedWeek = startOfLocalWeek(currentStart, firstDay);
+        const presentWeek = startOfLocalWeek(now, firstDay);
+        const difference = Math.round(
+            (localDateOrdinal(displayedWeek) - localDateOrdinal(presentWeek)) /
+                (7 * 24 * 60 * 60 * 1000)
+        );
+        return formatRelativePeriod(difference, "week");
+    }
+    if (viewType === "dayGridMonth") {
+        const difference =
+            (currentStart.getFullYear() - now.getFullYear()) * 12 +
+            currentStart.getMonth() -
+            now.getMonth();
+        return formatRelativePeriod(difference, "month");
+    }
+    return null;
+};
+
+export const updateRelativeCalendarPeriodLabel = (
+    containerEl: HTMLElement,
+    viewType: string,
+    currentStart: Date,
+    firstDay = 0,
+    now: Date = new Date()
+): void => {
+    containerEl
+        .querySelectorAll<HTMLElement>(".ofc-relative-period-label")
+        .forEach((element) => element.remove());
+    const label = getRelativeCalendarPeriodLabel(
+        viewType,
+        currentStart,
+        now,
+        firstDay
+    );
+    const title = label
+        ? containerEl.querySelector<HTMLElement>(".fc-toolbar-title")
+        : null;
+    if (!label || !title) {
+        return;
+    }
+    const relativeLabel = title.ownerDocument.createElement("span");
+    relativeLabel.className = "ofc-relative-period-label";
+    relativeLabel.textContent = label;
+    title.appendChild(relativeLabel);
+};
 
 /** Give a touch gesture time to become a scroll before selection or dragging. */
 export const TOUCH_LONG_PRESS_DELAY_MS = 400;
@@ -590,16 +691,22 @@ export function renderCalendar(
             }),
         },
         firstDay: settings?.firstDay,
-        datesSet: diagnostic
-            ? (info) => {
-                  emitCalendarDiagnostic(diagnostic, "dates.set", {
-                      viewType: info.view.type,
-                      start: info.start,
-                      end: info.end,
-                  });
-                  settings?.datesSet?.();
-              }
-            : settings?.datesSet,
+        datesSet: (info) => {
+            updateRelativeCalendarPeriodLabel(
+                containerEl,
+                info.view.type,
+                info.view.currentStart,
+                settings?.firstDay
+            );
+            if (diagnostic) {
+                emitCalendarDiagnostic(diagnostic, "dates.set", {
+                    viewType: info.view.type,
+                    start: info.start,
+                    end: info.end,
+                });
+            }
+            settings?.datesSet?.(info.view.type);
+        },
         eventsSet: diagnostic
             ? (events) => {
                   emitCalendarDiagnostic(diagnostic, "events.set", {
