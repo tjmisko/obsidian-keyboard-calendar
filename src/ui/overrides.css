@@ -502,10 +502,12 @@
 }
 
 @container (max-width: 40rem) {
-	.fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-toolbar {
-		flex-wrap: wrap;
+	.fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-toolbar.fc-header-toolbar {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
 		align-items: center;
-		row-gap: var(--size-4-1, 0.25rem);
+		gap: var(--size-4-1, 0.25rem);
+		margin-bottom: var(--size-4-2, 0.5rem);
 	}
 
 	.fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-toolbar-chunk {
@@ -515,9 +517,8 @@
 	}
 
 	.fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-toolbar-chunk:nth-child(2) {
-		order: -1;
-		flex: 1 0 100%;
 		justify-content: center;
+		overflow: hidden;
 	}
 
 	.fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-toolbar-title {

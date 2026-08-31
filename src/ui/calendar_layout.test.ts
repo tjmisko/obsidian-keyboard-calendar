@@ -44,14 +44,18 @@ describe("calendar surface styles", () => {
         expect(stylesheet).not.toContain("height: calc(100% - 4rem)");
     });
 
-    it("uses the calendar container to wrap narrow toolbars", () => {
+    it("keeps narrow primary headers on one compact row", () => {
+        const toolbarRule = stylesheet.match(
+            /\.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\) \.fc-toolbar\.fc-header-toolbar\s*\{([^}]*)\}/
+        )?.[1];
+
         expect(stylesheet).toContain("container-type: inline-size");
         expect(stylesheet).toContain("@container (max-width: 40rem)");
-        expect(stylesheet).toContain(
-            ".fc.ofc-calendar-root:not(.ofc-day-calendar-root)"
+        expect(toolbarRule).toContain("display: grid");
+        expect(toolbarRule).toContain(
+            "grid-template-columns: auto minmax(0, 1fr) auto"
         );
-        expect(stylesheet).toContain(".fc-toolbar.fc-footer-toolbar");
-        expect(stylesheet).toContain("flex: 1 0 100%");
+        expect(toolbarRule).toContain("margin-bottom: var(--size-4-2, 0.5rem)");
     });
 
     it("keeps the phone footer toolbar to one dense row", () => {
