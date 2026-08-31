@@ -89,6 +89,15 @@ const RRULE_DAYS: Record<string, string> = {
     F: "FR",
     S: "SA",
 };
+const RRULE_WEEKDAY_NUMBERS: Record<string, number> = {
+    MO: 1,
+    TU: 2,
+    WE: 3,
+    TH: 4,
+    FR: 5,
+    SA: 6,
+    SU: 7,
+};
 const RECURRENCE_ANCHOR = "1970-01-01";
 
 const getRecurrenceStart = (
@@ -110,6 +119,34 @@ const getRecurrenceExceptions = (
         const parsedDate = DateTime.fromISO(date).toISODate();
         return parsedDate ? `${parsedDate}T${time}` : [];
     });
+};
+
+/**
+ * Older builds rendered an nth-weekday RRule one local day early in negative
+ * UTC offsets. Omitting that displayed occurrence consequently persisted the
+ * preceding date. Include the corresponding rule weekday as an exclusion so
+ * those existing notes keep working after the rendering correction.
+ */
+const getRRuleExceptionDates = (dates: string[], rrule: string): string[] => {
+    const match = rrule.match(
+        /(?:^|;)BYDAY=[+-]?\d+(MO|TU|WE|TH|FR|SA|SU)(?:;|$)/i
+    );
+    if (!match) {
+        return dates;
+    }
+
+    const weekday = RRULE_WEEKDAY_NUMBERS[match[1].toUpperCase()];
+    return [
+        ...new Set(
+            dates.flatMap((date) => {
+                const parsed = DateTime.fromISO(date, { zone: "utc" });
+                const followingDate = parsed.plus({ days: 1 });
+                return parsed.isValid && followingDate.weekday === weekday
+                    ? [date, followingDate.toISODate()]
+                    : [date];
+            })
+        ),
+    ].sort();
 };
 
 const getRecurrenceEndRule = (
@@ -272,7 +309,10 @@ export function toEventInput(
         // NOTE: this supports one occurrence per recurrence date, matching the
         // note-first recurrence format.
         const exdate = getRecurrenceExceptions(
-            [...frontmatter.skipDates],
+            getRRuleExceptionDates(
+                [...frontmatter.skipDates],
+                frontmatter.rrule
+            ),
             dtstart
         );
 

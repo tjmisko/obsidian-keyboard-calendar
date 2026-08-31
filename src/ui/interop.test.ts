@@ -1,4 +1,5 @@
 import { createDuration } from "@fullcalendar/core";
+import { RRuleSet, rrulestr } from "rrule";
 import { parseEvent } from "../types/schema";
 import {
     attendEventOccurrence,
@@ -424,6 +425,39 @@ describe("recurring event rendering", () => {
             freq: "daily",
             dtstart: expect.stringMatching(/^2026-09-01T/),
         });
+    });
+
+    it("keeps bug-produced Friday omissions working for Saturday RRules", () => {
+        const event = parseEvent({
+            title: "Circle Left",
+            type: "rrule",
+            startDate: "1970-01-01",
+            rrule: "FREQ=MONTHLY;BYDAY=1SA",
+            skipDates: ["2026-09-04"],
+            startTime: "19:00",
+            endTime: "22:00",
+        });
+
+        const rendered = toEventInput("event-id", event);
+
+        expect(rendered?.exdate).toEqual([
+            expect.stringMatching(/^2026-09-04T/),
+            expect.stringMatching(/^2026-09-05T/),
+        ]);
+
+        const recurrence = rrulestr(rendered?.rrule as string, {
+            forceset: true,
+        }) as RRuleSet;
+        (rendered?.exdate as string[]).forEach((date) =>
+            recurrence.exdate(new Date(date))
+        );
+        expect(
+            recurrence.between(
+                new Date("2026-09-01T00:00:00.000Z"),
+                new Date("2026-09-08T00:00:00.000Z"),
+                true
+            )
+        ).toEqual([]);
     });
 
     it("adds, sorts, and de-duplicates omitted occurrence dates", () => {

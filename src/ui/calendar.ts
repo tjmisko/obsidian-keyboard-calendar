@@ -17,21 +17,27 @@ import { eventHasGhostTag } from "../settings/tag_settings";
 
 // There is an issue with FullCalendar RRule support around DST boundaries which is fixed by this monkeypatch:
 // https://github.com/fullcalendar/fullcalendar/issues/5273#issuecomment-1360459342
+export const toLocalWallClockRecurrenceMarker = (
+    occurrence: Date,
+    localStart: Date
+): Date =>
+    new Date(
+        Date.UTC(
+            occurrence.getUTCFullYear(),
+            occurrence.getUTCMonth(),
+            occurrence.getUTCDate(),
+            localStart.getHours(),
+            localStart.getMinutes(),
+            localStart.getSeconds(),
+            localStart.getMilliseconds()
+        )
+    );
+
 rrulePlugin.recurringTypes[0].expand = function (errd, fr, de) {
-    const hours = errd.rruleSet._dtstart.getHours();
+    const localStart = errd.rruleSet._dtstart;
     return errd.rruleSet
         .between(de.toDate(fr.start), de.toDate(fr.end), true)
-        .map((d: Date) => {
-            return new Date(
-                Date.UTC(
-                    d.getFullYear(),
-                    d.getMonth(),
-                    d.getDate(),
-                    hours,
-                    d.getMinutes()
-                )
-            );
-        });
+        .map((d: Date) => toLocalWallClockRecurrenceMarker(d, localStart));
 };
 
 export type CalendarVariant = "primary" | "day-sidebar";

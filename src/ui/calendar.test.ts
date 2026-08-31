@@ -19,10 +19,26 @@ import {
     LocalMaterializedEventSource,
     renderCalendar,
     scrollCalendarDateIntoView,
+    toLocalWallClockRecurrenceMarker,
     TOUCH_LONG_PRESS_DELAY_MS,
 } from "./calendar";
 
 describe("calendar renderer", () => {
+    it("keeps an RRule occurrence on its UTC-computed weekday", () => {
+        const occurrence = new Date(Date.UTC(2026, 8, 5, 3, 0));
+        const localStart = new Date(1970, 0, 1, 19, 0);
+
+        const marker = toLocalWallClockRecurrenceMarker(occurrence, localStart);
+
+        expect([
+            marker.getUTCFullYear(),
+            marker.getUTCMonth(),
+            marker.getUTCDate(),
+            marker.getUTCHours(),
+            marker.getUTCMinutes(),
+        ]).toEqual([2026, 8, 5, 19, 0]);
+    });
+
     it("emits privacy-safe construction and render checkpoints", () => {
         const diagnostic = jest.fn();
         renderCalendar(
