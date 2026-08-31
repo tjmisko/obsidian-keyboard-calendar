@@ -476,6 +476,9 @@
 }
 
 .fc .fc-toolbar-title {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
 	color: color-mix(in srgb, var(--text-normal) 76%, transparent);
 	font-size: 0.95rem !important;
 	font-weight: var(--font-semibold, 600);
@@ -483,12 +486,13 @@
 }
 
 .fc .fc-toolbar-title .ofc-relative-period-label {
-	margin-inline-start: 0.55rem;
+	margin-block-start: 0.08rem;
 	color: var(--text-faint);
-	font-size: 0.64em;
+	font-size: 0.72em;
 	font-variant-caps: all-small-caps;
 	font-weight: var(--font-medium, 500);
 	letter-spacing: 0.07em;
+	line-height: 1;
 	white-space: nowrap;
 }
 

@@ -134,11 +134,17 @@ describe("calendar surface styles", () => {
     });
 
     it("styles relative period labels as space-aware muted small caps", () => {
+        const titleRule = stylesheet.match(
+            /\.fc \.fc-toolbar-title\s*\{([^}]*)\}/
+        )?.[1];
         const labelRule = stylesheet.match(
             /\.fc \.fc-toolbar-title \.ofc-relative-period-label\s*\{([^}]*)\}/
         )?.[1];
 
+        expect(titleRule).toContain("flex-direction: column");
+        expect(titleRule).toContain("align-items: center");
         expect(labelRule).toContain("color: var(--text-faint)");
+        expect(labelRule).toContain("font-size: 0.72em");
         expect(labelRule).toContain("font-variant-caps: all-small-caps");
         expect(stylesheet).toContain("@container (max-width: 32rem)");
         expect(stylesheet).toContain(
