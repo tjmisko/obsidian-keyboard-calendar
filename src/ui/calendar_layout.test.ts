@@ -45,7 +45,10 @@ describe("calendar surface styles", () => {
     });
 
     it("keeps narrow primary headers on one compact row", () => {
-        const toolbarRule = stylesheet.match(
+        const narrowStyles = stylesheet.split(
+            "@container (max-width: 40rem)"
+        )[1];
+        const toolbarRule = narrowStyles?.match(
             /\.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\) \.fc-toolbar\.fc-header-toolbar\s*\{([^}]*)\}/
         )?.[1];
 
@@ -55,7 +58,14 @@ describe("calendar surface styles", () => {
         expect(toolbarRule).toContain(
             "grid-template-columns: auto minmax(0, 1fr) auto"
         );
-        expect(toolbarRule).toContain("margin-bottom: var(--size-4-2, 0.5rem)");
+    });
+
+    it("overrides FullCalendar's large primary header margin", () => {
+        const toolbarRule = stylesheet.match(
+            /\.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\) \.fc-toolbar\.fc-header-toolbar\s*\{([^}]*)\}/
+        )?.[1];
+
+        expect(toolbarRule).toContain("margin-bottom: 0.5em");
     });
 
     it("keeps the phone footer toolbar to one dense row", () => {
