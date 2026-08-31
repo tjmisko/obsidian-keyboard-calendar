@@ -247,6 +247,27 @@ describe("settings decoder", () => {
         ).toEqual([{ tag: "work", color: "#aabbcc" }]);
     });
 
+    it("defaults dark event text to off and preserves an explicit opt-in", () => {
+        expect(
+            decodeSettings({}, undefined, jest.fn()).settings
+                .useDarkTextOnLightEventColors
+        ).toBe(false);
+        expect(
+            decodeSettings(
+                { useDarkTextOnLightEventColors: true },
+                undefined,
+                jest.fn()
+            ).settings.useDarkTextOnLightEventColors
+        ).toBe(true);
+        expect(
+            decodeSettings(
+                { useDarkTextOnLightEventColors: "yes" },
+                undefined,
+                jest.fn()
+            ).settings.useDarkTextOnLightEventColors
+        ).toBe(false);
+    });
+
     it("resolves old string and numeric local defaults", () => {
         const calendarSources = [legacyIcs, local("Work"), local("Home")];
         expect(

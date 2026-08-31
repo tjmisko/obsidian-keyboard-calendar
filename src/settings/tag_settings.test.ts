@@ -5,6 +5,7 @@ import {
     parseEventTagInput,
     parseGhostEventTagsInput,
     resolveEventTagColor,
+    resolveEventTextColor,
 } from "./tag_settings";
 
 describe("ghost event tags", () => {
@@ -59,5 +60,17 @@ describe("event tag colors", () => {
         expect(resolveEventTagColor(["WORK", "urgent"], rules)).toBe("#ff0000");
         expect(resolveEventTagColor(["personal"], rules)).toBeNull();
         expect(resolveEventTagColor(undefined, rules)).toBeNull();
+    });
+
+    it("uses white event text by default", () => {
+        expect(resolveEventTextColor("#41a65a", false)).toBe("white");
+        expect(resolveEventTextColor("#ffffff", false)).toBe("white");
+    });
+
+    it("optionally uses dark text on light six- and three-digit colors", () => {
+        expect(resolveEventTextColor("#ffffff", true)).toBe("black");
+        expect(resolveEventTextColor("#fff", true)).toBe("black");
+        expect(resolveEventTextColor("#53367f", true)).toBe("white");
+        expect(resolveEventTextColor("not-a-color", true)).toBe("white");
     });
 });

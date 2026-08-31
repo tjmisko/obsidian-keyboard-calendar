@@ -21,7 +21,8 @@ export const SINGLE_LOCAL_SOURCE_VERSION = 5;
 export const DESKTOP_ONLY_SETTINGS_VERSION = 6;
 export const GHOST_EVENT_TAGS_SETTINGS_VERSION = 7;
 export const TAG_COLORS_SETTINGS_VERSION = 8;
-export const SETTINGS_VERSION = TAG_COLORS_SETTINGS_VERSION;
+export const EVENT_TEXT_COLOR_SETTINGS_VERSION = 9;
+export const SETTINGS_VERSION = EVENT_TEXT_COLOR_SETTINGS_VERSION;
 
 export const REMOVED_SOURCE_VERSIONS: Readonly<
     Partial<Record<PersistedSourceType, number>>
@@ -38,6 +39,7 @@ export interface FullCalendarSettings {
     timeFormat24h: boolean;
     ghostEventTags: string[];
     eventTagColors: EventTagColor[];
+    useDarkTextOnLightEventColors: boolean;
     legacySidebarMigrationVersion?: number;
 }
 
@@ -48,6 +50,7 @@ export const DEFAULT_SETTINGS: FullCalendarSettings = {
     timeFormat24h: false,
     ghostEventTags: [...DEFAULT_GHOST_EVENT_TAGS],
     eventTagColors: [],
+    useDarkTextOnLightEventColors: false,
 };
 
 export type SourceCounts = Record<
@@ -239,6 +242,10 @@ export function decodeSettings(
                 : DEFAULT_SETTINGS.timeFormat24h,
         ghostEventTags: decodeGhostEventTags(root.ghostEventTags),
         eventTagColors: decodeEventTagColors(root.eventTagColors),
+        useDarkTextOnLightEventColors:
+            typeof root.useDarkTextOnLightEventColors === "boolean"
+                ? root.useDarkTextOnLightEventColors
+                : DEFAULT_SETTINGS.useDarkTextOnLightEventColors,
         ...(legacySidebarMigrationVersion !== undefined && {
             legacySidebarMigrationVersion,
         }),
@@ -265,6 +272,7 @@ const RUNTIME_SETTING_KEYS = [
     "timeFormat24h",
     "ghostEventTags",
     "eventTagColors",
+    "useDarkTextOnLightEventColors",
     "legacySidebarMigrationVersion",
 ] as const;
 

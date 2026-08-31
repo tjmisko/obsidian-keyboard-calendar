@@ -5,6 +5,40 @@ export interface EventTagColor {
     color: string;
 }
 
+const EVENT_DARK_TEXT_BRIGHTNESS_THRESHOLD = 150;
+
+const parseHexColor = (color: string): [number, number, number] | null => {
+    const match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
+    if (!match) {
+        return null;
+    }
+    const hex =
+        match[1].length === 3
+            ? [...match[1]].map((digit) => `${digit}${digit}`).join("")
+            : match[1];
+    return [0, 2, 4].map((offset) =>
+        Number.parseInt(hex.slice(offset, offset + 2), 16)
+    ) as [number, number, number];
+};
+
+export const resolveEventTextColor = (
+    backgroundColor: string | null | undefined,
+    useDarkTextOnLightEventColors: boolean
+): "black" | "white" => {
+    if (!useDarkTextOnLightEventColors || !backgroundColor) {
+        return "white";
+    }
+    const rgb = parseHexColor(backgroundColor);
+    if (!rgb) {
+        return "white";
+    }
+    const [red, green, blue] = rgb;
+    const brightness = (red * 299 + green * 587 + blue * 114) / 1000;
+    return brightness > EVENT_DARK_TEXT_BRIGHTNESS_THRESHOLD
+        ? "black"
+        : "white";
+};
+
 export const normalizeEventTag = (value: unknown): string | null => {
     if (typeof value !== "string") {
         return null;

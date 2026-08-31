@@ -234,6 +234,22 @@ export class FullCalendarSettingTab extends PluginSettingTab {
         containerEl.createEl("p", {
             text: "Assign colors to event tags. When an event matches more than one rule, the first rule in this list wins.",
         });
+        new Setting(containerEl)
+            .setName("Dark text on light event colors")
+            .setDesc(
+                "Automatically use black text on light-colored event backgrounds. Leave this off to keep event text white."
+            )
+            .addToggle((toggle) => {
+                toggle.setValue(
+                    this.plugin.settings.useDarkTextOnLightEventColors
+                );
+                toggle.onChange(async (value) => {
+                    await this.commitSettings({
+                        ...this.plugin.settings,
+                        useDarkTextOnLightEventColors: value,
+                    });
+                });
+            });
         this.plugin.settings.eventTagColors.forEach((rule, index) => {
             new Setting(containerEl)
                 .setName(`#${rule.tag}`)
