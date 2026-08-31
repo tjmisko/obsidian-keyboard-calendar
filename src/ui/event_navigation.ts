@@ -213,6 +213,7 @@ export interface CalendarEventNavigatorOptions {
     navigateWeeks?: (delta: number) => void;
     requestOmitOccurrence?: (eventId: string, date: Date) => void;
     requestAttendOccurrence?: (eventId: string, date: Date) => void;
+    useGridNavigation?: () => boolean;
 }
 
 /** Owns event focus while the calendar is in normal mode. */
@@ -250,6 +251,7 @@ export class CalendarEventNavigator {
         eventId: string,
         date: Date
     ) => void;
+    private readonly useGridNavigation?: () => boolean;
 
     constructor(
         private readonly containerEl: HTMLElement,
@@ -270,6 +272,7 @@ export class CalendarEventNavigator {
         this.navigateWeeks = options.navigateWeeks;
         this.requestOmitOccurrence = options.requestOmitOccurrence;
         this.requestAttendOccurrence = options.requestAttendOccurrence;
+        this.useGridNavigation = options.useGridNavigation;
     }
 
     activate(
@@ -390,9 +393,13 @@ export class CalendarEventNavigator {
         if (!this.enabled) {
             return false;
         }
+        const usesGridNavigation = this.useGridNavigation?.() === true;
         const events = this.getEventElements();
         if (events.length === 0) {
             this.clearFocus();
+            if (usesGridNavigation) {
+                return true;
+            }
             return this.moveByWeeks(
                 direction === "left" || direction === "up" ? -1 : 1
             );
@@ -400,7 +407,10 @@ export class CalendarEventNavigator {
         if (!this.focusedEvent || !events.includes(this.focusedEvent)) {
             this.syncToView();
         }
-        if (direction === "up" || direction === "down") {
+        if (
+            !usesGridNavigation &&
+            (direction === "up" || direction === "down")
+        ) {
             const orderedEvents = this.getChronologicalEvents(events);
             const currentIndex = this.focusedEvent
                 ? orderedEvents.indexOf(this.focusedEvent)
@@ -432,7 +442,10 @@ export class CalendarEventNavigator {
                 direction
             );
             if (nextIndex === currentIndex) {
-                if (this.isAtChronologicalBoundary(events, direction)) {
+                if (
+                    !usesGridNavigation &&
+                    this.isAtChronologicalBoundary(events, direction)
+                ) {
                     return this.moveByWeeks(direction === "right" ? 1 : -1);
                 }
                 break;
@@ -793,11 +806,11 @@ export class CalendarEventNavigator {
 
     private isAtChronologicalBoundary(
         events: readonly HTMLElement[],
-        direction: "left" | "right"
+        direction: CalendarCellDirection
     ): boolean {
         const orderedEvents = this.getChronologicalEvents(events);
         const boundaryEvent =
-            direction === "left"
+            direction === "left" || direction === "up"
                 ? orderedEvents[0]
                 : orderedEvents[orderedEvents.length - 1];
         return this.focusedEvent === boundaryEvent;

@@ -150,6 +150,60 @@ describe("calendar event focus", () => {
         expect(navigator.getFocusedEvent()).toBe(nine);
     });
 
+    it("uses visible grid positions for all directions in month view", () => {
+        const above = makeEventElement(
+            new Date(2026, 7, 1, 19, 0),
+            new Date(2026, 7, 1, 20, 0),
+            { top: 0, left: 100, width: 50, height: 30 }
+        );
+        const chronologicalPrevious = makeEventElement(
+            new Date(2026, 7, 7, 19, 0),
+            new Date(2026, 7, 7, 20, 0),
+            { top: 100, left: 0, width: 50, height: 30 }
+        );
+        const focused = makeEventElement(
+            new Date(2026, 7, 8, 19, 0),
+            new Date(2026, 7, 8, 20, 0),
+            { top: 100, left: 100, width: 50, height: 30 }
+        );
+        const navigateWeeks = jest.fn();
+        const navigator = new CalendarEventNavigator(
+            makeContainer([above, chronologicalPrevious, focused]),
+            {
+                navigateWeeks,
+                useGridNavigation: () => true,
+            }
+        );
+        navigator.activate(new Date(2026, 7, 8, 19, 0));
+
+        navigator.handleKey("ArrowUp");
+        expect(navigator.getFocusedEvent()).toBe(above);
+        navigator.handleKey("ArrowDown");
+        expect(navigator.getFocusedEvent()).toBe(focused);
+        navigator.handleKey("ArrowLeft");
+        expect(navigator.getFocusedEvent()).toBe(chronologicalPrevious);
+        expect(navigateWeeks).not.toHaveBeenCalled();
+    });
+
+    it("stays in the month when no grid event exists in a direction", () => {
+        const focused = makeEventElement(
+            new Date(2026, 7, 1, 19, 0),
+            new Date(2026, 7, 1, 20, 0),
+            { top: 0, left: 100, width: 50, height: 30 }
+        );
+        const navigateWeeks = jest.fn();
+        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
+            navigateWeeks,
+            useGridNavigation: () => true,
+        });
+        navigator.activate(new Date(2026, 7, 1, 19, 0));
+
+        navigator.handleKey("ArrowUp");
+
+        expect(navigator.getFocusedEvent()).toBe(focused);
+        expect(navigateWeeks).not.toHaveBeenCalled();
+    });
+
     it("retains arrow-key event focus and crosses at week boundaries", () => {
         const first = makeEventElement(
             new Date(2026, 7, 20, 9, 0),

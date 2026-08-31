@@ -988,6 +988,8 @@ export class CalendarView extends ItemView {
         };
         this.eventNavigator = new CalendarEventNavigator(calendarEl, {
             navigateWeeks: (delta) => this.navigateWeeks(delta),
+            useGridNavigation: () =>
+                this.fullCalendarView?.view.type === "dayGridMonth",
             requestOmitOccurrence: (eventId, date) =>
                 this.requestEventOccurrenceAction("omit", eventId, date),
             requestAttendOccurrence: (eventId, date) =>
