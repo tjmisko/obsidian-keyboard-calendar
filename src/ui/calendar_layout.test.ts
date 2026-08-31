@@ -141,8 +141,8 @@ describe("calendar surface styles", () => {
             /\.fc \.fc-toolbar-title \.ofc-relative-period-label\s*\{([^}]*)\}/
         )?.[1];
 
-        expect(titleRule).toContain("flex-direction: column");
-        expect(titleRule).toContain("align-items: center");
+        expect(titleRule).toContain("text-align: center");
+        expect(labelRule).toContain("display: block");
         expect(labelRule).toContain("color: var(--text-faint)");
         expect(labelRule).toContain("font-size: 0.72em");
         expect(labelRule).toContain("font-variant-caps: all-small-caps");

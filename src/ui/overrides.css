@@ -476,16 +476,15 @@
 }
 
 .fc .fc-toolbar-title {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
 	color: color-mix(in srgb, var(--text-normal) 76%, transparent);
 	font-size: 0.95rem !important;
 	font-weight: var(--font-semibold, 600);
 	letter-spacing: -0.01em;
+	text-align: center;
 }
 
 .fc .fc-toolbar-title .ofc-relative-period-label {
+	display: block;
 	margin-block-start: 0.08rem;
 	color: var(--text-faint);
 	font-size: 0.72em;
