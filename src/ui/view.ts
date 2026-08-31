@@ -372,7 +372,7 @@ export class CalendarView extends ItemView {
         this.modeChipEl.setAttribute("aria-label", `Calendar mode: ${label}`);
         this.modeChipEl.title =
             this.navigationMode === "normal"
-                ? "Normal mode — i inserts; m moves; s scales; yy/p copy/paste; x/Delete removes; zt/zz/zb align"
+                ? "Normal mode — arrows change weeks; h/j/k/l focus events; i inserts; m moves; s scales; yy/p copy/paste; x/Delete removes; zt/zz/zb align"
                 : this.navigationMode === "insert"
                 ? "Insert mode — p pastes; Escape returns; zt/zz/zb align the selected cell"
                 : this.navigationMode === "grab"
@@ -898,6 +898,8 @@ export class CalendarView extends ItemView {
             );
         };
         this.eventNavigator = new CalendarEventNavigator(calendarEl, {
+            navigateWeeks: (delta) =>
+                this.fullCalendarView?.incrementDate({ weeks: delta }),
             canGrabEvent: canTransformEvent,
             canScaleEvent: canTransformEvent,
             onGrabUnavailable: () =>

@@ -63,6 +63,13 @@ export const isCalendarMoveRedoShortcut = (
     !event.shiftKey &&
     event.key.toLowerCase() === "r";
 
+export const getNormalModeWeekDelta = (key: string): -1 | 1 | null => {
+    if (key === "ArrowLeft" || key === "ArrowUp") {
+        return -1;
+    }
+    return key === "ArrowRight" || key === "ArrowDown" ? 1 : null;
+};
+
 /** Moves a grabbed event while preserving both endpoints in local time. */
 export const moveCalendarEventGrab = (
     grab: CalendarEventGrab,
@@ -210,6 +217,7 @@ export interface CalendarEventNavigatorOptions {
     onGrabUnavailable?: () => void;
     onScaleModeChange?: (active: boolean) => void;
     onScaleUnavailable?: () => void;
+    navigateWeeks?: (delta: number) => void;
 }
 
 /** Owns event focus while the calendar is in normal mode. */
@@ -238,6 +246,7 @@ export class CalendarEventNavigator {
     private readonly onGrabUnavailable?: () => void;
     private readonly onScaleModeChange?: (active: boolean) => void;
     private readonly onScaleUnavailable?: () => void;
+    private readonly navigateWeeks?: (delta: number) => void;
 
     constructor(
         private readonly containerEl: HTMLElement,
@@ -255,6 +264,7 @@ export class CalendarEventNavigator {
         this.onGrabUnavailable = options.onGrabUnavailable;
         this.onScaleModeChange = options.onScaleModeChange;
         this.onScaleUnavailable = options.onScaleUnavailable;
+        this.navigateWeeks = options.navigateWeeks;
     }
 
     activate(
@@ -726,6 +736,10 @@ export class CalendarEventNavigator {
             }
             return true;
         }
+        const weekDelta = getNormalModeWeekDelta(key);
+        if (weekDelta !== null) {
+            return this.moveByWeeks(weekDelta * this.takeCount());
+        }
         const direction = getCalendarCellDirection(key);
         if (direction) {
             return this.move(direction, this.takeCount());
@@ -735,6 +749,15 @@ export class CalendarEventNavigator {
             return this.openFocusedEvent(repeat);
         }
         return this.discardCount();
+    }
+
+    private moveByWeeks(delta: number): boolean {
+        const reference = this.getFocusedDate() || this.now();
+        reference.setDate(reference.getDate() + delta * 7);
+        this.anchorDate = reference;
+        this.clearFocus();
+        this.navigateWeeks?.(delta);
+        return true;
     }
 
     private handleTransformKey(key: string, repeat: boolean): boolean {
