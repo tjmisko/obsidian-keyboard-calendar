@@ -832,3 +832,19 @@
 .fc .fc-timegrid {
 	touch-action: pan-x pan-y;
 }
+
+/* Month-view day peek: the day sidebar's grid in a sheet over the month. */
+.ofc-day-peek-modal {
+	width: min(28rem, calc(100vw - 1.5rem));
+}
+
+.ofc-day-peek-modal .modal-content {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.ofc-day-peek-root.fc {
+	height: min(70vh, 40rem);
+	height: min(70dvh, 40rem);
+}

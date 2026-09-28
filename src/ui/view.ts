@@ -54,6 +54,7 @@ import {
 } from "./event_context";
 import { handleCalendarSelection } from "./event_creation";
 import { EventCreationModal } from "./event_creation_modal";
+import { DayPeekModal } from "./day_peek_modal";
 import { createEventDraft } from "./event_draft";
 import { haptic, STEP_HAPTIC_MS } from "./haptics";
 import { CalendarCellNavigator } from "./cell_navigation";
@@ -128,6 +129,7 @@ export class CalendarView extends ItemView {
     private occurrenceConfirmationModal: EventOccurrenceConfirmationModal | null =
         null;
     private creationModal: EventCreationModal | null = null;
+    private dayPeekModal: DayPeekModal | null = null;
     private detachPinchZoom: (() => void) | null = null;
     private readonly timeGridZoom = new TimeGridZoom();
     private calendarEl: HTMLElement | null = null;
@@ -158,6 +160,12 @@ export class CalendarView extends ItemView {
             "keydown",
             (event) => this.handleCalendarShortcut(event),
             CALENDAR_KEYDOWN_CAPTURE_OPTIONS
+        );
+        this.registerDomEvent(
+            this.contentEl,
+            "click",
+            (event) => this.handleMoreLinkTap(event),
+            { capture: true }
         );
     }
 
@@ -453,6 +461,66 @@ export class CalendarView extends ItemView {
                     : "Could not paste the yanked event."
             );
         }
+    }
+
+    private openDayPeek(date: Date): void {
+        this.dayPeekModal?.close();
+        let modal: DayPeekModal;
+        modal = new DayPeekModal(this.app, {
+            date,
+            zoomLevel: this.timeGridZoom.index,
+            firstDay: this.plugin.settings.firstDay,
+            timeFormat24h: this.plugin.settings.timeFormat24h,
+            ghostEventTags: () => this.plugin.settings.ghostEventTags,
+            getEventSources: () => this.translateSources(),
+            subscribe: (onChange) => {
+                const callback = this.plugin.cache.on("update", onChange);
+                return () => {
+                    this.plugin.cache.off("update", callback);
+                    if (this.dayPeekModal === modal) {
+                        this.dayPeekModal = null;
+                    }
+                };
+            },
+            openEvent: (eventId) => {
+                void this.plugin
+                    .openEventNote(eventId, this.leaf)
+                    .catch((error) => {
+                        console.error(error);
+                        new Notice(
+                            error instanceof Error
+                                ? error.message
+                                : "Could not open the event note."
+                        );
+                    });
+            },
+            proposeEvent: (start, end) => this.proposeTimedEvent(start, end),
+        });
+        this.dayPeekModal = modal;
+        modal.open();
+    }
+
+    /**
+     * On touch, "+N more" opens the day peek instead of FullCalendar's small
+     * popover. Capture runs before FullCalendar's own handler on the link.
+     */
+    private handleMoreLinkTap(event: MouseEvent): void {
+        if (!Platform.isMobile || this.surface !== "primary") {
+            return;
+        }
+        const target = event.target instanceof Element ? event.target : null;
+        const link = target?.closest(".fc-daygrid-more-link");
+        const date = parseViewportDate(
+            link
+                ?.closest<HTMLElement>(".fc-daygrid-day[data-date]")
+                ?.getAttribute("data-date")
+        );
+        if (!date) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        this.openDayPeek(date);
     }
 
     private proposeTimedEvent(start: Date, end: Date): void {
@@ -1146,6 +1214,13 @@ export class CalendarView extends ItemView {
                 viewType,
                 focusTitle,
                 openDay: (date) => {
+                    // A phone's sidebar is a drawer that hides the month;
+                    // peek at the day over it instead.
+                    if (Platform.isMobile && this.surface === "primary") {
+                        haptic();
+                        this.openDayPeek(date);
+                        return;
+                    }
                     void this.plugin.activateDayView(date).catch((error) => {
                         console.error(error);
                         new Notice("Could not open the day calendar.");
@@ -1526,6 +1601,8 @@ export class CalendarView extends ItemView {
         this.occurrenceConfirmationModal = null;
         this.creationModal?.close();
         this.creationModal = null;
+        this.dayPeekModal?.close();
+        this.dayPeekModal = null;
         this.detachPinchZoom?.();
         this.detachPinchZoom = null;
         this.cellNavigator?.destroy();
