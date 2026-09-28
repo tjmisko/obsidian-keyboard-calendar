@@ -669,3 +669,92 @@
 	line-height: 1;
 	transform: translateY(-0.02em);
 }
+
+/* Touch event creation: one large title field, then the platform's own date
+ * and time pickers. Inputs stay at 16px so iOS does not zoom on focus. */
+.ofc-event-create-modal {
+	width: min(26rem, calc(100vw - 2rem));
+}
+
+.ofc-event-create-form {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-3, 0.75rem);
+}
+
+.ofc-event-create-modal input.ofc-event-create-title {
+	width: 100%;
+	height: auto;
+	padding: var(--size-4-2, 0.5rem) 0;
+	color: var(--text-normal);
+	background: transparent;
+	border: 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+	border-radius: 0;
+	box-shadow: none;
+	font-size: max(16px, 1.15rem);
+	font-weight: var(--font-semibold, 600);
+}
+
+.ofc-event-create-modal input.ofc-event-create-title:focus {
+	border-bottom-color: var(--interactive-accent);
+	box-shadow: none;
+}
+
+.ofc-event-create-when {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2, 0.5rem);
+}
+
+.ofc-event-create-times {
+	display: flex;
+	flex: 1 1 auto;
+	align-items: center;
+	gap: var(--size-4-1, 0.25rem);
+}
+
+.ofc-event-create-modal input.ofc-event-create-date,
+.ofc-event-create-modal input.ofc-event-create-time {
+	min-height: 2.5rem;
+	padding-inline: var(--size-4-2, 0.5rem);
+	color: var(--text-normal);
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m, 8px);
+	font-size: 16px;
+	font-variant-numeric: tabular-nums;
+}
+
+.ofc-event-create-modal input.ofc-event-create-date {
+	flex: 1 1 9rem;
+}
+
+.ofc-event-create-modal input.ofc-event-create-time {
+	flex: 1 1 5.5rem;
+	min-width: 0;
+}
+
+.ofc-event-create-time-separator {
+	color: var(--text-faint);
+}
+
+.ofc-event-create-error {
+	color: var(--text-error);
+	font-size: var(--font-ui-small, 0.85rem);
+}
+
+.ofc-event-create-error:empty {
+	display: none;
+}
+
+.ofc-event-create-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--size-4-2, 0.5rem);
+}
+
+.ofc-event-create-actions button {
+	min-width: 5.5rem;
+}

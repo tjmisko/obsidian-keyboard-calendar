@@ -12,6 +12,7 @@ export async function handleCalendarSelection({
     focusTitle = false,
     openDay,
     createTimedNote,
+    proposeTimedEvent,
 }: {
     start: Date;
     end: Date;
@@ -25,9 +26,19 @@ export async function handleCalendarSelection({
             focusEventOnReturn: boolean;
         }
     ) => Promise<void>;
+    /**
+     * Touch surfaces confirm a pointer selection before writing a note, since
+     * a held finger selects as easily as it scrolls. Keyboard insert mode
+     * (focusTitle) is deliberate and still creates directly.
+     */
+    proposeTimedEvent?: (start: Date, end: Date) => void;
 }): Promise<void> {
     if (selectionRequiresDayView(viewType)) {
         openDay(start);
+        return;
+    }
+    if (proposeTimedEvent && !focusTitle) {
+        proposeTimedEvent(start, end);
         return;
     }
     await createTimedNote(dateEndpointsToFrontmatter(start, end), {

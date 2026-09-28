@@ -186,6 +186,22 @@ export default class FullCalendarPlugin extends Plugin {
         targetLeaf?: WorkspaceLeaf,
         options: EventNoteOpenOptions = {}
     ): Promise<TFile | null> {
+        const file = await this.createEventNote(partialEvent);
+        if (!file) {
+            return null;
+        }
+        await this.eventNoteEditor?.open(file, targetLeaf, options);
+        return file;
+    }
+
+    /**
+     * Write a single timed event note without opening it. The note's basename
+     * is its title, so a titled event gets a matching file name.
+     */
+    async createEventNote(
+        partialEvent: Partial<OFCEvent>,
+        basename?: string
+    ): Promise<TFile | null> {
         if (!this.cache.hasLocalCalendar()) {
             new Notice(
                 "Add a full-note calendar before creating an event note."
@@ -194,17 +210,16 @@ export default class FullCalendarPlugin extends Plugin {
         }
         const event = parseEvent({
             ...partialEvent,
-            title: "Untitled event",
+            title: basename || "Untitled event",
             type: "single",
         });
-        const location = await this.cache.createEvent(event);
+        const location = await this.cache.createEvent(event, basename);
         const file = this.app.vault.getAbstractFileByPath(location.file.path);
         if (!(file instanceof TFile)) {
             throw new Error(
                 `Created event note was not found at ${location.file.path}.`
             );
         }
-        await this.eventNoteEditor?.open(file, targetLeaf, options);
         return file;
     }
 

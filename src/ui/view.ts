@@ -53,6 +53,9 @@ import {
     getCalendarEventContextActions,
 } from "./event_context";
 import { handleCalendarSelection } from "./event_creation";
+import { EventCreationModal } from "./event_creation_modal";
+import { createEventDraft } from "./event_draft";
+import { haptic } from "./haptics";
 import { CalendarCellNavigator } from "./cell_navigation";
 import { applyCalendarCacheUpdate } from "./calendar_update";
 import { EventDeleteConfirmationModal } from "./event_deletion";
@@ -117,6 +120,7 @@ export class CalendarView extends ItemView {
     private deleteConfirmationModal: EventDeleteConfirmationModal | null = null;
     private occurrenceConfirmationModal: EventOccurrenceConfirmationModal | null =
         null;
+    private creationModal: EventCreationModal | null = null;
     private readonly timeGridZoom = new TimeGridZoom();
     private calendarEl: HTMLElement | null = null;
     private weekAnchorAnimationFrame: number | null = null;
@@ -439,6 +443,54 @@ export class CalendarView extends ItemView {
                     : "Could not paste the yanked event."
             );
         }
+    }
+
+    private proposeTimedEvent(start: Date, end: Date): void {
+        if (!this.plugin.cache.hasLocalCalendar()) {
+            new Notice(
+                "Add a full-note calendar before creating an event note."
+            );
+            return;
+        }
+        haptic();
+        this.creationModal?.close();
+        let modal: EventCreationModal;
+        modal = new EventCreationModal(this.app, {
+            draft: createEventDraft(start, end),
+            create: async ({ event, basename, start: eventStart }) => {
+                try {
+                    const file = await this.plugin.createEventNote(
+                        event,
+                        basename
+                    );
+                    if (!file) {
+                        return false;
+                    }
+                    const eventId = this.plugin.cache.getEventIdForPath(
+                        file.path
+                    );
+                    if (this.navigationMode === "normal" && eventId) {
+                        this.eventNavigator?.activate(eventStart, eventId);
+                    }
+                    return true;
+                } catch (error) {
+                    console.error(error);
+                    new Notice(
+                        error instanceof Error
+                            ? error.message
+                            : "Could not create the event."
+                    );
+                    return false;
+                }
+            },
+            onClose: () => {
+                if (this.creationModal === modal) {
+                    this.creationModal = null;
+                }
+            },
+        });
+        this.creationModal = modal;
+        modal.open();
     }
 
     private createModeChip(calendarEl: HTMLElement): void {
@@ -1004,6 +1056,9 @@ export class CalendarView extends ItemView {
                         }
                     }
                 },
+                proposeTimedEvent: Platform.isMobile
+                    ? (start, end) => this.proposeTimedEvent(start, end)
+                    : undefined,
             });
         };
         this.fullCalendarView = renderCalendar(calendarEl, sources, {
@@ -1354,6 +1409,8 @@ export class CalendarView extends ItemView {
         this.deleteConfirmationModal = null;
         this.occurrenceConfirmationModal?.close();
         this.occurrenceConfirmationModal = null;
+        this.creationModal?.close();
+        this.creationModal = null;
         this.cellNavigator?.destroy();
         this.cellNavigator = null;
         this.eventNavigator?.destroy();

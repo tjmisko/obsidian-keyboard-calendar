@@ -46,6 +46,58 @@ describe("calendar selection routing", () => {
         });
     });
 
+    it("should propose instead of creating when a touch surface selects a time range", async () => {
+        const createTimedNote = jest.fn(async () => undefined);
+        const proposeTimedEvent = jest.fn();
+
+        await handleCalendarSelection({
+            start,
+            end,
+            viewType: "timeGridWeek",
+            openDay: jest.fn(),
+            createTimedNote,
+            proposeTimedEvent,
+        });
+
+        expect(proposeTimedEvent).toHaveBeenCalledWith(start, end);
+        expect(createTimedNote).not.toHaveBeenCalled();
+    });
+
+    it("should still create directly from keyboard insert mode on a touch surface", async () => {
+        const createTimedNote = jest.fn(async () => undefined);
+        const proposeTimedEvent = jest.fn();
+
+        await handleCalendarSelection({
+            start,
+            end,
+            viewType: "timeGridWeek",
+            focusTitle: true,
+            openDay: jest.fn(),
+            createTimedNote,
+            proposeTimedEvent,
+        });
+
+        expect(proposeTimedEvent).not.toHaveBeenCalled();
+        expect(createTimedNote).toHaveBeenCalledTimes(1);
+    });
+
+    it("should route a touch month-view selection to the day, not a proposal", async () => {
+        const openDay = jest.fn();
+        const proposeTimedEvent = jest.fn();
+
+        await handleCalendarSelection({
+            start,
+            end,
+            viewType: "dayGridMonth",
+            openDay,
+            createTimedNote: jest.fn(async () => undefined),
+            proposeTimedEvent,
+        });
+
+        expect(openDay).toHaveBeenCalledWith(start);
+        expect(proposeTimedEvent).not.toHaveBeenCalled();
+    });
+
     it("routes a month-view date to day view without creating", async () => {
         const openDay = jest.fn();
         const createTimedNote = jest.fn(async () => undefined);
