@@ -624,11 +624,14 @@
 	color: var(--fc-now-indicator-color);
 }
 
-/* Narrow phone columns: smaller titles that may break inside long words. */
+/* Narrow phone columns: smaller titles that hyphenate long words rather
+ * than clipping them. */
 .is-phone .fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-timegrid-event .fc-event-title {
 	font-size: 0.72rem;
 	line-height: 1.2;
 	overflow-wrap: anywhere;
+	hyphens: auto;
+	-webkit-hyphens: auto;
 }
 
 .is-phone .fc.ofc-calendar-root:not(.ofc-day-calendar-root) .fc-timegrid-event:not(.fc-timegrid-event-short) .fc-event-main {
