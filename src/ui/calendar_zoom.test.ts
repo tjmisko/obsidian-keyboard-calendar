@@ -1,6 +1,7 @@
 import {
     DEFAULT_TIME_GRID_ZOOM_LEVEL,
     getTimeGridZoomDirection,
+    getZoomAnchoredScrollTop,
     isTimeGridZoomView,
     refreshTimeGridLayout,
     TIME_GRID_ZOOM_LEVELS,
@@ -115,6 +116,48 @@ describe("time-grid zoom", () => {
         expect(zoom.level).toEqual(
             TIME_GRID_ZOOM_LEVELS[DEFAULT_TIME_GRID_ZOOM_LEVEL]
         );
+    });
+
+    it("should keep the anchored time fixed when the grid doubles in height", () => {
+        // 10:00 sits at 400px of a 960px grid, 100px below the viewport top.
+        expect(
+            getZoomAnchoredScrollTop({
+                scrollTop: 300,
+                anchorOffset: 100,
+                previousScrollHeight: 960,
+                nextScrollHeight: 1920,
+            })
+        ).toBe(700);
+    });
+
+    it("should clamp to the top when zooming out near midnight", () => {
+        expect(
+            getZoomAnchoredScrollTop({
+                scrollTop: 0,
+                anchorOffset: 300,
+                previousScrollHeight: 1920,
+                nextScrollHeight: 960,
+            })
+        ).toBe(0);
+    });
+
+    it("should refuse to anchor an unmeasured grid", () => {
+        expect(
+            getZoomAnchoredScrollTop({
+                scrollTop: 0,
+                anchorOffset: 0,
+                previousScrollHeight: 0,
+                nextScrollHeight: 960,
+            })
+        ).toBeNull();
+        expect(
+            getZoomAnchoredScrollTop({
+                scrollTop: NaN,
+                anchorOffset: 0,
+                previousScrollHeight: 960,
+                nextScrollHeight: 960,
+            })
+        ).toBeNull();
     });
 
     it("should jump to a restored level and restyle the container", () => {

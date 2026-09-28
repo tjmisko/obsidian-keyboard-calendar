@@ -758,3 +758,9 @@
 .ofc-event-create-actions button {
 	min-width: 5.5rem;
 }
+
+/* Two-finger pinch steps the calendar's own zoom levels; keep the webview
+ * from treating it as a page zoom while one-finger panning still scrolls. */
+.fc .fc-timegrid {
+	touch-action: pan-x pan-y;
+}

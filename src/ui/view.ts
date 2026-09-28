@@ -55,7 +55,7 @@ import {
 import { handleCalendarSelection } from "./event_creation";
 import { EventCreationModal } from "./event_creation_modal";
 import { createEventDraft } from "./event_draft";
-import { haptic } from "./haptics";
+import { haptic, STEP_HAPTIC_MS } from "./haptics";
 import { CalendarCellNavigator } from "./cell_navigation";
 import { applyCalendarCacheUpdate } from "./calendar_update";
 import { EventDeleteConfirmationModal } from "./event_deletion";
@@ -71,7 +71,14 @@ import {
     createCalendarEventClipboard,
     pasteCalendarEvent,
 } from "./event_clipboard";
-import { refreshTimeGridLayout, TimeGridZoom } from "./calendar_zoom";
+import {
+    getZoomAnchoredScrollTop,
+    isTimeGridZoomView,
+    refreshTimeGridLayout,
+    TimeGridZoom,
+    TimeGridZoomDirection,
+} from "./calendar_zoom";
+import { attachPinchZoom } from "./pinch_zoom";
 import {
     CALENDAR_VIEWPORT_STATE_KEY,
     CalendarViewportState,
@@ -121,6 +128,7 @@ export class CalendarView extends ItemView {
     private occurrenceConfirmationModal: EventOccurrenceConfirmationModal | null =
         null;
     private creationModal: EventCreationModal | null = null;
+    private detachPinchZoom: (() => void) | null = null;
     private readonly timeGridZoom = new TimeGridZoom();
     private calendarEl: HTMLElement | null = null;
     private weekAnchorAnimationFrame: number | null = null;
@@ -207,6 +215,7 @@ export class CalendarView extends ItemView {
         }
 
         if (this.calendarEl) {
+            const anchor = this.captureZoomAnchor();
             const zoom = this.timeGridZoom.handleKey(
                 event.key,
                 this.fullCalendarView.view.type,
@@ -217,6 +226,7 @@ export class CalendarView extends ItemView {
                 event.stopPropagation();
                 if (zoom.changed) {
                     this.refreshAfterZoomChange();
+                    this.restoreZoomAnchor(anchor);
                 }
                 return;
             }
@@ -708,6 +718,102 @@ export class CalendarView extends ItemView {
             calendarWindow.requestAnimationFrame(applyOnFrame);
     }
 
+    private canZoom(): boolean {
+        return (
+            !!this.fullCalendarView &&
+            isTimeGridZoomView(this.fullCalendarView.view.type)
+        );
+    }
+
+    /** Pinch and menu zoom: one level, anchored at a screen y or the center. */
+    private stepZoom(
+        direction: TimeGridZoomDirection,
+        anchorClientY?: number
+    ): boolean {
+        const calendarEl = this.calendarEl;
+        if (!calendarEl || !this.canZoom()) {
+            return false;
+        }
+        const anchor = this.captureZoomAnchor(anchorClientY);
+        if (!this.timeGridZoom.step(direction, calendarEl)) {
+            return false;
+        }
+        this.refreshAfterZoomChange();
+        this.restoreZoomAnchor(anchor);
+        return true;
+    }
+
+    private captureZoomAnchor(anchorClientY?: number): {
+        scroller: HTMLElement;
+        scrollTop: number;
+        scrollHeight: number;
+        anchorOffset: number;
+    } | null {
+        const scroller = this.calendarEl
+            ? findCalendarBodyScroller(this.calendarEl)
+            : null;
+        if (!scroller) {
+            return null;
+        }
+        const viewportHeight = scroller.clientHeight;
+        const anchorOffset =
+            anchorClientY === undefined
+                ? viewportHeight / 2
+                : Math.max(
+                      0,
+                      Math.min(
+                          viewportHeight,
+                          anchorClientY - scroller.getBoundingClientRect().top
+                      )
+                  );
+        return {
+            scroller,
+            scrollTop: scroller.scrollTop,
+            scrollHeight: scroller.scrollHeight,
+            anchorOffset,
+        };
+    }
+
+    private restoreZoomAnchor(
+        anchor: ReturnType<CalendarView["captureZoomAnchor"]>
+    ): void {
+        if (!anchor || !anchor.scroller.isConnected) {
+            return;
+        }
+        const scrollTop = getZoomAnchoredScrollTop({
+            scrollTop: anchor.scrollTop,
+            anchorOffset: anchor.anchorOffset,
+            previousScrollHeight: anchor.scrollHeight,
+            nextScrollHeight: anchor.scroller.scrollHeight,
+        });
+        if (scrollTop !== null) {
+            anchor.scroller.scrollTop = scrollTop;
+        }
+    }
+
+    onPaneMenu(menu: Menu, source: string): void {
+        super.onPaneMenu(menu, source);
+        if (!this.canZoom()) {
+            return;
+        }
+        menu.addItem((item) =>
+            item
+                .setTitle("Zoom in")
+                .setIcon("zoom-in")
+                .onClick(() => {
+                    this.stepZoom("in");
+                })
+        );
+        menu.addItem((item) =>
+            item
+                .setTitle("Zoom out")
+                .setIcon("zoom-out")
+                .onClick(() => {
+                    this.stepZoom("out");
+                })
+        );
+    }
+
     /**
      * Zoom restyles the slot height; FullCalendar must rebuild its slat
      * coordinates, and selection outlines must follow the resized grid.
@@ -967,6 +1073,15 @@ export class CalendarView extends ItemView {
         });
         this.calendarEl = calendarEl;
         this.timeGridZoom.applyTo(calendarEl);
+        this.detachPinchZoom?.();
+        this.detachPinchZoom = attachPinchZoom(calendarEl, {
+            isEnabled: () => this.canZoom(),
+            onStep: (direction, focalClientY) => {
+                if (this.stepZoom(direction, focalClientY)) {
+                    haptic(STEP_HAPTIC_MS);
+                }
+            },
+        });
         this.plugin.diagnostics.info("calendar-view.container.created", {
             surface: this.surface,
             layout: collectCalendarRenderDiagnostics(calendarEl),
@@ -1411,6 +1526,8 @@ export class CalendarView extends ItemView {
         this.occurrenceConfirmationModal = null;
         this.creationModal?.close();
         this.creationModal = null;
+        this.detachPinchZoom?.();
+        this.detachPinchZoom = null;
         this.cellNavigator?.destroy();
         this.cellNavigator = null;
         this.eventNavigator?.destroy();

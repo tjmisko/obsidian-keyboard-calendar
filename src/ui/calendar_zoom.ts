@@ -58,6 +58,42 @@ export const refreshTimeGridLayout = (
     calendar.updateSize();
 };
 
+/**
+ * The scrollTop that keeps the time under an anchor (the pinch midpoint, or
+ * the viewport center for keys) fixed while the grid's height changes. The
+ * grid scales linearly, so the anchor's fraction of the height is preserved.
+ */
+export const getZoomAnchoredScrollTop = ({
+    scrollTop,
+    anchorOffset,
+    previousScrollHeight,
+    nextScrollHeight,
+}: {
+    scrollTop: number;
+    /** Anchor distance from the scroller's top edge, in pixels. */
+    anchorOffset: number;
+    previousScrollHeight: number;
+    nextScrollHeight: number;
+}): number | null => {
+    if (
+        ![
+            scrollTop,
+            anchorOffset,
+            previousScrollHeight,
+            nextScrollHeight,
+        ].every(Number.isFinite) ||
+        previousScrollHeight <= 0 ||
+        nextScrollHeight <= 0
+    ) {
+        return null;
+    }
+    const anchorFraction = (scrollTop + anchorOffset) / previousScrollHeight;
+    return Math.max(
+        0,
+        Math.round(anchorFraction * nextScrollHeight - anchorOffset)
+    );
+};
+
 /** Keeps one zoom level that both the week and day time-grid views use. */
 export class TimeGridZoom {
     private levelIndex: number;
