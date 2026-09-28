@@ -70,12 +70,39 @@ export class TimeGridZoom {
         return TIME_GRID_ZOOM_LEVELS[this.levelIndex];
     }
 
+    get index(): number {
+        return this.levelIndex;
+    }
+
     applyTo(containerEl: HTMLElement): void {
         containerEl.style.setProperty(
             "--ofc-timegrid-slot-height",
             this.level.slotHeight
         );
         containerEl.dataset.ofcTimeLabelDensity = this.level.labelDensity;
+    }
+
+    /** Jump to a level, clamped to the scale. Returns whether it changed. */
+    setIndex(levelIndex: number, containerEl: HTMLElement | null): boolean {
+        if (!Number.isFinite(levelIndex)) {
+            return false;
+        }
+        const nextLevel = clampZoomLevel(Math.round(levelIndex));
+        if (nextLevel === this.levelIndex) {
+            return false;
+        }
+        this.levelIndex = nextLevel;
+        if (containerEl) {
+            this.applyTo(containerEl);
+        }
+        return true;
+    }
+
+    step(direction: TimeGridZoomDirection, containerEl: HTMLElement): boolean {
+        return this.setIndex(
+            this.levelIndex + (direction === "in" ? 1 : -1),
+            containerEl
+        );
     }
 
     handleKey(
@@ -87,15 +114,6 @@ export class TimeGridZoom {
         if (!direction || !isTimeGridZoomView(viewType)) {
             return { handled: false, changed: false };
         }
-
-        const nextLevel = clampZoomLevel(
-            this.levelIndex + (direction === "in" ? 1 : -1)
-        );
-        const changed = nextLevel !== this.levelIndex;
-        if (changed) {
-            this.levelIndex = nextLevel;
-            this.applyTo(containerEl);
-        }
-        return { handled: true, changed };
+        return { handled: true, changed: this.step(direction, containerEl) };
     }
 }

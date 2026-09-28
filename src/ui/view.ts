@@ -1,5 +1,12 @@
 import "./overrides.css";
-import { ItemView, Menu, Notice, Platform, WorkspaceLeaf } from "obsidian";
+import {
+    ItemView,
+    Menu,
+    Notice,
+    Platform,
+    ViewStateResult,
+    WorkspaceLeaf,
+} from "obsidian";
 import { Calendar, EventInput } from "@fullcalendar/core";
 import {
     collectCalendarRenderDiagnostics,
@@ -62,6 +69,17 @@ import {
     pasteCalendarEvent,
 } from "./event_clipboard";
 import { refreshTimeGridLayout, TimeGridZoom } from "./calendar_zoom";
+import {
+    CALENDAR_VIEWPORT_STATE_KEY,
+    CalendarViewportState,
+    findCalendarBodyScroller,
+    findCalendarHorizontalScroller,
+    formatViewportDate,
+    parseCalendarViewportState,
+    parseViewportDate,
+    readCalendarViewportFromEphemeralState,
+    readZoomLevelFromViewState,
+} from "./calendar_viewport";
 
 export {
     DAY_CALENDAR_VIEW_TYPE,
@@ -104,6 +122,12 @@ export class CalendarView extends ItemView {
     private weekAnchorAnimationFrame: number | null = null;
     private weekAnchorWindow: Window | null = null;
     private lastPrimaryViewType: string | null = null;
+    /** Viewport handed over by Obsidian before the calendar finished rendering. */
+    private pendingViewport: CalendarViewportState | null = null;
+    private viewportRestoreFrame: number | null = null;
+    private viewportRestoreWindow: Window | null = null;
+    /** An event note the reader just came back from; keep it on screen. */
+    private returnEventDate: Date | null = null;
 
     constructor(
         leaf: WorkspaceLeaf,
@@ -188,15 +212,7 @@ export class CalendarView extends ItemView {
                 event.preventDefault();
                 event.stopPropagation();
                 if (zoom.changed) {
-                    refreshTimeGridLayout(
-                        this.fullCalendarView,
-                        this.timeGridZoom.level
-                    );
-                    if (this.navigationMode === "insert") {
-                        this.cellNavigator?.renderSelection();
-                    } else {
-                        this.eventNavigator?.syncToView();
-                    }
+                    this.refreshAfterZoomChange();
                 }
                 return;
             }
@@ -478,6 +494,189 @@ export class CalendarView extends ItemView {
         return this.surface === "day-sidebar" ? "Day Calendar" : "Calendar";
     }
 
+    /**
+     * Persisted with the workspace layout, which Obsidian keeps per device
+     * (workspace.json vs workspace-mobile.json), so phone and desktop each
+     * keep their own zoom.
+     */
+    getState(): Record<string, unknown> {
+        return { ...super.getState(), zoomLevel: this.timeGridZoom.index };
+    }
+
+    async setState(state: unknown, result: ViewStateResult): Promise<void> {
+        const zoomLevel = readZoomLevelFromViewState(state);
+        if (
+            zoomLevel !== null &&
+            this.timeGridZoom.setIndex(zoomLevel, this.calendarEl)
+        ) {
+            this.refreshAfterZoomChange(false);
+        }
+        await super.setState(state, result);
+    }
+
+    /**
+     * Obsidian records ephemeral state in the leaf's Back/Forward history but
+     * not in the saved layout: going back returns to the same period and
+     * scroll position, while a fresh launch still opens on today.
+     */
+    getEphemeralState(): Record<string, unknown> {
+        const viewport = this.captureViewport();
+        return {
+            ...super.getEphemeralState(),
+            ...(viewport && { [CALENDAR_VIEWPORT_STATE_KEY]: viewport }),
+        };
+    }
+
+    setEphemeralState(state: unknown): void {
+        super.setEphemeralState(state);
+        const viewport = readCalendarViewportFromEphemeralState(state);
+        if (viewport) {
+            this.restoreViewport(viewport);
+        }
+    }
+
+    private captureViewport(): CalendarViewportState | null {
+        const calendar = this.fullCalendarView;
+        const calendarEl = this.calendarEl;
+        if (!calendar || !calendarEl) {
+            return this.pendingViewport;
+        }
+        return parseCalendarViewportState({
+            viewType: calendar.view.type,
+            date: formatViewportDate(calendar.getDate()),
+            zoomLevel: this.timeGridZoom.index,
+            scrollTop: findCalendarBodyScroller(calendarEl)?.scrollTop,
+            scrollLeft: findCalendarHorizontalScroller(calendarEl)?.scrollLeft,
+        });
+    }
+
+    private isSurfaceViewType(viewType: string): boolean {
+        return this.surface === "day-sidebar"
+            ? viewType === "timeGridDay"
+            : viewType === "timeGridWeek" || viewType === "dayGridMonth";
+    }
+
+    private cancelViewportRestore(): void {
+        if (this.viewportRestoreFrame !== null && this.viewportRestoreWindow) {
+            this.viewportRestoreWindow.cancelAnimationFrame(
+                this.viewportRestoreFrame
+            );
+        }
+        this.viewportRestoreFrame = null;
+        this.viewportRestoreWindow = null;
+    }
+
+    private restoreViewport(viewport: CalendarViewportState): void {
+        const calendar = this.fullCalendarView;
+        const calendarEl = this.calendarEl;
+        if (!calendar || !calendarEl) {
+            this.pendingViewport = viewport;
+            return;
+        }
+        this.pendingViewport = null;
+        const date = parseViewportDate(viewport.date);
+        if (!date || !this.isSurfaceViewType(viewport.viewType)) {
+            return;
+        }
+
+        if (
+            viewport.zoomLevel !== null &&
+            this.timeGridZoom.setIndex(viewport.zoomLevel, calendarEl)
+        ) {
+            this.refreshAfterZoomChange(false);
+        }
+        if (calendar.view.type !== viewport.viewType) {
+            calendar.changeView(viewport.viewType, date);
+        } else {
+            calendar.gotoDate(date);
+        }
+        // An event note the reader just edited may now live in another week.
+        const returnEventDate = this.returnEventDate;
+        const { activeStart, activeEnd } = calendar.view;
+        if (
+            returnEventDate &&
+            (returnEventDate < activeStart || returnEventDate >= activeEnd)
+        ) {
+            calendar.gotoDate(returnEventDate);
+        }
+
+        // FullCalendar settles its own initial scroll over the next frames,
+        // and the week anchor would recenter the columns; the restored
+        // offsets must land last.
+        this.cancelWeekAnchor();
+        this.cancelViewportRestore();
+        const applyScroll = () => {
+            const bodyScroller = findCalendarBodyScroller(calendarEl);
+            if (bodyScroller) {
+                bodyScroller.scrollTop = viewport.scrollTop;
+            }
+            const horizontalScroller =
+                findCalendarHorizontalScroller(calendarEl);
+            if (horizontalScroller) {
+                horizontalScroller.scrollLeft = viewport.scrollLeft;
+            }
+        };
+        const revealReturnEvent = () => {
+            if (!returnEventDate) {
+                return;
+            }
+            this.eventNavigator?.getFocusedEvent()?.scrollIntoView?.({
+                block: "nearest",
+                inline: "nearest",
+            });
+        };
+        applyScroll();
+        const calendarWindow = calendarEl.ownerDocument.defaultView;
+        if (!calendarWindow) {
+            revealReturnEvent();
+            return;
+        }
+        let remainingFrames = 2;
+        const applyOnFrame = () => {
+            this.viewportRestoreFrame = null;
+            this.viewportRestoreWindow = null;
+            if (
+                this.fullCalendarView !== calendar ||
+                this.calendarEl !== calendarEl
+            ) {
+                return;
+            }
+            applyScroll();
+            remainingFrames -= 1;
+            if (remainingFrames > 0) {
+                this.viewportRestoreWindow = calendarWindow;
+                this.viewportRestoreFrame =
+                    calendarWindow.requestAnimationFrame(applyOnFrame);
+                return;
+            }
+            revealReturnEvent();
+        };
+        this.viewportRestoreWindow = calendarWindow;
+        this.viewportRestoreFrame =
+            calendarWindow.requestAnimationFrame(applyOnFrame);
+    }
+
+    /**
+     * Zoom restyles the slot height; FullCalendar must rebuild its slat
+     * coordinates, and selection outlines must follow the resized grid.
+     */
+    private refreshAfterZoomChange(persist = true): void {
+        if (this.fullCalendarView) {
+            refreshTimeGridLayout(
+                this.fullCalendarView,
+                this.timeGridZoom.level
+            );
+            if (this.navigationMode === "insert") {
+                this.cellNavigator?.renderSelection();
+            } else {
+                this.eventNavigator?.syncToView();
+            }
+        }
+        if (persist) {
+            this.app.workspace.requestSaveLayout();
+        }
+    }
+
     goToDate(date: Date): void {
         this.fullCalendarView?.gotoDate(date);
     }
@@ -744,6 +943,7 @@ export class CalendarView extends ItemView {
         const returnEventDate = returnEvent
             ? getSingleEventStartDate(returnEvent)
             : null;
+        this.returnEventDate = returnEventDate;
 
         const sources: LocalMaterializedEventSource[] = this.translateSources();
         this.plugin.diagnostics.info("calendar-view.sources.translated", {
@@ -757,6 +957,7 @@ export class CalendarView extends ItemView {
 
         if (this.fullCalendarView) {
             this.cancelWeekAnchor();
+            this.cancelViewportRestore();
             this.cellNavigator?.destroy();
             this.cellNavigator = null;
             this.eventNavigator?.destroy();
@@ -1073,6 +1274,9 @@ export class CalendarView extends ItemView {
         );
         this.createModeChip(calendarEl);
         this.scheduleWeekAnchor();
+        if (this.pendingViewport) {
+            this.restoreViewport(this.pendingViewport);
+        }
         if (this.callback) {
             this.plugin.cache.off("update", this.callback);
             this.callback = null;
@@ -1145,6 +1349,7 @@ export class CalendarView extends ItemView {
             surface: this.surface,
         });
         this.cancelWeekAnchor();
+        this.cancelViewportRestore();
         this.deleteConfirmationModal?.close();
         this.deleteConfirmationModal = null;
         this.occurrenceConfirmationModal?.close();

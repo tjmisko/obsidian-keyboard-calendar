@@ -116,4 +116,33 @@ describe("time-grid zoom", () => {
             TIME_GRID_ZOOM_LEVELS[DEFAULT_TIME_GRID_ZOOM_LEVEL]
         );
     });
+
+    it("should jump to a restored level and restyle the container", () => {
+        const container = makeContainer();
+        const zoom = new TimeGridZoom();
+
+        expect(zoom.setIndex(5, container)).toBe(true);
+        expect(zoom.index).toBe(5);
+        expect(container.style.setProperty).toHaveBeenLastCalledWith(
+            "--ofc-timegrid-slot-height",
+            TIME_GRID_ZOOM_LEVELS[5].slotHeight
+        );
+    });
+
+    it("should clamp a restored level from a larger scale to the top level", () => {
+        const zoom = new TimeGridZoom();
+
+        expect(zoom.setIndex(99, null)).toBe(true);
+        expect(zoom.index).toBe(TIME_GRID_ZOOM_LEVELS.length - 1);
+    });
+
+    it("should report no change for the current level or a non-finite level", () => {
+        const container = makeContainer();
+        const zoom = new TimeGridZoom(2);
+
+        expect(zoom.setIndex(2, container)).toBe(false);
+        expect(zoom.setIndex(NaN, container)).toBe(false);
+        expect(zoom.index).toBe(2);
+        expect(container.style.setProperty).not.toHaveBeenCalled();
+    });
 });
