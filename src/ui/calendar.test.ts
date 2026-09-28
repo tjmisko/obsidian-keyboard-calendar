@@ -20,6 +20,7 @@ import {
     LocalMaterializedEventSource,
     navigateCalendarPeriod,
     renderCalendar,
+    getHorizontalRevealScrollLeft,
     scrollCalendarDateIntoView,
     toLocalWallClockRecurrenceMarker,
     TOUCH_LONG_PRESS_DELAY_MS,
@@ -531,9 +532,20 @@ describe("calendar renderer", () => {
 });
 
 describe("calendar labels", () => {
-    it("centers a rendered week date through its header", () => {
+    it("should center an off-screen week date horizontally without scrolling vertically", () => {
+        const scroller = {
+            scrollLeft: 0,
+            scrollTop: 240,
+            clientWidth: 300,
+            getBoundingClientRect: () => ({ left: 0, width: 300 }),
+        };
         const scrollIntoView = jest.fn();
-        const querySelector = jest.fn(() => ({ scrollIntoView }));
+        const header = {
+            closest: () => scroller,
+            getBoundingClientRect: () => ({ left: 500, width: 100 }),
+            scrollIntoView,
+        };
+        const querySelector = jest.fn(() => header);
         const date = new Date(2026, 7, 25);
 
         expect(
@@ -545,11 +557,66 @@ describe("calendar labels", () => {
         expect(querySelector).toHaveBeenCalledWith(
             '.fc-col-header-cell[data-date="2026-08-25"]'
         );
-        expect(scrollIntoView).toHaveBeenCalledWith({
-            behavior: "auto",
-            block: "nearest",
-            inline: "center",
-        });
+        expect(scroller.scrollLeft).toBe(400);
+        expect(scroller.scrollTop).toBe(240);
+        expect(scrollIntoView).not.toHaveBeenCalled();
+    });
+
+    it("should leave horizontal scroll alone when the column is already visible", () => {
+        expect(
+            getHorizontalRevealScrollLeft({
+                scrollLeft: 120,
+                viewportLeft: 10,
+                viewportWidth: 300,
+                targetLeft: 50,
+                targetWidth: 100,
+            })
+        ).toBeNull();
+    });
+
+    it("should never reveal to a negative scroll offset", () => {
+        expect(
+            getHorizontalRevealScrollLeft({
+                scrollLeft: 20,
+                viewportLeft: 0,
+                viewportWidth: 300,
+                targetLeft: -80,
+                targetWidth: 100,
+            })
+        ).toBe(0);
+    });
+
+    it("should ignore unmeasurable layouts when revealing a column", () => {
+        expect(
+            getHorizontalRevealScrollLeft({
+                scrollLeft: 0,
+                viewportLeft: 0,
+                viewportWidth: 0,
+                targetLeft: 400,
+                targetWidth: 100,
+            })
+        ).toBeNull();
+        expect(
+            getHorizontalRevealScrollLeft({
+                scrollLeft: NaN,
+                viewportLeft: 0,
+                viewportWidth: 300,
+                targetLeft: 400,
+                targetWidth: 100,
+            })
+        ).toBeNull();
+    });
+
+    it("should report false when the header is outside a horizontal scroller", () => {
+        const header = { closest: () => null };
+        expect(
+            scrollCalendarDateIntoView(
+                {
+                    querySelector: () => header,
+                } as unknown as HTMLElement,
+                new Date(2026, 7, 25)
+            )
+        ).toBe(false);
     });
 
     it("leaves an unrendered date alone", () => {

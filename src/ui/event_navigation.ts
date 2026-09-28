@@ -385,7 +385,10 @@ export class CalendarEventNavigator {
             this.clearFocus();
             return false;
         }
-        this.focus(nearest);
+        // A re-sync after FullCalendar re-renders (new events, a toolbar
+        // navigation, a resize) must leave the viewport where the reader put
+        // it. Only an explicitly requested anchor may scroll.
+        this.focus(nearest, preferredDate !== undefined);
         return true;
     }
 
@@ -1012,7 +1015,7 @@ export class CalendarEventNavigator {
         return nearest;
     }
 
-    private focus(element: HTMLElement): void {
+    private focus(element: HTMLElement, scrollIntoView = true): void {
         if (this.focusedEvent !== element) {
             this.clearFocus();
         }
@@ -1032,7 +1035,9 @@ export class CalendarEventNavigator {
         element.tabIndex = 0;
         this.markFocusedEventAsTransformed();
         element.focus?.({ preventScroll: true });
-        element.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+        if (scrollIntoView) {
+            element.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+        }
     }
 
     private clearFocus(): void {

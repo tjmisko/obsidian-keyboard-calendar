@@ -278,6 +278,42 @@ describe("calendar event focus", () => {
         });
     });
 
+    it("should keep the viewport still when a re-render forces a passive re-sync", () => {
+        const makeMorning = () =>
+            makeEventElement(
+                new Date(2026, 7, 20, 9, 0),
+                new Date(2026, 7, 20, 10, 0),
+                { top: 0, left: 0, width: 50, height: 30 }
+            );
+        let rendered = [makeMorning()];
+        const navigator = new CalendarEventNavigator({
+            classList: { add: jest.fn(), remove: jest.fn() },
+            querySelectorAll: jest.fn(() => rendered),
+        } as unknown as HTMLElement);
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+
+        rendered = [makeMorning()];
+        navigator.syncToView();
+
+        expect(navigator.getFocusedEvent()).toBe(rendered[0]);
+        expect(rendered[0].scrollIntoView).not.toHaveBeenCalled();
+    });
+
+    it("should scroll to the event when a re-sync names an explicit anchor", () => {
+        const morning = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 }
+        );
+        const navigator = new CalendarEventNavigator(makeContainer([morning]));
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+        (morning.scrollIntoView as jest.Mock).mockClear();
+
+        navigator.syncToView(new Date(2026, 7, 20, 9, 30));
+
+        expect(morning.scrollIntoView).toHaveBeenCalledTimes(1);
+    });
+
     it("releases DOM focus when normal mode is deactivated", () => {
         const focused = makeEventElement(
             new Date(2026, 7, 20, 9, 0),

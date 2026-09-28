@@ -463,6 +463,68 @@ const scheduleCalendarLayoutDiagnostics = (
     }
 };
 
+/**
+ * The scrollLeft that centers a target inside a horizontal scroller, or null
+ * when the target is already fully visible. Rects are viewport coordinates.
+ */
+export const getHorizontalRevealScrollLeft = ({
+    scrollLeft,
+    viewportLeft,
+    viewportWidth,
+    targetLeft,
+    targetWidth,
+}: {
+    scrollLeft: number;
+    viewportLeft: number;
+    viewportWidth: number;
+    targetLeft: number;
+    targetWidth: number;
+}): number | null => {
+    const values = [
+        scrollLeft,
+        viewportLeft,
+        viewportWidth,
+        targetLeft,
+        targetWidth,
+    ];
+    if (!values.every(Number.isFinite) || viewportWidth <= 0) {
+        return null;
+    }
+    const offset = targetLeft - viewportLeft;
+    if (offset >= 0 && offset + targetWidth <= viewportWidth) {
+        return null;
+    }
+    return Math.max(
+        0,
+        Math.round(scrollLeft + offset + targetWidth / 2 - viewportWidth / 2)
+    );
+};
+
+/**
+ * Reveal an element's column in the narrow-pane horizontal scroller without
+ * touching vertical scroll, which belongs to the reader.
+ */
+export const revealCalendarColumn = (element: HTMLElement): boolean => {
+    const scroller = element.closest<HTMLElement>(".fc-view-harness");
+    if (!scroller) {
+        return false;
+    }
+    const viewport = scroller.getBoundingClientRect();
+    const target = element.getBoundingClientRect();
+    const nextScrollLeft = getHorizontalRevealScrollLeft({
+        scrollLeft: scroller.scrollLeft,
+        viewportLeft: viewport.left,
+        viewportWidth: scroller.clientWidth,
+        targetLeft: target.left,
+        targetWidth: target.width,
+    });
+    if (nextScrollLeft === null) {
+        return false;
+    }
+    scroller.scrollLeft = nextScrollLeft;
+    return true;
+};
+
 export const scrollCalendarDateIntoView = (
     containerEl: HTMLElement,
     date: Date
@@ -470,15 +532,7 @@ export const scrollCalendarDateIntoView = (
     const header = containerEl.querySelector<HTMLElement>(
         `.fc-col-header-cell[data-date="${formatDateLabel(date)}"]`
     );
-    if (!header || typeof header.scrollIntoView !== "function") {
-        return false;
-    }
-    header.scrollIntoView({
-        behavior: "auto",
-        block: "nearest",
-        inline: "center",
-    });
-    return true;
+    return header ? revealCalendarColumn(header) : false;
 };
 
 const COMPACT_MONTH_LABELS = [

@@ -9,6 +9,7 @@ import {
     LocalMaterializedEventSource,
     navigateCalendarPeriod,
     renderCalendar,
+    revealCalendarColumn,
     scrollCalendarDateIntoView,
 } from "./calendar";
 import FullCalendarPlugin from "../main";
@@ -544,11 +545,7 @@ export class CalendarView extends ItemView {
             }
             const focusedEvent = this.eventNavigator?.getFocusedEvent();
             if (focusedEvent) {
-                focusedEvent.scrollIntoView?.({
-                    behavior: "auto",
-                    block: "nearest",
-                    inline: "nearest",
-                });
+                revealCalendarColumn(focusedEvent);
                 return;
             }
             scrollCalendarDateIntoView(calendarEl, calendar.getDate());
