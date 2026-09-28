@@ -553,6 +553,12 @@ const COMPACT_MONTH_LABELS = [
 export const formatCompactDateLabel = (date: Date): string =>
     `${COMPACT_MONTH_LABELS[date.getMonth()]} ${date.getDate()}`;
 
+/** One line that fits a seven-column phone week: "Mon 28". */
+export const formatPhoneDayHeaderLabel = (date: Date): string =>
+    `${date.toLocaleDateString(undefined, {
+        weekday: "short",
+    })} ${date.getDate()}`;
+
 const formatLongDateParts = (
     year: number,
     month: number,
@@ -697,27 +703,22 @@ export function renderCalendar(
         snapDuration: "00:15:00",
         slotLabelInterval: "00:15:00",
 
+        // Phones keep the toolbar on top too: a footer toolbar has to sit
+        // above Obsidian's floating navbar, which forces the whole grid to
+        // stop short of it. With nothing at the bottom, the time grid can
+        // scroll underneath the navbar instead.
         headerToolbar: isDaySidebar
             ? {
                   left: "prev,next",
                   center: "title",
                   right: "today",
               }
-            : isMobile
-            ? false
             : {
                   left: "prev,next today",
                   center: "title",
                   right: "dayGridMonth,timeGridWeek",
               },
-        footerToolbar:
-            !isDaySidebar && isMobile
-                ? {
-                      left: "prev,next today",
-                      center: "title",
-                      right: "dayGridMonth,timeGridWeek",
-                  }
-                : false,
+        footerToolbar: false,
 
         views: {
             ...(!isDaySidebar &&
@@ -808,6 +809,11 @@ export function renderCalendar(
                     text: formatCompactDateLabel(date),
                 });
                 compactDate.setAttribute("aria-hidden", "true");
+                const phoneLabel = header.createSpan({
+                    cls: "ofc-day-header-phone",
+                    text: formatPhoneDayHeaderLabel(date),
+                });
+                phoneLabel.setAttribute("aria-hidden", "true");
             }
 
             return { domNodes: [header] };

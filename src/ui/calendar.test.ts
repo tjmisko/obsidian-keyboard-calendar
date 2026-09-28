@@ -170,7 +170,7 @@ describe("calendar renderer", () => {
         expect(options.views).not.toHaveProperty("listWeek");
     });
 
-    it("places primary controls in the usable mobile footer", () => {
+    it("should keep mobile controls on top so the grid can run under Obsidian's navbar", () => {
         renderCalendar({} as HTMLElement, [], {
             initialView: "timeGridWeek",
             isMobile: true,
@@ -178,12 +178,12 @@ describe("calendar renderer", () => {
 
         const calls = (Calendar as unknown as jest.Mock).mock.calls;
         const options = calls[calls.length - 1][1] as CalendarOptions;
-        expect(options.headerToolbar).toBe(false);
-        expect(options.footerToolbar).toEqual({
+        expect(options.headerToolbar).toEqual({
             left: "prev,next today",
             center: "title",
             right: "dayGridMonth,timeGridWeek",
         });
+        expect(options.footerToolbar).toBe(false);
         expect(options.initialView).toBe("timeGridWeek");
         expect(options.views?.dayGridMonth?.titleFormat).toEqual({
             year: "numeric",
@@ -276,7 +276,13 @@ describe("calendar renderer", () => {
             "ofc-day-header-weekday",
             "ofc-day-header-date ofc-day-header-date-full",
             "ofc-day-header-date ofc-day-header-date-compact",
+            "ofc-day-header-phone",
         ]);
+        expect(weekSpans[3].text).toMatch(/ 25$/);
+        expect(weekSpans[3].setAttribute).toHaveBeenCalledWith(
+            "aria-hidden",
+            "true"
+        );
     });
 
     it("retains daily-note links and click navigation on time-grid headers", () => {

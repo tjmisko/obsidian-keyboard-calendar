@@ -32,16 +32,52 @@ describe("calendar surface styles", () => {
         expect(rootRule).toContain("height: auto");
     });
 
-    it("puts phone chrome clearance on the host while removing outer padding", () => {
+    it("should let the phone time grid scroll under the navbar with clearance inside its scroller", () => {
         const phoneRule = stylesheet.match(
             /\.is-phone \.ofc-calendar-view-content-primary\s*\{([^}]*)\}/
+        )?.[1];
+        const scrollerRule = stylesheet.match(
+            /\.is-phone \.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\) \.fc-timegrid \.fc-scrollgrid-section-liquid \.fc-scroller\s*\{([^}]*)\}/
         )?.[1];
 
         expect(phoneRule).toContain("box-sizing: border-box");
         expect(phoneRule).toContain(
-            "padding: 0 0 calc(4rem + env(safe-area-inset-bottom, 0px))"
+            "--ofc-phone-navbar-clearance: calc(4rem + env(safe-area-inset-bottom, 0px))"
+        );
+        expect(phoneRule).toContain("padding: 0 !important");
+        expect(scrollerRule).toContain(
+            "padding-bottom: var(--ofc-phone-navbar-clearance)"
+        );
+        expect(scrollerRule).toContain(
+            "scroll-padding-bottom: var(--ofc-phone-navbar-clearance)"
         );
         expect(stylesheet).not.toContain("height: calc(100% - 4rem)");
+    });
+
+    it("should keep navbar clearance on the host for the non-scrolling phone month", () => {
+        const monthRule = stylesheet.match(
+            /\.is-phone \.ofc-calendar-view-content-primary:has\(\.fc-dayGridMonth-view\)\s*\{([^}]*)\}/
+        )?.[1];
+
+        expect(monthRule).toContain(
+            "padding-bottom: var(--ofc-phone-navbar-clearance) !important"
+        );
+    });
+
+    it("should fit the whole phone week without a sideways scroll", () => {
+        const phoneWeekRule = stylesheet.match(
+            /\.is-phone \.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\) \.fc-view-harness-active > \.fc-timeGridWeek-view\s*\{([^}]*)\}/
+        )?.[1];
+
+        expect(phoneWeekRule).toContain("min-width: 0");
+    });
+
+    it("should give landscape phone month weeks a usable minimum height", () => {
+        const frameRule = stylesheet.match(
+            /\.is-phone \.fc \.fc-dayGridMonth-view \.fc-daygrid-day-frame\s*\{([^}]*)\}/
+        )?.[1];
+
+        expect(frameRule).toContain("min-height: 4.25rem");
     });
 
     it("keeps narrow primary headers on one compact row", () => {
@@ -68,29 +104,36 @@ describe("calendar surface styles", () => {
         expect(toolbarRule).toContain("margin-bottom: 0.5em");
     });
 
-    it("keeps the phone footer toolbar to one dense row", () => {
+    it("should keep the phone header toolbar to one dense row", () => {
         const toolbarRule = stylesheet.match(
-            /\.is-phone \.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\) \.fc-toolbar\.fc-footer-toolbar\s*\{([^}]*)\}/
+            /\.is-phone \.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\) \.fc-toolbar\.fc-header-toolbar\s*\{([^}]*)\}/
         )?.[1];
 
         expect(toolbarRule).toContain("display: grid");
         expect(toolbarRule).toContain(
             "grid-template-columns: auto minmax(0, 1fr) auto"
         );
-        expect(toolbarRule).toContain("margin-top: 0.25rem");
+        expect(toolbarRule).toContain("margin-bottom: 0.25rem");
+        expect(stylesheet).not.toContain("fc-footer-toolbar .fc-button");
     });
 
-    it("tightens phone grid labels without shrinking controls below two rem", () => {
+    it("should tighten phone grid labels without shrinking controls below two rem", () => {
         const buttonRule = stylesheet.match(
-            /\.is-phone \.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\) \.fc-footer-toolbar \.fc-button\s*\{([^}]*)\}/
+            /\.is-phone \.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\) \.fc-header-toolbar \.fc-button\s*\{([^}]*)\}/
         )?.[1];
         const dayHeaderRule = stylesheet.match(
             /\.is-phone \.fc \.ofc-day-header\s*\{([^}]*)\}/
         )?.[1];
+        const phoneLabelRule = stylesheet.match(
+            /\.is-phone \.fc\.ofc-calendar-root:not\(\.ofc-day-calendar-root\) \.ofc-day-header-phone\s*\{([^}]*)\}/
+        )?.[1];
 
+        expect(buttonRule).toContain("height: 2rem");
         expect(buttonRule).toContain("min-height: 2rem");
-        expect(dayHeaderRule).toContain("min-height: 2.1rem");
+        expect(dayHeaderRule).toContain("min-height: 1.6rem");
         expect(dayHeaderRule).toContain("gap: 0");
+        expect(phoneLabelRule).toContain("display: inline");
+        expect(phoneLabelRule).toContain("white-space: nowrap");
     });
 
     it("contains horizontal touch scrolling inside the calendar", () => {
