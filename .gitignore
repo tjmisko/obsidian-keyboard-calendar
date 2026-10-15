@@ -25,3 +25,4 @@ data.json
 .obsidian
 
 .DS_Store
+.worktrees/

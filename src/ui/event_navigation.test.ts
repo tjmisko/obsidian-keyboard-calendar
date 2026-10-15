@@ -324,6 +324,102 @@ describe("calendar event focus", () => {
         });
     });
 
+    it("focuses the next event later today and skips events that already ended", () => {
+        const morning = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 }
+        );
+        const afternoon = makeEventElement(
+            new Date(2026, 7, 20, 13, 0),
+            new Date(2026, 7, 20, 14, 0),
+            { top: 100, left: 0, width: 50, height: 30 }
+        );
+        const evening = makeEventElement(
+            new Date(2026, 7, 20, 17, 0),
+            new Date(2026, 7, 20, 18, 0),
+            { top: 200, left: 0, width: 50, height: 30 }
+        );
+        const tomorrow = makeEventElement(
+            new Date(2026, 7, 21, 9, 0),
+            new Date(2026, 7, 21, 10, 0),
+            { top: 300, left: 0, width: 50, height: 30 }
+        );
+        const navigator = new CalendarEventNavigator(
+            makeContainer([morning, afternoon, evening, tomorrow])
+        );
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+
+        expect(navigator.focusUpcomingEvent(new Date(2026, 7, 20, 12, 0))).toBe(
+            true
+        );
+        expect(navigator.getFocusedEvent()).toBe(afternoon);
+    });
+
+    it("treats an in-progress event as the next non-passed event today", () => {
+        const ongoing = makeEventElement(
+            new Date(2026, 7, 20, 11, 0),
+            new Date(2026, 7, 20, 13, 0),
+            { top: 0, left: 0, width: 50, height: 30 }
+        );
+        const later = makeEventElement(
+            new Date(2026, 7, 20, 14, 0),
+            new Date(2026, 7, 20, 15, 0),
+            { top: 100, left: 0, width: 50, height: 30 }
+        );
+        const navigator = new CalendarEventNavigator(
+            makeContainer([ongoing, later])
+        );
+        navigator.activate(new Date(2026, 7, 20, 11, 0));
+
+        expect(navigator.focusUpcomingEvent(new Date(2026, 7, 20, 12, 0))).toBe(
+            true
+        );
+        expect(navigator.getFocusedEvent()).toBe(ongoing);
+    });
+
+    it("falls back to the next available event when today has none left", () => {
+        const morning = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 }
+        );
+        const laterThisWeek = makeEventElement(
+            new Date(2026, 7, 22, 15, 0),
+            new Date(2026, 7, 22, 16, 0),
+            { top: 100, left: 0, width: 50, height: 30 }
+        );
+        const tomorrow = makeEventElement(
+            new Date(2026, 7, 21, 9, 0),
+            new Date(2026, 7, 21, 10, 0),
+            { top: 200, left: 0, width: 50, height: 30 }
+        );
+        const navigator = new CalendarEventNavigator(
+            makeContainer([morning, laterThisWeek, tomorrow])
+        );
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+
+        expect(navigator.focusUpcomingEvent(new Date(2026, 7, 20, 12, 0))).toBe(
+            true
+        );
+        expect(navigator.getFocusedEvent()).toBe(tomorrow);
+    });
+
+    it("leaves focus alone when every event has already passed", () => {
+        const morning = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 }
+        );
+        const navigator = new CalendarEventNavigator(makeContainer([morning]));
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+
+        expect(navigator.focusUpcomingEvent(new Date(2026, 7, 20, 12, 0))).toBe(
+            false
+        );
+        expect(navigator.getFocusedEvent()).toBe(morning);
+    });
+
     it("should keep the viewport still when a re-render forces a passive re-sync", () => {
         const makeMorning = () =>
             makeEventElement(

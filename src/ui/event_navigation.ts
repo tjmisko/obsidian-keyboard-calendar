@@ -475,6 +475,58 @@ export class CalendarEventNavigator {
         return true;
     }
 
+    /**
+     * Focuses the next event that has not finished yet, preferring one later
+     * today and otherwise falling back to the next event in view. Events that
+     * have already ended are ignored, as are in-progress transforms.
+     */
+    focusUpcomingEvent(reference: Date = this.now()): boolean {
+        if (!this.enabled || this.transformState) {
+            return false;
+        }
+        const referenceTime = reference.getTime();
+        const events = this.getEventElements();
+        let todayTarget: HTMLElement | null = null;
+        let todayStart = Number.POSITIVE_INFINITY;
+        let nextTarget: HTMLElement | null = null;
+        let nextStart = Number.POSITIVE_INFINITY;
+
+        events.forEach((element) => {
+            const start = parseEventDate(element, "ofcEventStart");
+            if (!start) {
+                return;
+            }
+            const end = parseEventDate(element, "ofcEventEnd") || start;
+            const startTime = start.getTime();
+            const endTime = Math.max(startTime, end.getTime());
+            if (endTime <= referenceTime) {
+                return;
+            }
+            const sameDay =
+                start.getFullYear() === reference.getFullYear() &&
+                start.getMonth() === reference.getMonth() &&
+                start.getDate() === reference.getDate();
+            if (sameDay) {
+                if (startTime < todayStart) {
+                    todayStart = startTime;
+                    todayTarget = element;
+                }
+                return;
+            }
+            if (startTime < nextStart) {
+                nextStart = startTime;
+                nextTarget = element;
+            }
+        });
+
+        const target = todayTarget || nextTarget;
+        if (!target) {
+            return false;
+        }
+        this.focus(target);
+        return true;
+    }
+
     alignFocusedEvent(alignment: CalendarScrollAlignment): boolean {
         if (!this.enabled) {
             return false;

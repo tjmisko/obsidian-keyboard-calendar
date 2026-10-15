@@ -91,6 +91,10 @@ import {
     readCalendarViewportFromEphemeralState,
     readZoomLevelFromViewState,
 } from "./calendar_viewport";
+import {
+    isDateInCalendarRange,
+    TodayFocusController,
+} from "./today_navigation";
 
 export {
     DAY_CALENDAR_VIEW_TYPE,
@@ -99,6 +103,9 @@ export {
 
 type CalendarNavigationMode = "normal" | "insert" | "grab" | "scale";
 export type CalendarViewSurface = "primary" | "day-sidebar";
+
+/** Safety net when neither FullCalendar render callback fires for a reveal. */
+const VIEW_SETTLE_FALLBACK_MS = 32;
 
 function getCalendarColors(
     color: string | null | undefined,
@@ -142,6 +149,33 @@ export class CalendarView extends ItemView {
     private viewportRestoreWindow: Window | null = null;
     /** An event note the reader just came back from; keep it on screen. */
     private returnEventDate: Date | null = null;
+    private readonly viewSettleListeners = new Set<() => void>();
+    private viewSettleFrame: number | null = null;
+    private viewSettleWindow: Window | null = null;
+    private viewSettleTimeout: number | null = null;
+    private readonly todayFocus = new TodayFocusController({
+        now: () => new Date(),
+        isTodayVisible: () => {
+            const view = this.fullCalendarView?.view;
+            return (
+                !!view &&
+                isDateInCalendarRange(
+                    new Date(),
+                    view.activeStart,
+                    view.activeEnd
+                )
+            );
+        },
+        navigateToToday: () => this.fullCalendarView?.today(),
+        focusUpcoming: (now) =>
+            this.eventNavigator?.focusUpcomingEvent(now) ?? false,
+        revealToday: (now) => {
+            if (this.calendarEl) {
+                scrollCalendarDateIntoView(this.calendarEl, now);
+            }
+        },
+        afterNavigationSettles: (done) => this.whenCalendarSettles(done),
+    });
 
     constructor(
         leaf: WorkspaceLeaf,
@@ -263,7 +297,9 @@ export class CalendarView extends ItemView {
                 return;
             }
             event.preventDefault();
-            this.fullCalendarView.today();
+            // Bring today on screen (without re-rendering when it is already
+            // visible) and land on the next event that has not passed yet.
+            this.todayFocus.request();
         }
     }
 
@@ -274,6 +310,7 @@ export class CalendarView extends ItemView {
         ) {
             return false;
         }
+        this.todayFocus.cancel();
         const focusedEventDate = this.eventNavigator?.getFocusedEvent()
             ? this.eventNavigator.getFocusedDate()
             : null;
@@ -289,6 +326,7 @@ export class CalendarView extends ItemView {
     }
 
     private enterNormalMode(): void {
+        this.todayFocus.cancel();
         const cursorDate = this.cellNavigator?.getSelectedCell()?.start;
         this.cellNavigator?.deactivate();
         this.navigationMode = "normal";
@@ -602,7 +640,7 @@ export class CalendarView extends ItemView {
         this.modeChipEl.setAttribute("aria-label", `Calendar mode: ${label}`);
         this.modeChipEl.title =
             this.navigationMode === "normal"
-                ? "Normal mode — arrows or h/j/k/l focus events; w/b or left/right cross weeks; o omits; a attends; i inserts; m moves; s scales; yy/p copy/paste; x/Delete removes; zt/zz/zb align"
+                ? "Normal mode — arrows or h/j/k/l focus events; w/b or left/right cross weeks; t goes to today's next event; o omits; a attends; i inserts; m moves; s scales; yy/p copy/paste; x/Delete removes; zt/zz/zb align"
                 : this.navigationMode === "insert"
                 ? "Insert mode — T jumps to the current time; {hour}G jumps to an hour; p pastes; Escape returns; zt/zz/zb align the selected cell"
                 : this.navigationMode === "grab"
@@ -904,6 +942,7 @@ export class CalendarView extends ItemView {
     }
 
     goToDate(date: Date): void {
+        this.todayFocus.cancel();
         this.fullCalendarView?.gotoDate(date);
     }
 
@@ -912,6 +951,7 @@ export class CalendarView extends ItemView {
         if (!navigateCalendarPeriod(calendar, direction) || !calendar) {
             return false;
         }
+        this.todayFocus.cancel();
         this.focusCalendarRangeBoundary(direction === "next" ? 1 : -1);
         return true;
     }
@@ -921,6 +961,7 @@ export class CalendarView extends ItemView {
         if (!calendar) {
             return;
         }
+        this.todayFocus.cancel();
         calendar.incrementDate({ weeks: delta });
         this.focusCalendarRangeBoundary(delta);
     }
@@ -933,6 +974,81 @@ export class CalendarView extends ItemView {
         this.eventNavigator?.syncToView(
             delta > 0 ? activeStart : new Date(activeEnd.getTime() - 1)
         );
+    }
+
+    /**
+     * Resolve after FullCalendar finishes the next render. `datesSet` and
+     * `eventsSet` can both fire during one synchronous dispatch, so the rAF
+     * coalesces them into a single notification. A short timeout stands in if
+     * neither callback fires (for example, a no-op navigation).
+     */
+    private whenCalendarSettles(done: () => void): () => void {
+        const listener = () => {
+            this.viewSettleListeners.delete(listener);
+            if (this.viewSettleListeners.size === 0) {
+                this.clearViewSettleSchedule();
+            }
+            done();
+        };
+        this.viewSettleListeners.add(listener);
+
+        if (this.viewSettleTimeout === null) {
+            const settleWindow = this.contentEl.ownerDocument.defaultView;
+            this.viewSettleTimeout =
+                settleWindow?.setTimeout(() => {
+                    this.viewSettleTimeout = null;
+                    this.flushViewSettle();
+                }, VIEW_SETTLE_FALLBACK_MS) ?? null;
+        }
+
+        return () => {
+            this.viewSettleListeners.delete(listener);
+            if (this.viewSettleListeners.size === 0) {
+                this.clearViewSettleSchedule();
+            }
+        };
+    }
+
+    /** Called from the render callbacks; coalesces both into one frame. */
+    private notifyViewSettled(): void {
+        if (
+            this.viewSettleListeners.size === 0 ||
+            this.viewSettleFrame !== null
+        ) {
+            return;
+        }
+        const settleWindow = this.contentEl.ownerDocument.defaultView;
+        if (!settleWindow) {
+            this.flushViewSettle();
+            return;
+        }
+        this.viewSettleWindow = settleWindow;
+        this.viewSettleFrame = settleWindow.requestAnimationFrame(() => {
+            this.viewSettleFrame = null;
+            this.viewSettleWindow = null;
+            this.flushViewSettle();
+        });
+    }
+
+    private flushViewSettle(): void {
+        this.clearViewSettleSchedule();
+        const listeners = Array.from(this.viewSettleListeners);
+        this.viewSettleListeners.clear();
+        listeners.forEach((listener) => listener());
+    }
+
+    private clearViewSettleSchedule(): void {
+        if (this.viewSettleFrame !== null && this.viewSettleWindow) {
+            this.viewSettleWindow.cancelAnimationFrame(this.viewSettleFrame);
+        }
+        this.viewSettleFrame = null;
+        this.viewSettleWindow = null;
+        if (this.viewSettleTimeout !== null) {
+            this.contentEl.ownerDocument.defaultView?.clearTimeout(
+                this.viewSettleTimeout
+            );
+            this.viewSettleTimeout = null;
+        }
     }
 
     private cancelWeekAnchor(): void {
@@ -1352,15 +1468,22 @@ export class CalendarView extends ItemView {
                     this.enterNormalMode();
                 } else if (this.navigationMode === "insert") {
                     this.cellNavigator?.syncToView(true);
-                } else {
+                } else if (!this.todayFocus.isPending()) {
+                    // A pending T reveal owns the focus for this render, so a
+                    // nearest-event sync would only fight it.
                     this.eventNavigator?.syncToView();
                 }
                 this.scheduleWeekAnchor();
+                this.notifyViewSettled();
             },
             eventsSet: () => {
-                if (this.navigationMode !== "insert") {
+                if (
+                    this.navigationMode !== "insert" &&
+                    !this.todayFocus.isPending()
+                ) {
                     this.eventNavigator?.syncToView();
                 }
+                this.notifyViewSettled();
             },
             diagnostic: (event, details) =>
                 this.plugin.diagnostics.info(`fullcalendar.${event}`, {
@@ -1595,6 +1718,8 @@ export class CalendarView extends ItemView {
         });
         this.cancelWeekAnchor();
         this.cancelViewportRestore();
+        this.todayFocus.cancel();
+        this.clearViewSettleSchedule();
         this.deleteConfirmationModal?.close();
         this.deleteConfirmationModal = null;
         this.occurrenceConfirmationModal?.close();
