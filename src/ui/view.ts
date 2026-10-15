@@ -602,7 +602,7 @@ export class CalendarView extends ItemView {
         this.modeChipEl.setAttribute("aria-label", `Calendar mode: ${label}`);
         this.modeChipEl.title =
             this.navigationMode === "normal"
-                ? "Normal mode — arrows or h/j/k/l focus events and cross week boundaries; o omits; a attends; i inserts; m moves; s scales; yy/p copy/paste; x/Delete removes; zt/zz/zb align"
+                ? "Normal mode — arrows or h/j/k/l focus events; w/b or left/right cross weeks; o omits; a attends; i inserts; m moves; s scales; yy/p copy/paste; x/Delete removes; zt/zz/zb align"
                 : this.navigationMode === "insert"
                 ? "Insert mode — T jumps to the current time; {hour}G jumps to an hour; p pastes; Escape returns; zt/zz/zb align the selected cell"
                 : this.navigationMode === "grab"

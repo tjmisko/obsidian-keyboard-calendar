@@ -204,7 +204,7 @@ describe("calendar event focus", () => {
         expect(navigateWeeks).not.toHaveBeenCalled();
     });
 
-    it("retains arrow-key event focus and crosses at week boundaries", () => {
+    it("retains arrow-key event focus and crosses weeks only with left/right", () => {
         const first = makeEventElement(
             new Date(2026, 7, 20, 9, 0),
             new Date(2026, 7, 20, 10, 0),
@@ -226,12 +226,58 @@ describe("calendar event focus", () => {
         expect(navigator.getFocusedEvent()).toBe(last);
         expect(navigateWeeks).not.toHaveBeenCalled();
 
+        // Down from the last event stays put instead of crossing forward.
         navigator.handleKey("ArrowDown");
-        expect(navigateWeeks).toHaveBeenLastCalledWith(1);
+        expect(navigator.getFocusedEvent()).toBe(last);
+        expect(navigateWeeks).not.toHaveBeenCalled();
 
+        // Up from the first event stays put instead of crossing backward.
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+        navigator.handleKey("ArrowUp");
+        expect(navigator.getFocusedEvent()).toBe(first);
+        expect(navigateWeeks).not.toHaveBeenCalled();
+
+        // Left from the first event still crosses backward.
         navigator.activate(new Date(2026, 7, 20, 9, 0));
         navigator.handleKey("ArrowLeft");
         expect(navigateWeeks).toHaveBeenLastCalledWith(-1);
+    });
+
+    it("jumps one week with w and b in normal mode", () => {
+        const focused = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 }
+        );
+        const navigateWeeks = jest.fn();
+        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
+            navigateWeeks,
+        });
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+
+        expect(navigator.handleKey("w")).toBe(true);
+        expect(navigateWeeks).toHaveBeenLastCalledWith(1);
+
+        expect(navigator.handleKey("b")).toBe(true);
+        expect(navigateWeeks).toHaveBeenLastCalledWith(-1);
+    });
+
+    it("ignores w and b under month grid navigation", () => {
+        const focused = makeEventElement(
+            new Date(2026, 7, 20, 9, 0),
+            new Date(2026, 7, 20, 10, 0),
+            { top: 0, left: 0, width: 50, height: 30 }
+        );
+        const navigateWeeks = jest.fn();
+        const navigator = new CalendarEventNavigator(makeContainer([focused]), {
+            navigateWeeks,
+            useGridNavigation: () => true,
+        });
+        navigator.activate(new Date(2026, 7, 20, 9, 0));
+
+        expect(navigator.handleKey("w")).toBe(false);
+        expect(navigator.handleKey("b")).toBe(false);
+        expect(navigateWeeks).not.toHaveBeenCalled();
     });
 
     it("crosses forward from the last event with the right arrow", () => {

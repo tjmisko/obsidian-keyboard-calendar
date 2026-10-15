@@ -400,12 +400,16 @@ export class CalendarEventNavigator {
         const events = this.getEventElements();
         if (events.length === 0) {
             this.clearFocus();
-            if (usesGridNavigation) {
+            // Up/down never cross a week boundary; only horizontal movement
+            // (and the dedicated w/b keys) navigates between weeks.
+            if (
+                usesGridNavigation ||
+                direction === "up" ||
+                direction === "down"
+            ) {
                 return true;
             }
-            return this.moveByWeeks(
-                direction === "left" || direction === "up" ? -1 : 1
-            );
+            return this.moveByWeeks(direction === "left" ? -1 : 1);
         }
         if (!this.focusedEvent || !events.includes(this.focusedEvent)) {
             this.syncToView();
@@ -424,7 +428,9 @@ export class CalendarEventNavigator {
             const offset = (direction === "down" ? 1 : -1) * count;
             const nextIndex = currentIndex + offset;
             if (nextIndex < 0 || nextIndex >= orderedEvents.length) {
-                return this.moveByWeeks(direction === "down" ? 1 : -1);
+                // At the first/last event, up/down stay put rather than
+                // jumping to the previous/next week.
+                return true;
             }
             this.focus(orderedEvents[nextIndex]);
             return true;
@@ -751,6 +757,16 @@ export class CalendarEventNavigator {
             this.pendingCount = "";
             if (!repeat) {
                 this.pendingPrefix = "z";
+            }
+            return true;
+        }
+        if (
+            this.useGridNavigation?.() !== true &&
+            (key === "w" || key === "b")
+        ) {
+            this.pendingCount = "";
+            if (!repeat) {
+                return this.moveByWeeks(key === "w" ? 1 : -1);
             }
             return true;
         }
