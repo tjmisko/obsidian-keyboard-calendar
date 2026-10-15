@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-keyboard-calendar",
 	"name": "Keyboard Calendar",
-	"version": "0.10.7",
+	"version": "0.11.0",
 	"minAppVersion": "0.16.3",
 	"description": "Keyboard-first local-note calendar for Obsidian",
 	"author": "Tristan Misko",

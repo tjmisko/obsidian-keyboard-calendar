@@ -1,6 +1,6 @@
 {
     "name": "obsidian-keyboard-calendar",
-    "version": "0.10.7",
+    "version": "0.11.0",
     "description": "Keyboard-first local-note calendar for Obsidian",
     "main": "main.js",
     "scripts": {
